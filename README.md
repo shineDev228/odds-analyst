@@ -13,8 +13,8 @@ Application web personnelle d'analyse statistique sportive.
 
 | Phase | Statut |
 |---|---|
-| 0 — Environnement et squelette | 🔄 En cours |
-| 1 — Socle (authentification, rencontres) | ⬜ À venir |
+| 0 — Environnement et squelette | ✅ Terminée |
+| 1 — Socle (authentification, rencontres) | 🔄 En validation |
 | 2 — Marchés et cotes | ⬜ À venir |
 | 3 — Moteur statistique v1 | ⬜ À venir |
 | 4 — Générateur de combinaisons | ⬜ À venir |
@@ -72,6 +72,24 @@ powershell -ExecutionPolicy Bypass -File infra/scripts/dev.ps1
 
 ---
 
+## Fonctionnalités disponibles
+
+- **Authentification** : compte unique, mot de passe haché avec Argon2id, sessions
+  serveur, cookie `httpOnly`, protection CSRF par double soumission et limitation
+  des tentatives de connexion.
+- **Référentiel** : sports (football fourni), compétitions, saisons, équipes.
+- **Rencontres** : création, modification, suppression, filtres par compétition,
+  équipe, statut et période.
+- **Statistiques** : saisie manuelle par équipe (buts, tirs, possession, corners,
+  cartons, buts attendus).
+- **Tableau de bord** : indicateurs et prochaines rencontres.
+- **Paramètres** : fourchette de cotes 50–100, nombre de sélections, marchés
+  autorisés, demi-vie de pondération.
+
+Les cotes et le moteur statistique arrivent aux phases suivantes.
+
+---
+
 ## Structure du dépôt
 
 ```
@@ -94,15 +112,25 @@ Cette contrainte garantit la fiabilité et la reproductibilité des calculs.
 
 ---
 
-## Tests
+## Tests et qualité
 
 ```powershell
-# API et moteur
+# API et moteur (34 tests)
 uv run pytest
+
+# Analyse statique du code Python
+uv run ruff check .
+uv run mypy app engine
 
 # Interface
 npm run lint
+npm run typecheck
 ```
+
+L'interface appelle l'API via le proxy Next.js `/api` (voir
+`apps/web/next.config.ts`) : cookies et jeton CSRF restent en même origine.
+Si l'API tourne ailleurs que sur `http://127.0.0.1:8000`, définir la variable
+d'environnement `API_URL` avant de démarrer l'interface.
 
 ---
 

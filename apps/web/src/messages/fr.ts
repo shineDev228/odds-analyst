@@ -18,8 +18,8 @@ export const fr = {
       "Aucun pari n'est placé automatiquement.",
   },
   phases: [
-    { numero: 0, libelle: "Environnement et squelette", statut: "en-cours" },
-    { numero: 1, libelle: "Socle : authentification et rencontres", statut: "a-venir" },
+    { numero: 0, libelle: "Environnement et squelette", statut: "termine" },
+    { numero: 1, libelle: "Socle : authentification et rencontres", statut: "en-cours" },
     { numero: 2, libelle: "Marchés et cotes", statut: "a-venir" },
     { numero: 3, libelle: "Moteur statistique v1", statut: "a-venir" },
     { numero: 4, libelle: "Générateur de combinaisons", statut: "a-venir" },

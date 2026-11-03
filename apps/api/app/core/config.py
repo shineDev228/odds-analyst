@@ -44,7 +44,13 @@ class Settings(BaseSettings):
     # Sécurité
     secret_key: str = ""
     session_cookie_name: str = "odds_analyst_session"
+    csrf_cookie_name: str = "odds_analyst_csrf"
     session_max_age_seconds: int = 86_400
+    cookie_secure: bool = False
+
+    # Limitation des tentatives de connexion
+    login_max_attempts: int = 5
+    login_window_seconds: int = 900
 
     # Journalisation
     log_level: str = "INFO"
