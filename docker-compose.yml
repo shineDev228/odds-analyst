@@ -1,0 +1,34 @@
+# ---------------------------------------------------------------------------
+# ODDS ANALYST — Alternative Docker (non utilisée en développement)
+#
+# Le développement actuel utilise PostgreSQL installé nativement sous Windows
+# (voir docs/adr/0002-postgresql-natif-sans-docker.md), car Docker Desktop
+# exige Windows 10 21H2 minimum.
+#
+# Ce fichier reste prêt pour une migration ultérieure :
+#   docker compose up -d db
+# puis restaurer une sauvegarde produite par infra/scripts/backup.ps1.
+# ---------------------------------------------------------------------------
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: odds_analyst_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-odds_analyst}
+      POSTGRES_USER: ${POSTGRES_USER:-odds_analyst_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?definir POSTGRES_PASSWORD dans .env}
+      TZ: Europe/Paris
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - odds_analyst_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-odds_analyst_app} -d ${POSTGRES_DB:-odds_analyst}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  odds_analyst_pgdata:

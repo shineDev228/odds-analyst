@@ -1,0 +1,77 @@
+# ---------------------------------------------------------------------------
+# ODDS ANALYST — Fichiers exclus du dépôt Git
+# Règle d'or : aucun secret, aucune donnée locale, aucun artefact de build.
+# ---------------------------------------------------------------------------
+
+# Secrets et configuration locale
+.env
+.env.local
+.env.*.local
+*.secret
+*.pem
+*.key
+
+# ---------------------------------------------------------------------------
+# Node.js / Next.js
+# ---------------------------------------------------------------------------
+node_modules/
+.next/
+out/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.eslintcache
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+ENV/
+.uv/
+.uv-cache/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# ---------------------------------------------------------------------------
+# Données locales et sauvegardes
+# ---------------------------------------------------------------------------
+infra/backups/
+infra/pgdata/
+*.dump
+*.sql.gz
+data/local/
+uploads/
+
+# ---------------------------------------------------------------------------
+# Éditeurs et système
+# ---------------------------------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------------------------------------------------------------------------
+# Journaux
+# ---------------------------------------------------------------------------
+logs/
+*.log

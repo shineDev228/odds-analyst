@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Jetons de design ODDS ANALYST — thème sombre
+   Toute couleur utilisée dans l'interface doit provenir de ces variables.
+   --------------------------------------------------------------------------- */
+@theme {
+  --color-fond: #070b12;
+  --color-fond-panneau: #0f1722;
+  --color-fond-eleve: #16202e;
+  --color-bordure: #1e293b;
+  --color-bordure-forte: #2b3b52;
+
+  --color-texte: #e6edf6;
+  --color-texte-doux: #94a3b8;
+  --color-texte-faible: #64748b;
+
+  --color-accent: #22d3ee;
+  --color-accent-sombre: #0e7490;
+
+  --color-succes: #34d399;
+  --color-alerte: #fbbf24;
+  --color-danger: #f87171;
+
+  --font-sans:
+    "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Cascadia Code", "Consolas", "SF Mono", monospace;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-fond);
+  color: var(--color-texte);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background-color: var(--color-accent);
+  color: var(--color-fond);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
