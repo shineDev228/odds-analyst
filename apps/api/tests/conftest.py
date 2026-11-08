@@ -88,7 +88,8 @@ def auth_client(client: TestClient, seeded: None) -> TestClient:
 def sport_id(auth_client: TestClient) -> str:
     response = auth_client.get("/api/v1/sports")
     assert response.status_code == 200
-    return response.json()[0]["id"]
+    football = next(item for item in response.json() if item["code"] == "football")
+    return football["id"]
 
 
 @pytest.fixture()

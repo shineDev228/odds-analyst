@@ -94,7 +94,7 @@ def load_match_markets(db: Session, match_id: UUID) -> list[Market]:
     )
 
 
-def _latest_snapshot(selection: Selection) -> OddsSnapshot | None:
+def latest_snapshot(selection: Selection) -> OddsSnapshot | None:
     if not selection.snapshots:
         return None
     return max(selection.snapshots, key=lambda item: (as_utc(item.captured_at), str(item.id)))
@@ -103,7 +103,7 @@ def _latest_snapshot(selection: Selection) -> OddsSnapshot | None:
 def to_selection_read(
     selection: Selection, fair: dict[UUID, tuple[float, float]] | None
 ) -> SelectionRead:
-    latest = _latest_snapshot(selection)
+    latest = latest_snapshot(selection)
     probability = implied_probability(latest.decimal_odds) if latest else None
     fair_probability = fair[selection.id][0] if fair and selection.id in fair else None
     adjusted_odds = fair[selection.id][1] if fair and selection.id in fair else None
@@ -135,7 +135,7 @@ def to_market_read(market: Market) -> MarketRead:
     latest_values = [
         latest.decimal_odds
         for selection in market.selections
-        if (latest := _latest_snapshot(selection)) is not None
+        if (latest := latest_snapshot(selection)) is not None
     ]
     complete = bool(market.selections) and len(latest_values) == len(market.selections)
 
@@ -157,7 +157,7 @@ def to_market_read(market: Market) -> MarketRead:
     latest_dates = [
         as_utc(latest.captured_at)
         for selection in market.selections
-        if (latest := _latest_snapshot(selection)) is not None
+        if (latest := latest_snapshot(selection)) is not None
     ]
     return MarketRead(
         id=market.id,

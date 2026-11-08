@@ -239,6 +239,48 @@ export interface Prediction {
   avertissement: string;
 }
 
+export interface SelectionCombinaison {
+  match_id: string;
+  match_label: string;
+  competition_name: string;
+  kickoff_at: string;
+  market_name: string;
+  selection_label: string;
+  decimal_odds: number;
+  probability: number;
+  low: number;
+  high: number;
+}
+
+export interface Combinaison {
+  selections: SelectionCombinaison[];
+  total_odds: number;
+  probability: number;
+  low: number;
+  high: number;
+  expected_value: number;
+}
+
+export interface ParametresCombinaison {
+  nombre_selections: number;
+  cote_min: number;
+  cote_max: number;
+  marches_autorises: string[];
+  limite: number;
+}
+
+export interface ReponseCombinaisons {
+  combinaisons: Combinaison[];
+  parametres: ParametresCombinaison;
+  matchs_examines: number;
+  matchs_disponibles: number;
+  matchs_ignores: number;
+  selections_disponibles: number;
+  recherche_tronquee: boolean;
+  message: string;
+  avertissement: string;
+}
+
 export const statutsRencontre: Record<StatutRencontre, string> = {
   programme: "Programmé",
   en_cours: "En cours",

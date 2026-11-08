@@ -17,7 +17,7 @@ Application web personnelle d'analyse statistique sportive.
 | 1 — Socle (authentification, rencontres) | ✅ Terminée |
 | 2 — Marchés et cotes | ✅ Terminée |
 | 3 — Moteur statistique v1 | ✅ Terminée |
-| 4 — Générateur de combinaisons | ⬜ À venir |
+| 4 — Générateur de combinaisons | ✅ Terminée |
 | 5 — Historique et performance | ⬜ À venir |
 | 6 — Moteur statistique v2 | ⬜ À venir |
 | 7 — Connecteurs de données | ⬜ À venir |
@@ -91,6 +91,12 @@ powershell -ExecutionPolicy Bypass -File infra/scripts/dev.ps1
   exacts. Chaque probabilité est accompagnée d'une fourchette à 80 % issue d'une
   simulation Monte Carlo déterministe. Le niveau de fiabilité et les limites du
   modèle sont affichés ; l'analyse est refusée si l'historique est trop court.
+- **Générateur de combinaisons (football)** : assemblages de 2 à 15 sélections
+  issus des rencontres à venir, une seule sélection par rencontre, cote totale
+  dans la fourchette visée. Chaque résultat affiche la cote totale, la
+  probabilité estimée, la fourchette à 80 % et l'espérance estimée. Les
+  rencontres sans cote récente ou sans historique suffisant sont ignorées et
+  comptées. Aucune combinaison n'est enregistrée ni présentée comme certaine.
 - **Tableau de bord** : indicateurs et prochaines rencontres.
 - **Paramètres** : fourchette de cotes 50–100, nombre de sélections, marchés
   autorisés, demi-vie de pondération.
@@ -136,7 +142,7 @@ Cette contrainte garantit la fiabilité et la reproductibilité des calculs.
 ## Tests et qualité
 
 ```powershell
-# API et moteur (76 tests)
+# API et moteur (94 tests)
 uv run pytest
 
 # Analyse statique du code Python

@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     auth,
+    combinations,
     competitions,
     dashboard,
     health,
@@ -26,5 +27,6 @@ api_router.include_router(teams.router)
 api_router.include_router(matches.router)
 api_router.include_router(markets.router)
 api_router.include_router(predictions.router)
+api_router.include_router(combinations.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(settings.router)
