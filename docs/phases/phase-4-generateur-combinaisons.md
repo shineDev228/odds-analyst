@@ -1,6 +1,6 @@
 # Phase 4 — Générateur de combinaisons
 
-> **Statut : terminée.** Assemblage de sélections dont la cote totale tombe
+> **Statut : validée.** Assemblage de sélections dont la cote totale tombe
 > dans la fourchette visée, avec estimation de probabilité et avertissements.
 
 ## Objectif
