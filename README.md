@@ -16,7 +16,7 @@ Application web personnelle d'analyse statistique sportive.
 | 0 — Environnement et squelette | ✅ Terminée |
 | 1 — Socle (authentification, rencontres) | ✅ Terminée |
 | 2 — Marchés et cotes | ✅ Terminée |
-| 3 — Moteur statistique v1 | ⬜ À venir |
+| 3 — Moteur statistique v1 | ✅ Terminée |
 | 4 — Générateur de combinaisons | ⬜ À venir |
 | 5 — Historique et performance | ⬜ À venir |
 | 6 — Moteur statistique v2 | ⬜ À venir |
@@ -86,11 +86,28 @@ powershell -ExecutionPolicy Bypass -File infra/scripts/dev.ps1
   handicaps, totaux, corners, cartons, marchés joueurs, combinés…), création de
   marchés personnalisés, relevés de cotes horodatés jamais écrasés, historique,
   marge du bookmaker, probabilités implicites et cotes équitables.
+- **Analyse statistique (football)** : probabilités estimées pour le 1X2, la
+  double chance, les totaux de buts, « les deux équipes marquent » et les scores
+  exacts. Chaque probabilité est accompagnée d'une fourchette à 80 % issue d'une
+  simulation Monte Carlo déterministe. Le niveau de fiabilité et les limites du
+  modèle sont affichés ; l'analyse est refusée si l'historique est trop court.
 - **Tableau de bord** : indicateurs et prochaines rencontres.
 - **Paramètres** : fourchette de cotes 50–100, nombre de sélections, marchés
   autorisés, demi-vie de pondération.
 
-Le moteur statistique de prédiction arrive en Phase 3.
+### Modèle statistique v1
+
+Le moteur (`apps/api/engine/`) estime des forces d'attaque et de défense à
+partir des buts marqués et encaissés, avec pondération temporelle (demi-vie),
+régularisation vers la moyenne et avantage du terrain. Les scores suivent une
+loi de Poisson bivariée corrigée par Dixon-Coles. Les buts attendus, les
+probabilités et leurs fourchettes sont calculés sans appel réseau ni accès à la
+base : le service se contente de fournir l'historique.
+
+Le modèle v1 reste volontairement simple : il n'utilise ni xG, ni compositions,
+ni blessures, ni enjeu sportif, et ne couvre que le football. Il exige au moins
+**3 matchs terminés par équipe** avant le coup d'envoi ; sinon l'API répond
+`409` avec un message explicite plutôt que d'inventer une probabilité.
 
 ---
 
@@ -119,7 +136,7 @@ Cette contrainte garantit la fiabilité et la reproductibilité des calculs.
 ## Tests et qualité
 
 ```powershell
-# API et moteur (57 tests)
+# API et moteur (76 tests)
 uv run pytest
 
 # Analyse statique du code Python

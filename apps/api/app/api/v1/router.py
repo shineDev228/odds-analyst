@@ -9,6 +9,7 @@ from app.api.v1 import (
     health,
     markets,
     matches,
+    predictions,
     seasons,
     settings,
     sports,
@@ -24,5 +25,6 @@ api_router.include_router(seasons.router)
 api_router.include_router(teams.router)
 api_router.include_router(matches.router)
 api_router.include_router(markets.router)
+api_router.include_router(predictions.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(settings.router)

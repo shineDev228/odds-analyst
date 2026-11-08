@@ -20,6 +20,7 @@ import { formatDateHeure, versDatetimeLocal } from "@/lib/format";
 import type { RencontreDetail, Statistique, StatutRencontre } from "@/lib/types";
 import { statutsRencontre } from "@/lib/types";
 import { PanneauMarches } from "@/components/match-markets";
+import { PanneauPrediction } from "@/components/match-prediction";
 
 interface FormEdition {
   kickoff_at: string;
@@ -393,6 +394,12 @@ export default function PageRencontre() {
           </div>
         </form>
       </Panneau>
+
+      <PanneauPrediction
+        matchId={rencontre.id}
+        equipeDomicile={rencontre.home_team.name}
+        equipeExterieur={rencontre.away_team.name}
+      />
 
       <PanneauMarches
         matchId={rencontre.id}

@@ -191,6 +191,54 @@ export interface Marche {
   selections: SelectionMarche[];
 }
 
+export interface SelectionPrediction {
+  code: string;
+  label: string;
+  probability: number;
+  low: number;
+  high: number;
+}
+
+export interface TotalPrediction {
+  line: number;
+  over: SelectionPrediction;
+  under: SelectionPrediction;
+}
+
+export interface ScoreExactPrediction {
+  label: string;
+  home_goals: number;
+  away_goals: number;
+  probability: number;
+}
+
+export interface QualitePrediction {
+  level: string;
+  label: string;
+  matches_home: number;
+  matches_away: number;
+  effective_home: number;
+  effective_away: number;
+  warnings: string[];
+}
+
+export interface Prediction {
+  match_id: string;
+  model_version: string;
+  computed_at: string;
+  expected_goals_home: number;
+  expected_goals_away: number;
+  expected_goals_total: number;
+  quality: QualitePrediction;
+  resultat: SelectionPrediction[];
+  double_chance: SelectionPrediction[];
+  totaux: TotalPrediction[];
+  btts: SelectionPrediction[];
+  scores_exacts: ScoreExactPrediction[];
+  config: Record<string, number | string>;
+  avertissement: string;
+}
+
 export const statutsRencontre: Record<StatutRencontre, string> = {
   programme: "Programmé",
   en_cours: "En cours",
