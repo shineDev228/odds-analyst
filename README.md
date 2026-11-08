@@ -14,8 +14,8 @@ Application web personnelle d'analyse statistique sportive.
 | Phase | Statut |
 |---|---|
 | 0 — Environnement et squelette | ✅ Terminée |
-| 1 — Socle (authentification, rencontres) | 🔄 En validation |
-| 2 — Marchés et cotes | ⬜ À venir |
+| 1 — Socle (authentification, rencontres) | ✅ Terminée |
+| 2 — Marchés et cotes | ✅ Terminée |
 | 3 — Moteur statistique v1 | ⬜ À venir |
 | 4 — Générateur de combinaisons | ⬜ À venir |
 | 5 — Historique et performance | ⬜ À venir |
@@ -82,11 +82,15 @@ powershell -ExecutionPolicy Bypass -File infra/scripts/dev.ps1
   équipe, statut et période.
 - **Statistiques** : saisie manuelle par équipe (buts, tirs, possession, corners,
   cartons, buts attendus).
+- **Marchés et cotes** : catalogue extensible adapté à chaque sport (résultat,
+  handicaps, totaux, corners, cartons, marchés joueurs, combinés…), création de
+  marchés personnalisés, relevés de cotes horodatés jamais écrasés, historique,
+  marge du bookmaker, probabilités implicites et cotes équitables.
 - **Tableau de bord** : indicateurs et prochaines rencontres.
 - **Paramètres** : fourchette de cotes 50–100, nombre de sélections, marchés
   autorisés, demi-vie de pondération.
 
-Les cotes et le moteur statistique arrivent aux phases suivantes.
+Le moteur statistique de prédiction arrive en Phase 3.
 
 ---
 
@@ -115,7 +119,7 @@ Cette contrainte garantit la fiabilité et la reproductibilité des calculs.
 ## Tests et qualité
 
 ```powershell
-# API et moteur (34 tests)
+# API et moteur (57 tests)
 uv run pytest
 
 # Analyse statique du code Python

@@ -22,6 +22,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base, JSONType, TimestampMixin
 
 if TYPE_CHECKING:
+    from app.models.market import Market
     from app.models.reference import Season, Team
 
 
@@ -75,12 +76,14 @@ class Match(Base, TimestampMixin):
     stats: Mapped[list["TeamMatchStats"]] = relationship(
         back_populates="match", cascade="all, delete-orphan"
     )
+    markets: Mapped[list["Market"]] = relationship(
+        back_populates="match", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         CheckConstraint("home_team_id <> away_team_id", name="ck_match_distinct_teams"),
         CheckConstraint(
-            "(home_score IS NULL AND away_score IS NULL) OR "
-            "(home_score >= 0 AND away_score >= 0)",
+            "(home_score IS NULL AND away_score IS NULL) OR (home_score >= 0 AND away_score >= 0)",
             name="ck_match_scores_positive",
         ),
     )
@@ -114,6 +117,8 @@ class TeamMatchStats(Base, TimestampMixin):
 
     __table_args__ = (
         UniqueConstraint("match_id", "team_id", name="uq_stats_match_team"),
-        CheckConstraint("possession IS NULL OR (possession >= 0 AND possession <= 100)",
-                        name="ck_stats_possession"),
+        CheckConstraint(
+            "possession IS NULL OR (possession >= 0 AND possession <= 100)",
+            name="ck_stats_possession",
+        ),
     )

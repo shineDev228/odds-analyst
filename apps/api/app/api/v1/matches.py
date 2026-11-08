@@ -33,7 +33,9 @@ router = APIRouter(
 _LOAD_OPTIONS = (
     selectinload(Match.home_team),
     selectinload(Match.away_team),
-    selectinload(Match.season).selectinload(Season.competition),
+    selectinload(Match.season)
+    .selectinload(Season.competition)
+    .selectinload(Competition.sport),
     selectinload(Match.stats),
 )
 
@@ -57,6 +59,8 @@ def _to_list_item(match: Match) -> MatchListItem:
         away_team_name=match.away_team.name,
         competition_name=match.season.competition.name,
         season_label=match.season.label,
+        sport_id=match.season.competition.sport_id,
+        sport_code=match.season.competition.sport.code,
     )
 
 

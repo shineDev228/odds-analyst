@@ -95,6 +95,8 @@ class MatchListItem(MatchRead):
     away_team_name: str
     competition_name: str
     season_label: str
+    sport_id: UUID
+    sport_code: str
 
 
 class StatsUpsert(BaseModel):

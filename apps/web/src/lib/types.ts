@@ -73,6 +73,8 @@ export interface Rencontre {
   away_team_name: string;
   competition_name: string;
   season_label: string;
+  sport_id: string;
+  sport_code: string;
 }
 
 export interface EquipeRef {
@@ -121,6 +123,72 @@ export interface Preferences {
   marches_autorises: string[];
   demi_vie_jours: number;
   nb_matchs_historique: number;
+}
+
+export type SujetMarche = "match" | "team" | "player";
+
+export type TypeLigne = "aucune" | "simple" | "double" | "intervalle" | "libre";
+
+export interface ModeleMarche {
+  code: string;
+  sport_code: string | null;
+  name: string;
+  family: string;
+  period: string;
+  subject: SujetMarche;
+  line_kind: TypeLigne;
+  selection_templates: Array<{ code: string; label: string }>;
+  description: string | null;
+  is_active: boolean;
+}
+
+export interface Cote {
+  id: string;
+  selection_id: string;
+  decimal_odds: number;
+  captured_at: string;
+  bookmaker: string;
+  source: string;
+  note: string | null;
+}
+
+export interface SelectionMarche {
+  id: string;
+  market_id: string;
+  code: string;
+  label: string;
+  line: number | null;
+  sort_order: number;
+  latest_odds: number | null;
+  latest_captured_at: string | null;
+  implied_probability: number | null;
+  fair_probability: number | null;
+  fair_odds: number | null;
+  odds_count: number;
+  history: Cote[];
+}
+
+export interface Marche {
+  id: string;
+  match_id: string;
+  template_code: string | null;
+  name: string;
+  family: string;
+  period: string;
+  subject: SujetMarche;
+  subject_team_id: string | null;
+  subject_team_name: string | null;
+  subject_player: string | null;
+  line: number | null;
+  line2: number | null;
+  is_custom: boolean;
+  notes: string | null;
+  created_at: string;
+  latest_captured_at: string | null;
+  overround_percent: number | null;
+  implied_probability_total: number | null;
+  is_complete: boolean;
+  selections: SelectionMarche[];
 }
 
 export const statutsRencontre: Record<StatutRencontre, string> = {

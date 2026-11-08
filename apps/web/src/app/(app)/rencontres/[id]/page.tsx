@@ -19,6 +19,7 @@ import { apiFetch, messageErreur } from "@/lib/api";
 import { formatDateHeure, versDatetimeLocal } from "@/lib/format";
 import type { RencontreDetail, Statistique, StatutRencontre } from "@/lib/types";
 import { statutsRencontre } from "@/lib/types";
+import { PanneauMarches } from "@/components/match-markets";
 
 interface FormEdition {
   kickoff_at: string;
@@ -392,6 +393,13 @@ export default function PageRencontre() {
           </div>
         </form>
       </Panneau>
+
+      <PanneauMarches
+        matchId={rencontre.id}
+        sportCode={rencontre.sport_code}
+        equipeDomicile={rencontre.home_team}
+        equipeExterieur={rencontre.away_team}
+      />
     </div>
   );
 }

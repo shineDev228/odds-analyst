@@ -7,6 +7,7 @@ from app.api.v1 import (
     competitions,
     dashboard,
     health,
+    markets,
     matches,
     seasons,
     settings,
@@ -22,5 +23,6 @@ api_router.include_router(competitions.router)
 api_router.include_router(seasons.router)
 api_router.include_router(teams.router)
 api_router.include_router(matches.router)
+api_router.include_router(markets.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(settings.router)
