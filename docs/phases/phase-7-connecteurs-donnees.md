@@ -33,7 +33,7 @@ sur son point fort :
 | Fournisseur | Rôle | Couverture gratuite | Quota gratuit | Coût |
 |---|---|---|---|---|
 | **BigBallsData** | Calendrier, résultats et statistiques — **primaire** | Saison en cours, grands championnats et compétitions listées par l'API | ~250 requêtes/jour (jusqu'à 500 avec un compte GitHub) | 0 € |
-| **The Odds API** | Cotes **1xBet** — **primaire** | Compétitions football actives, pré-match | 500 crédits/mois | 0 € |
+| **The Odds API** | Cotes **1xBet** (1X2, totals, double chance, BTTS) — **primaire** | Compétitions football actives, pré-match | 500 crédits/mois | 0 € |
 | **football-data.org** | Calendrier et résultats — **repli** | 12 compétitions | 10 requêtes/minute | 0 € |
 | PulseScore | Non utilisé en Phase 7 — réserve | Cotes 1xBet et résultats | 500 requêtes/mois | 0 € |
 | 5DollarFootballAPI | Non utilisé | 5 championnats | 60 requêtes/heure | 0 € |
@@ -54,21 +54,23 @@ sur son point fort :
 - **5DollarFootballAPI** est écarté : les cotes 1xBet sont réservées à l'offre
   Ultra payante, et sa couverture gratuite recoupe celle de BigBallsData.
 
-### Ce que la combinaison ne couvre pas
+### Ce que la combinaison couvre — et ce qui reste manuel
 
 | Donnée | Source | Décision |
 |---|---|---|
 | 1X2 | The Odds API (`h2h`) | Importée |
 | Plus / moins de buts | The Odds API (`totals`) | Importée si les deux issues existent |
+| Double chance | The Odds API (`double_chance`, endpoint événement) | Importée si 1xBet la propose |
+| Les deux équipes marquent | The Odds API (`btts`, endpoint événement) | Importée si 1xBet la propose |
 | Handicap | The Odds API (`spreads`) | **Non importé** en Phase 7 : couverture soccer limitée, coût supplémentaire, inutile aux combinaisons actuelles |
-| Double chance | Aucune source gratuite | **Reste manuelle** |
-| Les deux équipes marquent | Aucune source gratuite | **Reste manuelle** |
-| Score exact | Aucune source gratuite | **Reste manuel** |
+| Score exact | Aucune source retenue | **Reste manuel** |
 | xG | BigBallsData | Importé **seulement** si le champ est présent (offre payante) |
 | Compositions, blessures | Aucune source gratuite fiable | Hors périmètre |
 
 Aucune cote n'est déduite, extrapolée ou remplacée par un autre bookmaker. Un
-marché absent reste absent et saisissable à la main.
+marché absent reste absent et saisissable à la main. La double chance n'est
+**jamais** calculée à partir des cotes 1X2 : elle n'est importée que si 1xBet
+publie réellement le marché.
 
 ## Ce que cela change concrètement
 
@@ -77,6 +79,8 @@ marché absent reste absent et saisissable à la main.
 - Les statistiques se complètent par lots, avec le coût exact affiché.
 - Les cotes 1xBet se rafraîchissent en un clic, avec le nombre de crédits
   consommés et le solde restant.
+- La double chance et le BTTS sont importés quand 1xBet les propose, sans
+  déduction à partir d'un autre marché.
 - Une correction manuelle est conservée : l'import la signale mais ne l'écrase
   pas.
 - Si une source tombe, si un quota est épuisé ou si une cote manque, le reste
@@ -89,7 +93,8 @@ marché absent reste absent et saisissable à la main.
 - Découverte des compétitions, association explicite aux compétitions et
   saisons internes.
 - Import des rencontres, résultats et statistiques d'équipe.
-- Import des marchés 1X2 et plus / moins, avec instantanés append-only.
+- Import des marchés 1X2, plus / moins, double chance et BTTS, avec instantanés
+  append-only.
 - Aperçu obligatoire avant écriture, idempotence, journal des synchronisations.
 - Budgets locaux et suivi des quotas réels via les en-têtes des fournisseurs.
 - Saisie manuelle conservée pour les données non couvertes et les corrections.
@@ -102,6 +107,8 @@ marché absent reste absent et saisissable à la main.
 - Aucune synchronisation planifiée automatique : déclenchement manuel. Une
   planification relève de la Phase 8.
 - Aucun autre sport, aucune compétition non football.
+- Aucun import du score exact ni du handicap : ces marchés restent manuels.
+- Aucun service non officiel de scraping : RapidAPI n'est pas utilisé.
 - Aucun import de compositions, blessures, suspensions ou arbitres comme
   données structurées.
 - Aucune création de rencontre à partir d'une cote : une cote ne s'attache
@@ -126,7 +133,7 @@ apps/api/app/connectors/
     importer.py           # écriture, déduplication, conflits
   the_odds_api/
     client.py             # sports, events, odds, crédits
-    mapping.py            # h2h / totals -> marchés internes
+    mapping.py            # h2h / totals / double_chance / btts -> marchés internes
     importer.py           # marchés, sélections, instantanés
   football_data/
     client.py             # compétitions, matchs, throttling
@@ -190,7 +197,8 @@ Un statut inconnu est traité comme `programme` et **signalé**, jamais deviné.
 |---|---|---|---|
 | Lister les sports | `GET /v4/sports` | 0 | Filtre `group = "Soccer"` |
 | Lister les événements | `GET /v4/sports/{sport}/events` | 0 | Identifiants, équipes, coup d'envoi |
-| Cotes d'une compétition | `GET /v4/sports/{sport}/odds?regions=eu&markets=h2h,totals&oddsFormat=decimal` | **2 crédits** | 2 marchés × 1 région |
+| Cotes principales | `GET /v4/sports/{sport}/odds?regions=eu&markets=h2h,totals&oddsFormat=decimal` | **2 crédits** | 2 marchés × 1 région, tous les événements de la compétition |
+| Marchés étendus | `GET /v4/sports/{sport}/events/{eventId}/odds?regions=eu&markets=double_chance,btts&oddsFormat=decimal` | **1 crédit par marché et par événement** | 2 crédits par rencontre |
 | Scores | `GET /v4/sports/{sport}/scores` | 1–2 | **Non utilisé** : BigBallsData fournit les résultats |
 
 - Base : `https://api.the-odds-api.com`, HTTPS uniquement.
@@ -206,6 +214,25 @@ Un statut inconnu est traité comme `programme` et **signalé**, jamais deviné.
 - Prix acceptés : décimaux strictement supérieurs à 1,01 et inférieurs à 1 000.
   Hors bornes → ligne ignorée et signalée.
 - Les cotes sont stockées **brutes**, sans normalisation de marge.
+
+#### Marchés étendus : double chance et BTTS
+
+L'endpoint principal `/odds` n'accepte que `h2h`, `spreads`, `totals` et
+`outrights`. La double chance et le BTTS passent par l'endpoint **par
+événement**, qui accepte les marchés supplémentaires.
+
+- Deux marchés demandés par défaut : `double_chance` et `btts`.
+- Coût : 2 crédits par rencontre (1 par marché).
+- L'aperçu gratuit `/events` sert d'abord à apparier les rencontres ; seules
+  les rencontres **à venir dans les 7 jours** et **appariées** sont proposées.
+- L'utilisateur sélectionne les rencontres à traiter, **20 au maximum par lot**
+  (40 crédits). Le coût exact est affiché avant l'appel.
+- Une rencontre dont le marché est absent chez 1xBet est signalée, sans échec
+  global et sans substitution.
+- Les marchés étendus sont rafraîchis à la demande ; aucun appel automatique.
+- Une cote étendue n'est importée que si toutes les issues du marché sont
+  présentes (1X, 12, X2 pour la double chance ; Oui et Non pour le BTTS). Une
+  ligne incomplète est ignorée et comptée.
 
 ### 4. football-data.org — repli calendrier et résultats
 
@@ -250,20 +277,22 @@ Un statut inconnu est traité comme `programme` et **signalé**, jamais deviné.
 |---|---|---|
 | `h2h` | `football.resultat_1x2` | `home` → code `1`, `Draw` → `X`, `away` → `2` |
 | `totals` | `football.total_buts` | Grouper par `point` ; `Over` → `plus`, `Under` → `moins` ; les deux issues exigées |
+| `double_chance` | `football.double_chance` | `home + Draw` → `1X`, `home + away` → `12`, `Draw + away` → `X2` ; accepter aussi les codes littéraux ; les trois issues exigées |
+| `btts` | `football.btts` | `Yes` → `oui`, `No` → `non` ; les deux issues exigées |
 | `spreads` | — | Non importé |
 | `outrights` | — | Non importé |
 
 - Le marché est retrouvé par sa signature interne
   `(match_id, template_code, période, sujet, ligne)`.
 - S'il n'existe pas, il est créé depuis le catalogue
-  (`football.resultat_1x2`, `football.total_buts`) avec ses sélections
-  standard.
+  (`football.resultat_1x2`, `football.total_buts`, `football.double_chance`,
+  `football.btts`) avec ses sélections standard.
 - S'il existe déjà, il n'est **jamais modifié** : seuls de nouveaux instantanés
   sont ajoutés.
 - Une sélection absente du marché existant n'est pas créée à la volée : le
   conflit est signalé.
-- Les scores exacts, la double chance et « les deux équipes marquent » ne sont
-  pas dérivés d'un autre marché.
+- Le score exact et le handicap ne sont pas dérivés d'un autre marché. La double
+  chance et le BTTS ne sont jamais calculés à partir du 1X2 ou des totals.
 
 ### 7. Flux en quatre étapes
 
@@ -281,14 +310,17 @@ Un statut inconnu est traité comme `programme` et **signalé**, jamais deviné.
 
 - **Calendrier** : BigBallsData ou football-data.org, une à quelques requêtes
   selon la pagination.
-- **Cotes** : d'abord `/events` (gratuit) pour vérifier l'appariement, puis
-  `/odds` (2 crédits) pour obtenir les marchés réels.
+- **Cotes principales** : d'abord `/events` (gratuit) pour vérifier
+  l'appariement, puis `/odds` (2 crédits) pour obtenir 1X2 et totals.
+- **Marchés étendus** : `/events` (gratuit), sélection de 1 à 20 rencontres,
+  puis un appel par rencontre (2 crédits) pour la double chance et le BTTS.
 - L'aperçu normalisé est stocké dans `sync_runs` avec le statut `preview` et
   une expiration de **2 heures**.
 - Il affiche :
   - le nombre d'éléments reçus ;
   - nouveaux, mises à jour, conflits, ignorés ;
   - équipes à créer ou ambiguës ;
+  - marchés réellement disponibles chez 1xBet ;
   - le coût exact et le solde restant.
 - **Aucune écriture** dans les tables métier à cette étape.
 
@@ -344,6 +376,12 @@ Un statut inconnu est traité comme `programme` et **signalé**, jamais deviné.
 | The Odds API | crédits/mois | 500 | 400 | 100 |
 | football-data.org | requêtes/minute | 10 | 8 | 2 |
 
+- The Odds API : 2 crédits par rafraîchissement principal de compétition et
+  2 crédits par rencontre pour les marchés étendus. Un lot de marchés étendus
+  est plafonné à **20 rencontres (40 crédits)**. Le budget mensuel de 400
+  crédits permet, par exemple, 4 rafraîchissements principaux par semaine
+  (8 crédits) et 40 rencontres étendues par mois (80 crédits), avec une marge
+  importante.
 - Les compteurs locaux sont persistés dans `provider_usage` et recoupés avec
   les en-têtes réels :
   - BigBallsData : `X-RateLimit-Remaining`, `X-RateLimit-Reset` ;
@@ -418,7 +456,8 @@ Aucune table existante n'est réécrite.
 | `POST` | `/connectors/links/{id}/stats/preview` | 0 | Rencontres à compléter et coût |
 | `POST` | `/connectors/links/{id}/stats/apply` | 1–10 | Lot de statistiques |
 | `POST` | `/connectors/links/{id}/odds/events` | 0 | Appariement des événements |
-| `POST` | `/connectors/links/{id}/odds/preview` | 2 | Aperçu des cotes 1xBet |
+| `POST` | `/connectors/links/{id}/odds/preview` | 2 | Aperçu des cotes principales (1X2, totals) |
+| `POST` | `/connectors/links/{id}/odds/extended/preview` | 2 × N (max. 40) | Aperçu double chance + BTTS pour N rencontres |
 | `POST` | `/connectors/sync-runs/{id}/apply` | 0 | Appliquer un aperçu |
 | `POST` | `/connectors/the-odds-api/events/{eventId}/link` | 0 | Associer un événement à une rencontre |
 | `GET` | `/connectors/sync-runs?limit=20` | 0 | Journal |
@@ -455,6 +494,28 @@ Exemple d'aperçu de cotes :
 }
 ```
 
+Exemple d'aperçu de marchés étendus :
+
+```json
+{
+  "run_id": "9d2a…",
+  "provider": "the_odds_api",
+  "operation": "odds_extended",
+  "markets": ["double_chance", "btts"],
+  "expires_at": "2026-11-09T18:00:00Z",
+  "quota": { "credits_used": 40, "credits_remaining": 360 },
+  "counts": {
+    "events_requested": 20,
+    "events_with_double_chance": 17,
+    "events_with_btts": 15,
+    "odds_ready": 96,
+    "ignored": 4
+  },
+  "bookmaker": "1xBet",
+  "avertissement": "Les marchés absents chez 1xBet restent manuels. Aucune déduction."
+}
+```
+
 Erreurs au format RFC 7807, en français, sans secret.
 
 ## Interface
@@ -471,11 +532,15 @@ Nouvelle page **Connecteurs** dans la navigation latérale :
    application.
 5. **Statistiques** : rencontres manquantes, coût exact, lot de 1 à 10,
    résultat par rencontre.
-6. **Cotes** : appariement gratuit des événements, aperçu payant (2 crédits
-   affichés), application, événements non appariés avec association manuelle.
-7. **Journal** : statuts, compteurs, requêtes/crédits, erreurs ; relance d'un
+6. **Cotes principales** : appariement gratuit des événements, aperçu payant
+   (2 crédits affichés), application, événements non appariés avec association
+   manuelle.
+7. **Marchés étendus** : liste des rencontres à venir (7 jours), sélection de
+   1 à 20 rencontres, coût affiché (2 crédits par rencontre), aperçu indiquant
+   si 1xBet propose réellement la double chance et le BTTS.
+8. **Journal** : statuts, compteurs, requêtes/crédits, erreurs ; relance d'un
    aperçu expiré.
-8. **Bandeau permanent** : « Cotes 1xBet agrégées via The Odds API. Aucune cote
+9. **Bandeau permanent** : « Cotes 1xBet agrégées via The Odds API. Aucune cote
    inventée. Les marchés non fournis restent manuels. »
 
 - Responsive, thème sombre, composants existants, aucune nouvelle bibliothèque
@@ -491,17 +556,20 @@ Nouvelle page **Connecteurs** dans la navigation latérale :
 | Risque | Parade |
 |---|---|
 | Quota BigBallsData épuisé | Budget 200/jour, réserve 50, coût affiché, lots de 10, refus avant dépassement |
-| Crédits The Odds API épuisés | Budget 400/mois, aperçu gratuit avant l'appel payant, coût de 2 crédits affiché |
+| Crédits The Odds API épuisés | Budget 400/mois, aperçu gratuit avant l'appel payant, coût affiché (2 crédits par compétition, 2 par rencontre étendue), lot plafonné à 40 crédits |
 | Limite football-data.org | 7,5 s entre appels, budget 8/minute, aucun réessai sur `429` |
 | 1xBet absent d'une compétition | Zéro cote importée, message explicite, aucune substitution |
+| 1xBet sans double chance ou BTTS | Marché signalé absent, aucune déduction depuis le 1X2 ou les totals |
 | Marché `totals` incomplet | Seules les lignes avec `Over` et `Under` sont importées |
+| Marché `double_chance` incomplet | Les trois issues `1X`, `12`, `X2` sont exigées |
+| Marché `btts` incomplet | Les deux issues `Oui` et `Non` sont exigées |
 | Couverture incomplète de BigBallsData | Repli football-data.org, saisie manuelle possible |
 | Panne ou changement de format | Validation stricte, `502` sans écriture partielle, tests sur charges figées |
 | Doublons après réimport | Références externes uniques, déduplication des instantanés, tests dédiés |
 | Écrasement d'une saisie manuelle | `data_source`, priorité manuelle, conflits listés, tests |
 | Fusion erronée de deux équipes | Égalité stricte seulement, ambiguïté → choix manuel, jamais de fusion auto |
 | Cote rattachée à la mauvaise rencontre | Appariement par référence, puis noms + coup d'envoi ±30 min, ambiguïté refusée |
-| Cote inventée ou extrapolée | Mapping limité à `h2h` et `totals`, aucune dérivation, test dédié |
+| Cote inventée ou extrapolée | Mapping limité à `h2h`, `totals`, `double_chance` et `btts`, aucune dérivation, test dédié |
 | Statistiques absentes ou partielles | Aucune valeur inventée, couverture affichée |
 | Fuite de clé | Environnement uniquement, rédaction des journaux, tests sur réponses et logs |
 | Import perçu comme une garantie | Textes sur l'incertitude inchangés, avertissement permanent |
@@ -517,6 +585,10 @@ Nouvelle page **Connecteurs** dans la navigation latérale :
   pagination, score nul, `suspended`.
 - The Odds API : `h2h` complet, `Draw`, `totals` avec plusieurs lignes, ligne
   incomplète, bookmaker absent, prix hors bornes, `last_update` invalide.
+- Double chance : trois issues nommées par équipes, codes littéraux, issue
+  manquante, issue dupliquée, noms inversés.
+- BTTS : `Yes`/`No`, `Oui`/`Non`, issue manquante, valeur inattendue.
+- Marchés étendus : une rencontre sans marché chez 1xBet ne produit aucune cote.
 - football-data.org : match programmé, terminé, reporté, score absent.
 - Normalisation des noms : accents, suffixes, collisions, suggestions.
 - Aucune lecture d'un champ de cote BigBallsData ; aucune lecture d'un champ de
@@ -531,6 +603,8 @@ Nouvelle page **Connecteurs** dans la navigation latérale :
 - Quotas : refus d'un appel trop coûteux, comptage exact, réinitialisation
   journalière/mensuelle UTC, lecture des en-têtes.
 - Absence de 1xBet → zéro cote, message dédié.
+- Marchés étendus : un appel par rencontre, coût exact, lot de 20 maximum,
+  refus si le budget restant est insuffisant.
 
 ### Import et base (SQLite)
 - Aperçu sans écriture métier ; application sans requête réseau.
@@ -544,6 +618,10 @@ Nouvelle page **Connecteurs** dans la navigation latérale :
   comptée.
 - Cotes : marché créé une seule fois, sélections standard, instantané dédupliqué
   sur `(selection_id, source, captured_at)`, instantané manuel conservé.
+- Double chance et BTTS : marché `football.double_chance` / `football.btts`
+  réutilisé s'il existe, sinon créé avec les codes `1X`/`12`/`X2` et
+  `oui`/`non`.
+- Marché incomplet : aucune ligne partielle n'est écrite.
 - Une rencontre inconnue ne reçoit jamais de cote.
 - Tables `markets`, `selections` et `odds_snapshots` inchangées par un import de
   calendrier ou de statistiques.
@@ -580,18 +658,21 @@ Nouvelle page **Connecteurs** dans la navigation latérale :
    budget quotidien respecté.
 6. Les cotes 1xBet sont importées avec `bookmaker = "1xBet"`,
    `source = "the_odds_api"` et un instantané horodaté.
-7. Seuls `h2h` et `totals` sont importés ; aucun autre marché n'est dérivé.
+7. `h2h`, `totals`, `double_chance` et `btts` sont les seuls marchés importés ;
+   aucun autre marché n'est dérivé.
 8. Une cote n'est jamais créée pour une rencontre inconnue ni remplacée par un
    autre bookmaker.
-9. Une donnée manuelle n'est jamais écrasée ; les conflits sont listés.
-10. Les quotas locaux et réels sont consultables ; un dépassement est refusé
-    avant l'appel.
-11. Les combinaisons enregistrées restent lisibles et inchangées.
-12. Une clé absente, un quota épuisé, une compétition non couverte ou un
+9. La double chance et le BTTS ne sont écrits que si 1xBet publie toutes leurs
+   issues ; sinon le marché reste absent et manuel.
+10. Une donnée manuelle n'est jamais écrasée ; les conflits sont listés.
+11. Les quotas locaux et réels sont consultables ; un dépassement est refusé
+    avant l'appel, y compris pour les marchés étendus.
+12. Les combinaisons enregistrées restent lisibles et inchangées.
+13. Une clé absente, un quota épuisé, une compétition non couverte ou un
     bookmaker absent produisent un message clair, jamais une erreur non
     maîtrisée.
-13. `ruff`, `mypy`, `pytest`, `eslint`, `tsc` et `next build` passent.
-14. La documentation est à jour : `README.md`, `docs/exploitation/api.md`,
+14. `ruff`, `mypy`, `pytest`, `eslint`, `tsc` et `next build` passent.
+15. La documentation est à jour : `README.md`, `docs/exploitation/api.md`,
     `docs/exploitation/environnement.md` et `.env.example`.
 
 ## Livrables
@@ -620,13 +701,17 @@ Nouvelle page **Connecteurs** dans la navigation latérale :
    The Odds API (cotes 1xBet) + football-data.org (repli).
 2. **Budgets** : 200 requêtes/jour BigBallsData, 400 crédits/mois The Odds API,
    8 requêtes/minute football-data.org.
-3. **Cotes importées** : uniquement 1X2 et plus / moins ; double chance, BTTS,
-   score exact et handicap restent manuels.
-4. **Aucune substitution** : si 1xBet est absent, aucune cote n'est importée.
-5. **Priorité au manuel** : une correction manuelle n'est jamais écrasée.
-6. **Pas de planification automatique** en Phase 7 : chaque import est
+3. **Cotes importées** : 1X2, plus / moins, double chance et BTTS ; score exact
+   et handicap restent manuels.
+4. **Marchés étendus** : 2 crédits par rencontre, lot de 20 rencontres maximum,
+   uniquement si 1xBet publie toutes les issues.
+5. **Aucune substitution** : si 1xBet est absent, aucune cote n'est importée.
+6. **Priorité au manuel** : une correction manuelle n'est jamais écrasée.
+7. **Pas de planification automatique** en Phase 7 : chaque import est
    déclenché et confirmé.
-7. **PulseScore et 5DollarFootballAPI** ne sont pas implémentés.
+8. **PulseScore et 5DollarFootballAPI** ne sont pas implémentés.
+9. **RapidAPI n'est pas utilisé** : les marchés supplémentaires passent par
+   The Odds API, ce qui évite un service non officiel.
 
 Après validation, l'implémentation suivra cet ordre : migration et modèles,
 noyau `http`/`quota`/`matching` testé hors réseau, adaptateur BigBallsData,
