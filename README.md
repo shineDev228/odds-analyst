@@ -20,7 +20,7 @@ Application web personnelle d'analyse statistique sportive.
 | 4 — Générateur de combinaisons | ✅ Terminée |
 | 5 — Historique et performance | ✅ Terminée |
 | 6 — Moteur statistique v2 | ✅ Terminée |
-| 7 — Connecteurs de données | 🟨 Plan proposé |
+| 7 — Connecteurs de données | 🟨 Plan révisé — à valider |
 | 8 — Durcissement et documentation | ⬜ À venir |
 
 ---
@@ -130,8 +130,8 @@ calculs se font sans appel réseau ni accès à la base.
 
 Le modèle reste volontairement explicable : il n'utilise ni compositions, ni
 blessures, ni enjeu sportif, et ne couvre que le football. Ces éléments, ainsi
-que la force du championnat, sont reportés à la Phase 7 faute de source fiable
-en saisie manuelle. Le moteur exige toujours au moins **3 matchs terminés par
+que la force du championnat, restent hors périmètre : aucune source gratuite
+fiable ne les fournit. Le moteur exige toujours au moins **3 matchs terminés par
 équipe** avant le coup d'envoi ; sinon l'API répond `409` avec un message
 explicite plutôt que d'inventer une probabilité.
 

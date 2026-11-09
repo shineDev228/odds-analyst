@@ -1,577 +1,634 @@
 # Phase 7 — Connecteurs de données
 
-> **Statut : plan proposé — en attente de validation.** Connexion à
-> **API-Football** (offre gratuite) pour importer calendrier, résultats et
-> statistiques d'équipe, sans jamais importer de cotes.
+> **Statut : plan révisé — en attente de validation.** Import automatique du
+> calendrier, des résultats, des statistiques et des **cotes 1xBet** via une
+> combinaison de sources gratuites et autorisées. La saisie manuelle reste
+> disponible comme secours et correction.
 
 ## Objectif
 
-Réduire la saisie manuelle et élargir l'historique du moteur statistique en
-connectant l'application à une source de données sportives **gratuite et
-autorisée** :
+Réduire la saisie manuelle sans jamais dépendre d'une source unique :
 
-1. **Calendrier et résultats** : importer les rencontres d'une compétition et
-   d'une saison, avec leur statut, leur score et leur coup d'envoi.
+1. **Calendrier et résultats** : importer les rencontres, leur statut, leur
+   score et leur coup d'envoi.
 2. **Statistiques d'équipe** : importer tirs, tirs cadrés, possession, corners,
-   cartons et, lorsque le fournisseur les expose, les buts attendus (xG).
-3. **Traçabilité** : savoir quelles données viennent de l'API, lesquelles sont
-   manuelles, et ne jamais écraser une saisie manuelle par une importation.
-4. **Sobriété** : respecter le quota de l'offre gratuite (100 requêtes/jour) et
-   ne jamais dépenser de requête sans que l'utilisateur l'ait confirmé.
+   cartons, passes ; le xG seulement s'il est réellement fourni.
+3. **Cotes 1xBet** : importer les marchés réellement proposés par le
+   fournisseur, avec le bookmaker `1xBet` et une source explicite.
+4. **Traçabilité** : distinguer à tout moment une donnée importée d'une donnée
+   saisie, et ne jamais écraser silencieusement une correction manuelle.
+5. **Sobriété** : budgets locaux stricts, coût affiché avant chaque appel,
+   aucun appel réseau déclenché sans confirmation.
 
-L'import améliore la **couverture** et le **volume** des données. Il ne rend pas
+L'import augmente la **couverture** et le **volume** des données. Il ne rend pas
 le modèle plus certain, ne garantit aucun résultat et ne constitue pas un
 conseil de pari.
 
-## Périmètre
+## La combinaison retenue
 
-- Fournisseur unique : **API-Football** (API-Sports), offre gratuite.
-- Football uniquement, comme le moteur actuel.
-- Endpoints utilisés : recherche de compétition, calendrier, statistiques de
-  rencontre. **Aucun endpoint de cotes.**
-- Import contrôlé des compétitions, saisons, équipes, rencontres et
-  statistiques d'équipe.
-- Prévisualisation obligatoire avant toute écriture.
-- Déduplication et idempotence : réimporter ne crée jamais de doublon.
-- Journal local des synchronisations et suivi du quota.
-- Priorité absolue aux données saisies manuellement.
+Aucun fournisseur gratuit ne réunit à lui seul la saison en cours, les
+statistiques et les cotes 1xBet. La Phase 7 combine donc trois sources, chacune
+sur son point fort :
 
-## Hors périmètre (ou jamais)
+| Fournisseur | Rôle | Couverture gratuite | Quota gratuit | Coût |
+|---|---|---|---|---|
+| **BigBallsData** | Calendrier, résultats et statistiques — **primaire** | Saison en cours, grands championnats et compétitions listées par l'API | ~250 requêtes/jour (jusqu'à 500 avec un compte GitHub) | 0 € |
+| **The Odds API** | Cotes **1xBet** — **primaire** | Compétitions football actives, pré-match | 500 crédits/mois | 0 € |
+| **football-data.org** | Calendrier et résultats — **repli** | 12 compétitions | 10 requêtes/minute | 0 € |
+| PulseScore | Non utilisé en Phase 7 — réserve | Cotes 1xBet et résultats | 500 requêtes/mois | 0 € |
+| 5DollarFootballAPI | Non utilisé | 5 championnats | 60 requêtes/heure | 0 € |
 
-- **Aucune cote, aucun marché, aucune sélection, aucun bookmaker** importé :
-  les cotes 1xBet restent saisies manuellement.
-- Aucun scraping de 1xBet, aucun contournement des limites de l'API.
-- Aucune composition, blessure ou suspension : l'offre gratuite ne les fournit
-  pas de façon fiable.
-- Aucun autre sport.
-- Aucune synchronisation planifiée automatique : déclenchement manuel. Une
-  planification éventuelle relève de la Phase 8.
-- Aucun stockage de la clé API en base, dans le frontend, dans les journaux ou
-  dans les sauvegardes.
-- Aucun service payant, aucun apprentissage automatique, aucun placement de
-  pari.
+### Pourquoi cette combinaison
+
+- **BigBallsData** est la seule source gratuite vérifiée qui donne la **saison
+  en cours** avec des statistiques de match détaillées (possession, tirs,
+  passes, corners, cartons). Les cotes et le xG sont payants : on ne les prend
+  donc pas chez lui.
+- **The Odds API** est un agrégateur établi, avec des conditions publiées, qui
+  référence **1xBet** (`onexbet`) dans la région Europe. Il ne fournit aucune
+  statistique : on ne lui demande que des cotes.
+- **football-data.org** sert de **repli** quand une compétition n'est pas
+  couverte par BigBallsData. Il ne fournit ni cotes ni statistiques.
+- **PulseScore** reste une option de secours documentée, non implémentée :
+  fournisseur récent, statistiques limitées, quota mensuel faible.
+- **5DollarFootballAPI** est écarté : les cotes 1xBet sont réservées à l'offre
+  Ultra payante, et sa couverture gratuite recoupe celle de BigBallsData.
+
+### Ce que la combinaison ne couvre pas
+
+| Donnée | Source | Décision |
+|---|---|---|
+| 1X2 | The Odds API (`h2h`) | Importée |
+| Plus / moins de buts | The Odds API (`totals`) | Importée si les deux issues existent |
+| Handicap | The Odds API (`spreads`) | **Non importé** en Phase 7 : couverture soccer limitée, coût supplémentaire, inutile aux combinaisons actuelles |
+| Double chance | Aucune source gratuite | **Reste manuelle** |
+| Les deux équipes marquent | Aucune source gratuite | **Reste manuelle** |
+| Score exact | Aucune source gratuite | **Reste manuel** |
+| xG | BigBallsData | Importé **seulement** si le champ est présent (offre payante) |
+| Compositions, blessures | Aucune source gratuite fiable | Hors périmètre |
+
+Aucune cote n'est déduite, extrapolée ou remplacée par un autre bookmaker. Un
+marché absent reste absent et saisissable à la main.
 
 ## Ce que cela change concrètement
 
-- Vous choisissez une compétition et une saison, puis vous voyez **ce qui sera
-  importé avant validation**.
-- Les rencontres et leurs résultats se remplissent sans recopie.
-- Les statistiques se complètent par petits lots, avec le coût en requêtes
-  affiché avant chaque lot.
-- Tout ce que vous avez saisi à la main reste prioritaire : l'import ne peut
-  pas le modifier silencieusement.
+- Vous associez une compétition interne à une source, une fois.
+- Le calendrier et les résultats se remplissent par aperçu puis validation.
+- Les statistiques se complètent par lots, avec le coût exact affiché.
+- Les cotes 1xBet se rafraîchissent en un clic, avec le nombre de crédits
+  consommés et le solde restant.
+- Une correction manuelle est conservée : l'import la signale mais ne l'écrase
+  pas.
+- Si une source tombe, si un quota est épuisé ou si une cote manque, le reste
+  de l'application continue de fonctionner.
+
+## Périmètre
+
+- Football uniquement, comme le moteur actuel.
+- Trois connecteurs : `bigballsdata`, `the_odds_api`, `football_data`.
+- Découverte des compétitions, association explicite aux compétitions et
+  saisons internes.
+- Import des rencontres, résultats et statistiques d'équipe.
+- Import des marchés 1X2 et plus / moins, avec instantanés append-only.
+- Aperçu obligatoire avant écriture, idempotence, journal des synchronisations.
+- Budgets locaux et suivi des quotas réels via les en-têtes des fournisseurs.
+- Saisie manuelle conservée pour les données non couvertes et les corrections.
+
+## Hors périmètre (ou jamais)
+
+- Aucun scraping de 1xBet, aucun compte bookmaker, aucun identifiant stocké.
+- Aucun placement de pari, aucune recommandation de mise.
+- Aucun service payant.
+- Aucune synchronisation planifiée automatique : déclenchement manuel. Une
+  planification relève de la Phase 8.
+- Aucun autre sport, aucune compétition non football.
+- Aucun import de compositions, blessures, suspensions ou arbitres comme
+  données structurées.
+- Aucune création de rencontre à partir d'une cote : une cote ne s'attache
+  qu'à une rencontre déjà existante.
+- Aucune fusion automatique d'équipes ambiguës.
+- Aucune clé API en base, dans le frontend, dans les journaux ou les sauvegardes.
+- Aucune donnée inventée : un champ absent reste nul.
 
 ## Décisions techniques
 
-### 1. Fournisseur, endpoints et quota
+### 1. Architecture : un noyau commun, trois adaptateurs
+
+```
+apps/api/app/connectors/
+  base.py                 # protocole Connector, types normalisés, erreurs
+  http.py                 # client httpx partagé : délais, réessais, rédaction
+  quota.py                # budgets locaux et lecture des en-têtes
+  matching.py             # normalisation des noms, appariement, suggestions
+  bigballsdata/
+    client.py             # endpoints, pagination, quota
+    mapping.py            # payload -> objets normalisés (pur, sans base)
+    importer.py           # écriture, déduplication, conflits
+  the_odds_api/
+    client.py             # sports, events, odds, crédits
+    mapping.py            # h2h / totals -> marchés internes
+    importer.py           # marchés, sélections, instantanés
+  football_data/
+    client.py             # compétitions, matchs, throttling
+    mapping.py
+    importer.py
+apps/api/app/services/connectors.py   # orchestration, aperçus, journal
+apps/api/app/schemas/connector.py     # schémas d'entrée/sortie
+apps/api/app/models/connector.py      # ProviderRef, ConnectorLink, SyncRun, ProviderUsage
+apps/api/app/api/v1/connectors.py     # routes
+```
+
+- `mapping.py` ne connaît ni SQLAlchemy ni FastAPI : il transforme une charge
+  JSON figée en objets normalisés, testables hors réseau.
+- Le moteur `apps/api/engine/` reste **inchangé** et sans réseau.
+- Chaque client ne voit que sa propre clé.
+- `httpx` passe de dépendance de développement à dépendance d'exécution. Aucune
+  autre bibliothèque ajoutée.
+
+### 2. BigBallsData — calendrier, résultats, statistiques
 
 | Usage | Endpoint | Coût | Remarque |
 |---|---|---|---|
-| Rechercher une compétition | `GET /leagues?search=` | 1 requête | Résultat mis en cache 24 h en mémoire |
-| Calendrier d'une saison | `GET /fixtures?league=&season=` | 1 requête | Retourne tous les matchs de la saison |
-| Statistiques d'une rencontre | `GET /fixtures/statistics?fixture=` | 1 requête | **Une requête par rencontre** |
-| Santé de la clé | aucun appel dédié | 0 | L'état est déduit du dernier appel |
+| Lister les compétitions | `GET /v1/leagues?sport=football` | 1 | Résultat mis en cache 24 h |
+| Lister les rencontres | `GET /v1/matches?sport=football&league=&season=&limit=100&offset=` | 1 par page | `season` = année de début (ex. `2025`) |
+| Statistiques d'une rencontre | `GET /v1/matches/{id}/statistics` | 1 par rencontre | Tous les champs factuels sont gratuits ; `expected_goals` absent sous Solo |
+| Lister les équipes | `GET /v1/teams?sport=football&league=` | 1 par page | Pour les suggestions d'appariement |
 
-- Base fixe : `https://v3.football.api-sports.io`, en HTTPS uniquement.
-- En-tête d'authentification : `x-apisports-key`, alimenté **uniquement** par
-  la variable d'environnement `API_FOOTBALL_KEY`.
-- L'offre gratuite annonce **100 requêtes/jour** et une limite de débit de
-  l'ordre de **10 requêtes/minute**. Les deux limites sont traitées :
-  - budget quotidien local fixé à **90 requêtes** (10 gardées en réserve) ;
-  - espacement de **6,5 secondes** entre deux appels de statistiques.
-- Les saisons accessibles sur l'offre gratuite **ne sont pas codées en dur** :
-  elles sont lues dans la réponse et une erreur de plan est traduite par un
-  message clair, sans boucle de réessai.
-- Les réponses sont validées avant usage. Toute valeur absente ou non numérique
-  est ignorée, jamais inventée.
-- Les cotes éventuellement présentes dans une réponse ne sont **jamais lues ni
-  enregistrées**.
-
-### 2. Architecture : client isolé, mapping pur, importateur transactionnel
-
-```
-apps/api/app/connectors/api_football/
-  client.py      # HTTP, clé, quota, délais, erreurs — seul module qui voit la clé
-  mapping.py     # fonctions pures : payload API -> objets normalisés (sans base)
-  importer.py    # écriture en base, déduplication, conflits
-  errors.py      # erreurs métier traduites en messages français
-apps/api/app/services/connectors.py   # orchestration, aperçus, journal
-apps/api/app/schemas/connector.py     # schémas d'entrée/sortie
-```
-
-- Le moteur `apps/api/engine/` reste **inchangé** et sans réseau.
-- `mapping.py` ne connaît ni SQLAlchemy ni FastAPI ; il est testable sur des
-  charges JSON figées.
-- La clé ne sort jamais de `client.py` : les objets normalisés, les journaux et
-  les réponses API n'en contiennent aucune trace.
-- Aucune nouvelle bibliothèque : `httpx` est déjà présent en dépendance de
-  développement ; il passe en dépendance d'exécution.
-
-### 3. Flux en quatre étapes, avec confirmation
-
-#### Étape A — Découverte de la compétition (0 ou 1 requête)
-
-- Recherche par nom via `/leagues?search=`, mise en cache mémoire 24 h.
-- L'utilisateur choisit une ligue API, une saison et la compétition interne à
-  associer (existante ou à créer). Aucune création implicite.
-
-#### Étape B — Aperçu du calendrier (1 requête)
-
-- Appel unique `/fixtures?league=&season=`.
-- Les données normalisées sont stockées dans le journal de synchronisation
-  (statut `preview`, expiration **2 heures**).
-- L'aperçu affiche :
-  - nombre de rencontres reçues ;
-  - rencontres nouvelles, à mettre à jour, en conflit, ignorées ;
-  - équipes à créer ou à associer manuellement ;
-  - requêtes estimées et quota restant.
-- **Aucune écriture** dans les tables métier à cette étape.
-
-#### Étape C — Application du calendrier (0 requête)
-
-- L'application relit **l'aperçu stocké**, le valide et écrit dans une seule
-  transaction.
-- Un aperçu expiré renvoie `410` ; un aperçu déjà appliqué renvoie `409`.
-- Le frontend ne peut pas envoyer des lignes arbitraires : il référence
-  uniquement l'identifiant d'aperçu.
-- Taille maximale : 1 000 rencontres par aperçu ; au-delà, l'import est refusé
-  avec un message explicite.
-
-#### Étape D — Statistiques par lots (0 requête d'aperçu, N requêtes d'import)
-
-- L'aperçu des statistiques ne consomme **aucune requête** : il liste les
-  rencontres terminées sans statistiques et calcule le coût exact.
-- L'application traite **1 à 10 rencontres par lot** (10 par défaut), avec
-  6,5 secondes entre deux appels et un commit par rencontre.
-- Un lot est refusé si son coût dépasse le budget restant.
-- Le résultat détaille, pour chaque rencontre : importée, ignorée ou en échec.
-- Une rencontre en échec n'annule pas les autres ; elle est signalée et pourra
-  être relancée.
-
-### 4. Mapping des données
-
-#### Compétition et saison
-
-- `league.id` → `competitions.external_id` (provider `api_football`).
-- Nom = `league.name`, pays = `league.country`, sport = football, tier inconnu
-  (`null`).
-- Saison : `external_id = "<league_id>:<year>"` pour rester unique entre
-  compétitions.
-- Libellé de saison déduit des dates : si la saison commence en juillet ou
-  après, `2024-2025` ; sinon `2024`.
-- Dates de début et de fin reprises de l'API lorsqu'elles existent, sinon
-  déduites de la première et de la dernière rencontre.
-- Une saison existante avec le même libellé est réutilisée ; aucun doublon.
-
-#### Équipe
-
-- Correspondance par nom normalisé (minuscules, accents retirés, ponctuation et
-  suffixes courants neutralisés) **dans le même sport**.
-- Un seul candidat → association automatique.
-- Aucun candidat → création si l'option « créer les équipes manquantes » est
-  cochée, sinon la rencontre est ignorée et signalée.
-- Plusieurs candidats → **aucune fusion automatique** : l'utilisateur doit
-  choisir l'équipe existante.
-- `short_name` = code API s'il tient en 40 caractères, sinon `null`.
-- Pays = pays de la compétition (l'API ne fournit pas le pays d'équipe dans le
-  calendrier).
-
-#### Rencontre
-
-| Champ API | Champ interne | Règle |
-|---|---|---|
-| `fixture.id` | `external_id` | Clé d'idempotence |
-| `fixture.date` | `kickoff_at` | Converti en UTC |
-| `fixture.status.short` | `status` | Table de correspondance ci-dessous |
-| `fixture.venue.name` | `venue` | Tronqué à 120 caractères |
-| `fixture.referee` | `referee` | Tronqué à 120 caractères |
-| `goals.home/away` | `home_score/away_score` | Entiers positifs ou nuls |
-| `score.halftime.*` | `half_time_*_score` | Si présent |
-| `teams.home/away` | `home_team_id/away_team_id` | Mapping équipes |
+- Base : `https://api.bigballsdata.com`, HTTPS uniquement.
+- Authentification : en-tête `x-api-key`, alimenté **uniquement** par
+  `BIGBALLSDATA_KEY`.
+- Pagination : `limit=100`, `offset` incrémenté ; arrêt dès qu'une page contient
+  moins de 100 éléments. Le nombre de requêtes réellement consommées est
+  enregistré dans le journal.
+- Le plafond quotidien réel est lu dans `X-RateLimit-Remaining` et
+  `X-RateLimit-Reset` ; le budget local s'y ajuste. Réserve de sécurité : 50
+  requêtes.
+- Limite de débit : un appel toutes les **1,5 seconde** ; aucun parallélisme.
+- Un lot de statistiques traite **1 à 10 rencontres**, avec un commit par
+  rencontre.
+- `season` n'est pas émis dans les objets de liste : la saison est celle du lien
+  configuré par l'utilisateur.
+- Le statut brut du fournisseur est conservé dans le journal ; la rencontre
+  interne reçoit la correspondance ci-dessous.
 
 Correspondance des statuts :
 
-| API | Interne |
-|---|---|
-| `NS`, `TBD` | `programme` |
-| `1H`, `HT`, `2H`, `ET`, `BT`, `P`, `SUSP`, `INT` | `en_cours` |
-| `FT`, `AET`, `PEN` | `termine` |
-| `PST` | `reporte` |
-| `CANC`, `ABD`, `AWD`, `WO` | `annule` |
-
-- Un statut inconnu est traité comme `programme` et signalé, jamais deviné.
-
-#### Statistiques d'équipe
-
-| Type API | Champ interne | Conversion |
+| BigBallsData | Interne | Remarque |
 |---|---|---|
-| `Total Shots` | `shots` | Entier |
-| `Shots on Goal` | `shots_on_target` | Entier |
-| `Ball Possession` | `possession` | `"54%"` → `54.0`, borné 0–100 |
-| `Corner Kicks` | `corners` | Entier |
-| `Yellow Cards` | `yellow_cards` | Entier |
-| `Red Cards` | `red_cards` | Entier |
-| `expected_goals` | `expected_goals` | Décimal, borné 0–20 |
+| `scheduled` | `programme` | |
+| `live`, `in_progress` | `en_cours` | |
+| `finished` | `termine` | |
+| `postponed` | `reporte` | |
+| `cancelled` | `annule` | |
+| `suspended` | `en_cours` | Match commencé puis interrompu ; signalé, corrigeable |
 
-- `goals_for` / `goals_against` sont déduits du score final, pas des
-  statistiques.
-- Les autres types sont ignorés.
-- Une valeur négative ou hors bornes est ignorée et signalée ; elle n'est pas
-  corrigée arbitrairement.
-- Si aucune statistique exploitable n'est fournie, aucune ligne n'est créée :
-  la rencontre reste « sans statistiques » et le moteur utilise les buts.
+Un statut inconnu est traité comme `programme` et **signalé**, jamais deviné.
 
-### 5. Idempotence, priorité au manuel et conflits
+### 3. The Odds API — cotes 1xBet
 
-- Contrainte unique `(external_provider, external_id)` sur compétitions,
-  saisons, équipes et rencontres.
-- Contrainte existante `(match_id, team_id)` conservée pour les statistiques.
-- Chaque rencontre et chaque ligne de statistiques porte une origine :
-  `data_source = manual | api_football`.
-- Toute modification manuelle d'une ligne importée bascule son origine à
-  `manual` : elle devient prioritaire.
-- Règles de conflit :
-  1. Une rencontre importée est mise à jour par l'API (score, statut, coup
-     d'envoi, lieu, arbitre) sauf ses notes.
-  2. Une rencontre manuelle n'est **jamais** écrasée. Si une rencontre
-     correspondante existe (même saison, mêmes équipes, coup d'envoi à
-     ±15 minutes), elle est seulement liée à l'identifiant externe et ses
-     champs vides sont complétés.
-  3. Un désaccord de score ou de statut sur une rencontre manuelle produit un
-     **conflit listé** : la valeur manuelle gagne.
-  4. Des statistiques manuelles ne sont jamais remplacées ; le conflit est
+| Usage | Endpoint | Coût | Remarque |
+|---|---|---|---|
+| Lister les sports | `GET /v4/sports` | 0 | Filtre `group = "Soccer"` |
+| Lister les événements | `GET /v4/sports/{sport}/events` | 0 | Identifiants, équipes, coup d'envoi |
+| Cotes d'une compétition | `GET /v4/sports/{sport}/odds?regions=eu&markets=h2h,totals&oddsFormat=decimal` | **2 crédits** | 2 marchés × 1 région |
+| Scores | `GET /v4/sports/{sport}/scores` | 1–2 | **Non utilisé** : BigBallsData fournit les résultats |
+
+- Base : `https://api.the-odds-api.com`, HTTPS uniquement.
+- Authentification : paramètre `apiKey`, alimenté **uniquement** par
+  `THE_ODDS_API_KEY`. L'URL complète n'est jamais journalisée.
+- Les clés de sport sont **découvertes** via `/v4/sports`, jamais codées en dur.
+- `regions=eu` est utilisé plutôt qu'un filtre `bookmakers` non garanti par la
+  documentation consultée ; la réponse est ensuite filtrée sur
+  `bookmakers[].key == "onexbet"`.
+- Si 1xBet est absent de la réponse : **aucune substitution**. Le rapport
+  indique « 1xBet indisponible pour cette compétition » et zéro cote importée.
+- Instantané : `captured_at` = `last_update` du bookmaker, converti en UTC.
+- Prix acceptés : décimaux strictement supérieurs à 1,01 et inférieurs à 1 000.
+  Hors bornes → ligne ignorée et signalée.
+- Les cotes sont stockées **brutes**, sans normalisation de marge.
+
+### 4. football-data.org — repli calendrier et résultats
+
+| Usage | Endpoint | Coût | Remarque |
+|---|---|---|---|
+| Lister les compétitions | `GET /v4/competitions` | 1 | Filtre sur les 12 compétitions gratuites |
+| Matchs d'une saison | `GET /v4/competitions/{code}/matches?season=` | 1 | Résultats et calendrier |
+
+- Base : `https://api.football-data.org/v4`.
+- Authentification : en-tête `X-Auth-Token`, alimenté **uniquement** par
+  `FOOTBALL_DATA_KEY`.
+- Limite : 10 requêtes/minute. Le client impose **7,5 secondes** entre deux
+  appels et lit les en-têtes de quota lorsqu'ils sont présents.
+- Utilisé seulement si l'utilisateur choisit explicitement ce connecteur pour
+  une compétition, ou si BigBallsData ne la couvre pas.
+- Aucune statistique, aucune cote : si une compétition est suivie via
+  football-data.org, ses cotes restent manuelles ou proviennent de The Odds API.
+
+### 5. Appariement des compétitions, saisons, équipes et rencontres
+
+- **Compétition** : association explicite dans l'interface. Aucune création
+  implicite. Une compétition interne peut être liée à plusieurs fournisseurs.
+- **Saison** : le lien stocke le libellé interne et l'identifiant externe
+  (`2025` pour BigBallsData et The Odds API, `2025` ou code équivalent pour
+  football-data.org).
+- **Équipe** : normalisation (minuscules, accents retirés, ponctuation
+  neutralisée, suffixes `FC`, `CF`, `SC`, `AFC` ignorés).
+  - égalité exacte du nom normalisé ou du code court → association automatique ;
+  - aucun candidat → création proposée, jamais imposée ;
+  - plusieurs candidats → **aucune fusion** ; l'utilisateur choisit ;
+  - suggestions calculées avec `difflib` (bibliothèque standard), jamais
+    appliquées automatiquement.
+- **Rencontre** : d'abord par référence externe
+  `(provider, match, external_id)`, puis par même compétition, mêmes équipes
+  normalisées et coup d'envoi à ±30 minutes. Toute ambiguïté est listée.
+- Les associations validées sont conservées dans `provider_refs` et réutilisées
+  aux synchronisations suivantes.
+
+### 6. Mapping des marchés The Odds API
+
+| Marché API | Marché interne | Règle |
+|---|---|---|
+| `h2h` | `football.resultat_1x2` | `home` → code `1`, `Draw` → `X`, `away` → `2` |
+| `totals` | `football.total_buts` | Grouper par `point` ; `Over` → `plus`, `Under` → `moins` ; les deux issues exigées |
+| `spreads` | — | Non importé |
+| `outrights` | — | Non importé |
+
+- Le marché est retrouvé par sa signature interne
+  `(match_id, template_code, période, sujet, ligne)`.
+- S'il n'existe pas, il est créé depuis le catalogue
+  (`football.resultat_1x2`, `football.total_buts`) avec ses sélections
+  standard.
+- S'il existe déjà, il n'est **jamais modifié** : seuls de nouveaux instantanés
+  sont ajoutés.
+- Une sélection absente du marché existant n'est pas créée à la volée : le
+  conflit est signalé.
+- Les scores exacts, la double chance et « les deux équipes marquent » ne sont
+  pas dérivés d'un autre marché.
+
+### 7. Flux en quatre étapes
+
+#### Étape A — Configuration du lien (0 à 1 requête)
+
+- Choix du fournisseur, de la compétition interne et de la saison.
+- Découverte de la compétition externe :
+  - BigBallsData : `/v1/leagues?sport=football` (cache 24 h) ;
+  - The Odds API : `/v4/sports` (gratuit) ;
+  - football-data.org : `/v4/competitions`.
+- Le lien est enregistré, désactivable et supprimable sans toucher aux données
+  déjà importées.
+
+#### Étape B — Aperçu (coût variable, stocké)
+
+- **Calendrier** : BigBallsData ou football-data.org, une à quelques requêtes
+  selon la pagination.
+- **Cotes** : d'abord `/events` (gratuit) pour vérifier l'appariement, puis
+  `/odds` (2 crédits) pour obtenir les marchés réels.
+- L'aperçu normalisé est stocké dans `sync_runs` avec le statut `preview` et
+  une expiration de **2 heures**.
+- Il affiche :
+  - le nombre d'éléments reçus ;
+  - nouveaux, mises à jour, conflits, ignorés ;
+  - équipes à créer ou ambiguës ;
+  - le coût exact et le solde restant.
+- **Aucune écriture** dans les tables métier à cette étape.
+
+#### Étape C — Application (0 requête)
+
+- L'application relit l'aperçu stocké et écrit dans une seule transaction.
+- Aperçu expiré → `410` ; aperçu déjà appliqué → `409` ; identifiant inconnu →
+  `404`.
+- Le frontend ne peut pas envoyer de lignes arbitraires : uniquement
+  l'identifiant d'aperçu.
+- Taille maximale : 1 000 rencontres ou 2 000 cotes par aperçu.
+
+#### Étape D — Statistiques par lots (0 requête d'aperçu, N requêtes d'import)
+
+- L'aperçu liste les rencontres terminées sans statistiques et calcule le coût
+  exact, **sans appel réseau**.
+- L'application traite **1 à 10 rencontres** par lot, avec 1,5 seconde entre
+  deux appels et un commit par rencontre.
+- Un lot est refusé si son coût dépasse le budget restant.
+- Une rencontre en échec n'annule pas les autres ; elle est signalée et peut
+  être relancée.
+
+### 8. Priorité au manuel, idempotence et conflits
+
+- `matches.data_source` et `team_match_stats.data_source` valent `manual`,
+  `bigballsdata` ou `football_data`.
+- Toute modification manuelle d'une ligne importée la bascule à `manual`.
+- Règles :
+  1. Une rencontre importée est mise à jour par sa source (score, statut, coup
+     d'envoi) tant qu'elle reste importée.
+  2. Une rencontre manuelle n'est **jamais** écrasée : la source complète
+     seulement ses champs vides et la référence externe. Un désaccord produit un
+     **conflit listé** ; la valeur manuelle gagne.
+  3. Des statistiques manuelles ne sont jamais remplacées ; le conflit est
      signalé.
-  5. Aucune suppression automatique : une rencontre absente de l'API reste en
-     base et est signalée.
+  4. Les instantanés de cotes sont **append-only**. Un instantané manuel n'est
+     jamais supprimé.
+  5. Déduplication d'un instantané importé sur
+     `(selection_id, source, captured_at)`. À date égale, la source `manuel`
+     est considérée comme prioritaire à l'affichage.
+  6. Aucune suppression automatique : une rencontre absente du fournisseur
+     reste en base et est signalée.
 - Les combinaisons enregistrées en Phase 5 restent **figées** : l'import ne
   modifie ni leurs cotes ni leurs instantanés.
+- Réimporter ne crée jamais de doublon : `provider_refs` porte une contrainte
+  unique `(provider, entity_type, external_id)`.
 
-### 6. Quota, délais et résilience
+### 9. Budgets, quotas et résilience
 
-- Budget quotidien local : **90 requêtes** par jour UTC, réserve de 10.
-- Le total du jour est la somme des `requests_used` du journal, recoupée avec
-  l'en-tête `x-ratelimit-requests-remaining` du dernier appel.
-- Avant un lot, le coût est comparé au budget restant ; si insuffisant, le lot
-  est refusé en indiquant le nombre disponible.
-- Délai de 15 secondes par appel, deux réessais maximum sur erreur réseau ou
-  `5xx` (0,5 s puis 1,5 s), **aucun réessai** sur `4xx` ou `429`.
-- Traduction des erreurs :
+| Fournisseur | Unité | Limite affichée | Budget local | Réserve |
+|---|---|---|---|---|
+| BigBallsData | requêtes/jour | ~250 (500 avec GitHub) | 200 | 50 |
+| The Odds API | crédits/mois | 500 | 400 | 100 |
+| football-data.org | requêtes/minute | 10 | 8 | 2 |
+
+- Les compteurs locaux sont persistés dans `provider_usage` et recoupés avec
+  les en-têtes réels :
+  - BigBallsData : `X-RateLimit-Remaining`, `X-RateLimit-Reset` ;
+  - The Odds API : `x-requests-remaining`, `x-requests-used` ;
+  - football-data.org : en-têtes de quota lorsque présents.
+- Avant un appel payant, le coût est comparé au budget restant. Insuffisant →
+  refus explicite avec le nombre disponible.
+- Délai de 15 secondes par appel ; deux réessais maximum sur erreur réseau ou
+  `5xx` (0,5 s puis 1,5 s) ; **aucun réessai** sur `4xx` ou `429`.
+- Erreurs traduites en français :
   - clé absente ou refusée → message explicite, aucun détail secret ;
-  - quota épuisé → `429` avec heure de réinitialisation estimée ;
-  - saison non incluse dans l'offre gratuite → `422` explicite ;
+  - quota épuisé → `429` avec heure de réinitialisation ;
+  - compétition ou saison non couverte → `422` ;
+  - 1xBet absent → succès partiel à zéro cote, message clair ;
   - réponse illisible → `502` sans écriture partielle.
-- Au démarrage de l'API, les synchronisations restées `running` sont marquées
+- Au démarrage de l'API, les synchronisations restées `running` passent à
   `interrompue`. Rien n'est repris automatiquement.
 
-### 7. Sécurité et confidentialité
+### 10. Sécurité et confidentialité
 
-- Clé lue **exclusivement** depuis l'environnement (`API_FOOTBALL_KEY`).
-- L'état exposé se limite à `configured: true/false` : jamais la clé, jamais
-  un fragment, jamais sa longueur.
-- Les journaux ne contiennent ni en-têtes, ni URL complète, ni charge utile.
-  Un filtre de rédaction masque toute valeur ressemblant à une clé.
-- Aucune route ne relaie la clé au navigateur ; seul le backend appelle l'API.
-- Toutes les routes sont authentifiées ; les routes d'écriture exigent le jeton
-  CSRF et sont limitées en fréquence.
-- Hôte fixe et HTTPS : pas d'URL fournie par l'utilisateur, donc pas de risque
-  de requête vers un hôte arbitraire.
-- Usage personnel, pas de redistribution des données, attribution
-  « Données : API-Football » dans la page Connecteurs et la documentation.
-- `API_FOOTBALL_KEY` reste vide dans `.env.example` et n'est jamais commitée.
+- Clés lues **exclusivement** dans l'environnement :
+  `BIGBALLSDATA_KEY`, `THE_ODDS_API_KEY`, `FOOTBALL_DATA_KEY`.
+- L'état exposé se limite à `configured: true/false`. Jamais la clé, jamais un
+  fragment, jamais sa longueur.
+- Les journaux ne contiennent ni en-tête d'authentification, ni URL complète,
+  ni charge utile brute. Un filtre de rédaction masque toute valeur ressemblant
+  à une clé.
+- Aucune route ne relaie une clé au navigateur ; seul le backend appelle les
+  fournisseurs.
+- Toutes les routes sont authentifiées ; les écritures exigent le jeton CSRF et
+  sont limitées en fréquence.
+- Hôtes fixes et HTTPS : aucune URL fournie par l'utilisateur.
+- Usage personnel, pas de redistribution. Attribution visible :
+  « Données : BigBallsData, The Odds API (cotes 1xBet), football-data.org ».
+- `.env.example` contient des valeurs vides, jamais de secret réel.
 
-### 8. Migration additive
+### 11. Migration additive
 
-Aucune table existante n'est réécrite ; seules des colonnes nullables et deux
-tables nouvelles sont ajoutées.
+Aucune table existante n'est réécrite.
 
-| Table | Ajout |
+| Ajout | Contenu |
 |---|---|
-| `competitions` | `external_provider`, `external_id`, index et unicité partielle |
-| `seasons` | `external_provider`, `external_id`, index et unicité partielle |
-| `teams` | `external_provider`, `external_id`, index et unicité partielle |
-| `matches` | `external_provider`, `external_id`, `data_source`, index et unicité partielle |
-| `team_match_stats` | `data_source` |
-| `sync_runs` | nouvelle table de journal et d'aperçu |
+| `provider_refs` | `provider`, `entity_type` (`competition`, `season`, `team`, `match`), `entity_id`, `external_id`, `metadata`, dates. Unique `(provider, entity_type, external_id)` ; index `(entity_type, entity_id, provider)`. |
+| `connector_links` | Lien compétition/saison interne ↔ identifiant externe, fournisseur, état, dernières synchronisations. Unique `(provider, external_league_id, external_season)`. |
+| `sync_runs` | Journal et aperçus : fournisseur, opération, statut (`preview`, `applied`, `partial`, `failed`, `expired`, `interrompue`), paramètres non secrets, charge utile normalisée, compteurs, requêtes/crédits, quota restant, message assaini, dates, expiration. |
+| `provider_usage` | Compteur persistant par fournisseur, période (`day`/`month`) et date de début. Unique `(provider, period_kind, period_start)`. |
+| `matches.data_source` | `manual` par défaut, non nul. |
+| `matches.source_updated_at` | Date de dernière mise à jour par la source. |
+| `team_match_stats.data_source` | `manual` par défaut, non nul. |
+| Index `odds_snapshots` | Index non unique `(selection_id, source, captured_at)` pour la déduplication. |
 
-`sync_runs` contient : identifiant, fournisseur, type d'opération, statut
-(`preview`, `applied`, `partial`, `failed`, `expired`, `interrompue`),
-paramètres non secrets, charge utile normalisée de l'aperçu, compteurs,
-nombre de requêtes, quota restant, message d'erreur assaini, dates et
-expiration. Les lignes expirées sont purgées au-delà de 7 jours.
-
+- `provider_refs` est polymorphe : aucune clé étrangère vers `entity_id`,
+  l'intégrité est assurée par le service et couverte par des tests.
 - Les lignes existantes restent `data_source = manual`.
-- La migration est réversible : `downgrade` supprime les ajouts sans toucher
-  aux données métier.
+- `downgrade` supprime les ajouts sans toucher aux données métier.
 - Aucun remplissage rétroactif : les données existantes ne sont pas associées
   automatiquement à un identifiant externe.
+- Les aperçus expirés depuis plus de 7 jours sont purgés.
 
 ## API
 
 | Méthode | Route | Coût | Rôle |
 |---|---|---|---|
-| `GET` | `/connectors` | 0 | État des connecteurs |
-| `GET` | `/connectors/api-football/status` | 0 | Clé configurée, quota, dernière synchronisation |
-| `GET` | `/connectors/api-football/leagues?search=` | 0–1 | Recherche de compétition (cache 24 h) |
-| `POST` | `/connectors/api-football/fixtures/preview` | 1 | Aperçu du calendrier et des conflits |
-| `POST` | `/connectors/api-football/fixtures/apply` | 0 | Application de l'aperçu stocké |
-| `POST` | `/connectors/api-football/stats/preview` | 0 | Rencontres à compléter et coût exact |
-| `POST` | `/connectors/api-football/stats/apply` | 1–10 | Import d'un lot de statistiques |
-| `GET` | `/connectors/sync-runs?limit=20` | 0 | Journal des synchronisations |
+| `GET` | `/connectors` | 0 | État des trois connecteurs |
+| `GET` | `/connectors/links` | 0 | Compétitions suivies |
+| `POST` | `/connectors/links` | 0–1 | Créer un lien |
+| `PATCH` | `/connectors/links/{id}` | 0 | Activer / désactiver |
+| `DELETE` | `/connectors/links/{id}` | 0 | Supprimer le lien, conserver les données |
+| `GET` | `/connectors/bigballsdata/leagues?search=` | 0–1 | Recherche de compétition (cache 24 h) |
+| `GET` | `/connectors/the-odds-api/sports` | 0 | Sports football disponibles |
+| `POST` | `/connectors/links/{id}/fixtures/preview` | 1–N | Aperçu du calendrier |
+| `POST` | `/connectors/links/{id}/stats/preview` | 0 | Rencontres à compléter et coût |
+| `POST` | `/connectors/links/{id}/stats/apply` | 1–10 | Lot de statistiques |
+| `POST` | `/connectors/links/{id}/odds/events` | 0 | Appariement des événements |
+| `POST` | `/connectors/links/{id}/odds/preview` | 2 | Aperçu des cotes 1xBet |
+| `POST` | `/connectors/sync-runs/{id}/apply` | 0 | Appliquer un aperçu |
+| `POST` | `/connectors/the-odds-api/events/{eventId}/link` | 0 | Associer un événement à une rencontre |
+| `GET` | `/connectors/sync-runs?limit=20` | 0 | Journal |
+| `GET` | `/connectors/provider-usage` | 0 | Quotas locaux et réels |
 
-Exemple d'aperçu :
+Exemple d'aperçu de cotes :
 
 ```json
 {
-  "run_id": "3f0c…",
-  "provider": "api_football",
-  "league": { "external_id": "61", "name": "Ligue 1", "country": "France" },
-  "season": { "external_id": "61:2025", "label": "2025-2026" },
-  "expires_at": "2026-11-09T18:00:00Z",
-  "quota": { "used_today": 12, "remaining": 78 },
-  "counts": {
-    "fixtures": 306,
-    "new": 281,
-    "updates": 20,
-    "conflicts": 5,
-    "ignored": 0,
-    "teams_to_create": 4,
-    "teams_ambiguous": 1
+  "run_id": "7c1e…",
+  "provider": "the_odds_api",
+  "operation": "odds",
+  "link": {
+    "competition": "Ligue 1",
+    "season": "2025-2026",
+    "sport_key": "soccer_france_ligue_one"
   },
-  "conflicts": [
-    {
-      "kind": "match",
-      "label": "Paris SG — Marseille",
-      "field": "home_score",
-      "manual": 2,
-      "provider": 1
-    }
+  "expires_at": "2026-11-09T18:00:00Z",
+  "quota": { "credits_used": 2, "credits_remaining": 398 },
+  "counts": {
+    "events_received": 9,
+    "events_matched": 8,
+    "events_unmatched": 1,
+    "markets_1x2": 8,
+    "markets_totals": 6,
+    "odds_ready": 42,
+    "ignored": 1
+  },
+  "bookmaker": "1xBet",
+  "unmatched": [
+    { "event_id": "abc123", "label": "Nice — Lens", "kickoff_utc": "2026-11-15T16:00:00Z" }
   ],
-  "avertissement": "Aucune cote n'est importée. Les données manuelles restent prioritaires."
+  "avertissement": "Cotes agrégées via The Odds API. Aucune cote inventée, aucune substitution de bookmaker."
 }
 ```
 
-Erreurs au format RFC 7807, en français, sans secret. Exemple de conflit
-d'application : `409` avec la liste des aperçus déjà appliqués.
+Erreurs au format RFC 7807, en français, sans secret.
 
 ## Interface
 
 Nouvelle page **Connecteurs** dans la navigation latérale :
 
-1. **Carte d'état** : clé configurée ou non, quota restant, dernière
-   synchronisation, lien vers la documentation officielle du fournisseur.
-2. **Étape 1 — Compétition** : recherche, choix de la ligue et de la saison,
-   association à une compétition interne existante ou création explicite.
-3. **Étape 2 — Aperçu** : compteurs, conflits, équipes à créer ou ambiguës,
-   coût en requêtes, bouton de confirmation.
-4. **Étape 3 — Application** : résultat détaillé, aucune requête supplémentaire.
-5. **Étape 4 — Statistiques** : liste des rencontres à compléter, coût exact,
-   choix du lot (1 à 10), résultat par rencontre.
-6. **Journal** : historique des synchronisations, statuts, compteurs, requêtes
-   consommées ; possibilité de relancer un aperçu expiré.
-7. **Bandeau permanent** : « Aucune cote n'est importée. Les données manuelles
-   restent prioritaires. »
-8. **État vide / clé absente** : procédure claire pour renseigner
-   `API_FOOTBALL_KEY` dans `.env` puis redémarrer l'API, sans jamais demander la
-   clé dans l'interface.
+1. **Cartes d'état** : clé configurée, quota restant, dernière synchronisation,
+   lien vers la documentation officielle. Aucun champ de saisie de clé.
+2. **Compétitions suivies** : fournisseur, compétition, saison, état, dernière
+   synchronisation, bouton désactiver.
+3. **Assistant de lien** : fournisseur → compétition externe → compétition et
+   saison internes → activation.
+4. **Calendrier** : aperçu (compteurs, conflits, équipes ambiguës, coût) puis
+   application.
+5. **Statistiques** : rencontres manquantes, coût exact, lot de 1 à 10,
+   résultat par rencontre.
+6. **Cotes** : appariement gratuit des événements, aperçu payant (2 crédits
+   affichés), application, événements non appariés avec association manuelle.
+7. **Journal** : statuts, compteurs, requêtes/crédits, erreurs ; relance d'un
+   aperçu expiré.
+8. **Bandeau permanent** : « Cotes 1xBet agrégées via The Odds API. Aucune cote
+   inventée. Les marchés non fournis restent manuels. »
 
 - Responsive, thème sombre, composants existants, aucune nouvelle bibliothèque
   graphique.
 - Aucune formulation certaine, aucun conseil de pari, aucune promesse de gain.
-- Les erreurs de quota ou de plan sont affichées en français, avec l'action
-  attendue.
+- Les erreurs de quota, de couverture ou de clé sont affichées en français avec
+  l'action attendue.
+- Si une clé manque, la page reste utilisable et indique comment renseigner
+  `.env` puis redémarrer l'API.
 
 ## Risques et parades
 
 | Risque | Parade |
 |---|---|
-| Quota de 100 requêtes/jour épuisé | Budget local 90, aperçu du coût, lots de 10, refus avant dépassement |
-| Limite de 10 requêtes/minute | Espacement de 6,5 s, aucun réessai sur `429` |
-| Saison non incluse dans l'offre gratuite | Message explicite, pas de boucle, saisons lues dans l'API |
-| Panne ou changement de format du fournisseur | Validation stricte, `502` sans écriture partielle, transaction par aperçu |
-| Doublons après réimport | Identifiants externes uniques, tests de réimport |
-| Écrasement d'une saisie manuelle | `data_source`, priorité manuelle, conflits listés, tests dédiés |
-| Fusion erronée de deux équipes | Correspondance normalisée stricte, ambiguïté → choix manuel, jamais de fusion auto |
-| Statistiques absentes ou partielles | Aucune valeur inventée, couverture xG inchangée et affichée |
-| Import de cotes par erreur | Endpoints limités, aucun champ de cote lu, test interdisant l'accès aux tables de marchés |
-| Fuite de la clé | Environnement uniquement, rédaction des journaux, tests sur les réponses et logs |
-| Import perçu comme une garantie | Textes inchangés sur l'incertitude, avertissement permanent |
+| Quota BigBallsData épuisé | Budget 200/jour, réserve 50, coût affiché, lots de 10, refus avant dépassement |
+| Crédits The Odds API épuisés | Budget 400/mois, aperçu gratuit avant l'appel payant, coût de 2 crédits affiché |
+| Limite football-data.org | 7,5 s entre appels, budget 8/minute, aucun réessai sur `429` |
+| 1xBet absent d'une compétition | Zéro cote importée, message explicite, aucune substitution |
+| Marché `totals` incomplet | Seules les lignes avec `Over` et `Under` sont importées |
+| Couverture incomplète de BigBallsData | Repli football-data.org, saisie manuelle possible |
+| Panne ou changement de format | Validation stricte, `502` sans écriture partielle, tests sur charges figées |
+| Doublons après réimport | Références externes uniques, déduplication des instantanés, tests dédiés |
+| Écrasement d'une saisie manuelle | `data_source`, priorité manuelle, conflits listés, tests |
+| Fusion erronée de deux équipes | Égalité stricte seulement, ambiguïté → choix manuel, jamais de fusion auto |
+| Cote rattachée à la mauvaise rencontre | Appariement par référence, puis noms + coup d'envoi ±30 min, ambiguïté refusée |
+| Cote inventée ou extrapolée | Mapping limité à `h2h` et `totals`, aucune dérivation, test dédié |
+| Statistiques absentes ou partielles | Aucune valeur inventée, couverture affichée |
+| Fuite de clé | Environnement uniquement, rédaction des journaux, tests sur réponses et logs |
+| Import perçu comme une garantie | Textes sur l'incertitude inchangés, avertissement permanent |
 | Modification des combinaisons enregistrées | Aucune écriture dans les instantanés de la Phase 5 |
-| Fuseaux horaires | Conversion systématique en UTC, comme les phases précédentes |
-| Lot trop long ou blocage | 10 rencontres maximum, délai de 15 s, timeout client explicite |
+| Fuseaux horaires | Conversion systématique en UTC |
 | Redémarrage pendant un import | Statut `interrompue`, reprise manuelle, aucun état inventé |
+| Service non officiel / scraping | Aucune source non officielle : The Odds API est un agrégateur établi, sans scraping direct de 1xBet |
 
 ## Tests prévus
 
-### Mapping (fonctions pures)
-- Fixture complète, incomplète, statut inconnu, date avec fuseau.
-- Saison à cheval sur deux années et saison calendaire.
-- Normalisation des noms d'équipes, accents, suffixes et collisions.
-- Statistiques : `"54%"`, entiers, champs absents, valeurs hors bornes.
-- Absence de xG : aucune valeur inventée.
-- Aucune lecture d'un éventuel champ de cote.
+### Mapping (fonctions pures, charges JSON figées)
+- BigBallsData : rencontre complète, incomplète, statut inconnu, date UTC,
+  pagination, score nul, `suspended`.
+- The Odds API : `h2h` complet, `Draw`, `totals` avec plusieurs lignes, ligne
+  incomplète, bookmaker absent, prix hors bornes, `last_update` invalide.
+- football-data.org : match programmé, terminé, reporté, score absent.
+- Normalisation des noms : accents, suffixes, collisions, suggestions.
+- Aucune lecture d'un champ de cote BigBallsData ; aucune lecture d'un champ de
+  statistique The Odds API.
+- Aucune valeur inventée quand un champ est absent.
 
-### Client HTTP (transport simulé, aucun réseau)
-- En-tête d'authentification correct, jamais journalisé.
+### Clients HTTP (transport simulé, aucun réseau)
+- En-têtes d'authentification corrects, jamais journalisés.
 - Traduction des erreurs 401, 403, 422, 429, 500 et réponse illisible.
 - Réessais uniquement sur réseau et `5xx`, jamais sur `4xx`.
-- Délai de 6,5 s respecté dans un lot simulé.
-- Quota : refus d'un lot trop coûteux, comptage exact, réinitialisation UTC.
+- Espacement de 1,5 s (BigBallsData) et 7,5 s (football-data.org).
+- Quotas : refus d'un appel trop coûteux, comptage exact, réinitialisation
+  journalière/mensuelle UTC, lecture des en-têtes.
+- Absence de 1xBet → zéro cote, message dédié.
 
 ### Import et base (SQLite)
-- Aperçu sans écriture métier, application sans requête réseau.
+- Aperçu sans écriture métier ; application sans requête réseau.
 - Réimport : aucun doublon, compteurs `updates` corrects.
 - Aperçu expiré → `410` ; double application → `409` ; identifiant inconnu →
   `404`.
 - Rencontre manuelle : champs vides complétés, valeurs non vides conservées,
   conflit listé.
 - Statistiques manuelles jamais écrasées.
-- Équipes ambiguës non fusionnées ; option de création désactivée → rencontre
-  ignorée et comptée.
-- Tables `markets`, `selections` et `selection_odds` inchangées après import.
+- Équipes ambiguës non fusionnées ; création désactivée → rencontre ignorée et
+  comptée.
+- Cotes : marché créé une seule fois, sélections standard, instantané dédupliqué
+  sur `(selection_id, source, captured_at)`, instantané manuel conservé.
+- Une rencontre inconnue ne reçoit jamais de cote.
+- Tables `markets`, `selections` et `odds_snapshots` inchangées par un import de
+  calendrier ou de statistiques.
 - Combinaisons enregistrées inchangées.
-- Journal : statuts, compteurs, durée, quota, aucune clé.
-- Migration : `upgrade` puis `downgrade` sur une base vierge.
+- Journal : statuts, compteurs, durée, quotas, aucune clé.
+- Migration : `upgrade` puis `downgrade` sur base vierge, données existantes
+  marquées `manual`.
 
 ### API
-- Authentification obligatoire ; CSRF sur chaque `POST`.
+- Authentification obligatoire ; CSRF sur chaque écriture.
 - Clé absente → réponse explicite, page fonctionnelle, aucun `500`.
 - Aperçu et application cohérents ; refus des charges arbitraires.
 - Limite de fréquence et messages d'erreur en français.
-- Aucune réponse ne contient la clé ni un fragment.
+- Aucune réponse ne contient une clé ni un fragment.
 
 ### Interface
-- Page Connecteurs : état sans clé, recherche, aperçu, application, lots,
-  journal, erreurs de quota.
-- Bandeau « aucune cote importée » visible.
+- Page Connecteurs : état sans clé, création de lien, aperçu, application,
+  lots, cotes, journal, erreurs de quota.
+- Bandeau « cotes agrégées, aucune cote inventée » visible.
 - Responsive, navigation, absence d'erreur console.
 - Aucune formulation certaine.
 
 ## Critères d'acceptation
 
-1. La clé API est lue uniquement depuis l'environnement et n'apparaît ni en
-   base, ni dans le frontend, ni dans les journaux, ni dans les réponses.
-2. Une compétition peut être recherchée et associée à une compétition interne.
-3. Le calendrier est prévisualisé avec ses compteurs et ses conflits avant
-   toute écriture.
-4. L'application d'un aperçu n'effectue aucune requête supplémentaire et ne
-   crée aucun doublon en cas de réimport.
-5. Les statistiques sont importées par lots dont le coût exact est affiché et
-   le budget quotidien respecté.
-6. Aucune cote, aucun marché et aucune sélection ne sont importés ou modifiés.
-7. Une donnée manuelle n'est jamais écrasée ; les conflits sont listés.
-8. Les identifiants externes, l'origine des données et le journal des
-   synchronisations sont consultables.
-9. Une base vide, une clé absente, un quota épuisé ou une saison non incluse
-   produisent un message clair, jamais une erreur non maîtrisée.
-10. Les combinaisons enregistrées restent lisibles et inchangées.
-11. `ruff`, `mypy`, `pytest`, `eslint`, `tsc` et `next build` passent.
-12. La documentation est à jour : `README.md`, `docs/exploitation/api.md`,
+1. Les trois clés sont lues uniquement depuis l'environnement et n'apparaissent
+   ni en base, ni dans le frontend, ni dans les journaux, ni dans les réponses.
+2. Une compétition peut être associée explicitement à une source et à une
+   saison interne.
+3. Le calendrier est prévisualisé avec compteurs et conflits avant toute
+   écriture.
+4. L'application d'un aperçu n'effectue aucune requête supplémentaire et ne crée
+   aucun doublon en cas de réimport.
+5. Les statistiques sont importées par lots dont le coût exact est affiché et le
+   budget quotidien respecté.
+6. Les cotes 1xBet sont importées avec `bookmaker = "1xBet"`,
+   `source = "the_odds_api"` et un instantané horodaté.
+7. Seuls `h2h` et `totals` sont importés ; aucun autre marché n'est dérivé.
+8. Une cote n'est jamais créée pour une rencontre inconnue ni remplacée par un
+   autre bookmaker.
+9. Une donnée manuelle n'est jamais écrasée ; les conflits sont listés.
+10. Les quotas locaux et réels sont consultables ; un dépassement est refusé
+    avant l'appel.
+11. Les combinaisons enregistrées restent lisibles et inchangées.
+12. Une clé absente, un quota épuisé, une compétition non couverte ou un
+    bookmaker absent produisent un message clair, jamais une erreur non
+    maîtrisée.
+13. `ruff`, `mypy`, `pytest`, `eslint`, `tsc` et `next build` passent.
+14. La documentation est à jour : `README.md`, `docs/exploitation/api.md`,
     `docs/exploitation/environnement.md` et `.env.example`.
 
 ## Livrables
 
-- `apps/api/app/connectors/api_football/` : client, mapping, importateur,
-  erreurs.
+- `apps/api/app/connectors/` : noyau, trois adaptateurs, mapping pur, clients,
+  importateurs.
+- `apps/api/app/models/connector.py` : `ProviderRef`, `ConnectorLink`,
+  `SyncRun`, `ProviderUsage`.
 - `apps/api/app/services/connectors.py` : orchestration, aperçus, quotas,
   journal.
 - `apps/api/app/schemas/connector.py` : schémas d'entrée et de sortie.
 - `apps/api/app/api/v1/connectors.py` : routes et dépendances.
-- `apps/api/app/models/connector.py` : `SyncRun`.
-- Ajouts de colonnes sur les modèles existants et migration Alembic additive.
-- `apps/api/app/core/config.py` : paramètres API-Football, clé facultative.
+- Ajouts `data_source` et index sur les modèles existants, migration Alembic
+  additive.
+- `apps/api/app/core/config.py` : trois clés facultatives, budgets et délais.
 - `apps/web/src/app/(app)/connecteurs/page.tsx` : page complète.
-- `apps/web/src/components/` : cartes d'état, aperçu, conflits, lots, journal.
+- `apps/web/src/components/` : cartes d'état, assistant de lien, aperçu,
+  conflits, lots, cotes, journal.
 - `apps/web/src/components/app-shell.tsx` : entrée « Connecteurs ».
-- Tests moteur de mapping, client simulé, import SQLite, API et interface.
+- Tests mapping, clients simulés, import SQLite, API et interface.
 - Documentation d'exploitation et `.env.example`.
 
 ## Points soumis à validation
 
-1. **Fournisseur** : API-Football, offre gratuite, 100 requêtes/jour.
-2. **Budget** : 90 requêtes/jour maximum, lots de 10 statistiques.
-3. **Priorité au manuel** : aucune donnée saisie n'est écrasée.
-4. **Création des équipes** : proposée mais désactivable ; aucune fusion
-   automatique en cas d'ambiguïté.
-5. **Compétitions** : toujours associées ou créées sur choix explicite, jamais
-   implicitement.
-6. **Périmètre** : calendrier, résultats et statistiques uniquement ;
-   **aucune cote**.
+1. **Combinaison** : BigBallsData (calendrier, résultats, statistiques) +
+   The Odds API (cotes 1xBet) + football-data.org (repli).
+2. **Budgets** : 200 requêtes/jour BigBallsData, 400 crédits/mois The Odds API,
+   8 requêtes/minute football-data.org.
+3. **Cotes importées** : uniquement 1X2 et plus / moins ; double chance, BTTS,
+   score exact et handicap restent manuels.
+4. **Aucune substitution** : si 1xBet est absent, aucune cote n'est importée.
+5. **Priorité au manuel** : une correction manuelle n'est jamais écrasée.
+6. **Pas de planification automatique** en Phase 7 : chaque import est
+   déclenché et confirmé.
+7. **PulseScore et 5DollarFootballAPI** ne sont pas implémentés.
 
-Après validation de ce plan, l'implémentation suivra l'ordre suivant :
-migration et modèles, client et mapping testés hors réseau, importateur,
-routes API, page Connecteurs, puis vérifications complètes et documentation.
-
-## Annexe — étude d'une source de cotes 1xBet via RapidAPI
-
-> **Décision en attente.** Cette annexe documente une demande d'extension du
-> périmètre : importer aussi les cotes, et non plus seulement les rencontres et
-> statistiques. Aucune implémentation ne sera lancée avant arbitrage explicite.
-
-### Offres examinées
-
-| Offre RapidAPI | Cotes 1xBet | Pré-match | Live | Résultats | Offre gratuite | Prix au-delà |
-|---|---|---|---|---|---|---|
-| **1xBet API** (Cosmx) | Oui | Oui (`line`) | Oui (`live`) | Oui | BASIC 0 $ (quota non publié) | PRO 15 $/mois, ULTRA 50 $/mois |
-| **Sports Betting API** (bet365soft) | Oui, « powered by 1xBet » | Oui | Oui | Oui | BASIC 0 $ | non vérifié |
-| **1XBet API Live odds** | Oui | Non | Oui uniquement | Non | BASIC 0 $ | PRO 5 $/mois |
-| **Odds Feed** (tipsters) | Oui, parmi d'autres books | Oui | Oui | Oui | à confirmer | à confirmer |
-| **OddsPapi** (via RapidAPI) | Oui | Oui | Oui | Non | 250 requêtes/mois | plans payants |
-
-L'offre la plus complète est **1xBet API (Cosmx)** : sports, ligues,
-rencontres, marchés (1X2, double chance, handicap, totaux, BTTS…), résultats
-et événements live. Sa fiche indique explicitement :
-
-> « This API is an unofficial service and is not affiliated with or endorsed
-> by 1xBet. »
-
-### Avantages
-
-- Cotes **1xBet réelles**, ce qui correspond exactement au bookmaker utilisé.
-- Pré-match et live, marchés nombreux, résultats et scores.
-- Aucun identifiant ni compte 1xBet n'est nécessaire : seule une clé RapidAPI
-  est utilisée.
-- Offre gratuite pour tester ; PRO à 15 $/mois, moins cher qu'API-Football Pro.
-- Intégration possible derrière la même abstraction de connecteur que les
-  autres sources.
-
-### Risques et limites
-
-| Risque | Analyse |
-|---|---|
-| **Conformité** | Service non officiel, très probablement alimenté par scraping ou accès inverse aux flux 1xBet. Les conditions 1xBet interdisent l'usage d'outils automatisés pour interagir avec la plateforme. Le projet a une règle explicite : aucun scraping non autorisé de 1xBet. **Conflit direct.** |
-| **Stabilité** | Une API non officielle peut être retirée, bloquée ou modifiée sans préavis. Le fournisseur peut disparaître de RapidAPI. |
-| **Qualité des données** | Fraîcheur, exhaustivité et exactitude non garanties. Les identifiants de marchés et de sélections peuvent changer. |
-| **Quota gratuit** | Le quota du plan BASIC n'est pas publié sur la fiche. Les plans gratuits RapidAPI de ce type sont souvent limités à 100–500 requêtes/mois, insuffisant pour un suivi quotidien de plusieurs compétitions. À confirmer avant tout engagement. |
-| **Dépendance** | Si l'API disparaît, l'import des cotes cesse. Un mode manuel de secours reste indispensable. |
-| **Sécurité** | La clé RapidAPI doit rester côté serveur, comme toute autre clé. Aucun mot de passe 1xBet n'est stocké. |
-| **Maintenance** | Le mapping des marchés 1xBet vers le modèle interne (familles, lignes, sélections) est plus lourd qu'avec un fournisseur normalisé. Les tests devront figer des réponses réelles. |
-
-### Verdict
-
-Techniquement faisable et économiquement attractif, mais **non conforme à la
-règle actuelle du projet** et **juridiquement/techniquement risqué**. Une API
-non officielle de scraping ne peut pas être recommandée comme source
-principale sans un arbitrage explicite de votre part.
-
-### Alternatives conformes
-
-1. **The Odds API** : agrégateur établi, 1xBet inclus (`onexbet`), 500 crédits
-   gratuits par mois, conditions publiées. À combiner avec une source de
-   calendrier/résultats (`football-data.org` gratuit ou API-Football payant).
-2. **API-Football Pro** (~19 $/mois) : source unique, saison en cours, résultats,
-   statistiques et cotes 1xBet (bookmaker n°11), 7 500 requêtes/jour.
-3. **API-Football gratuit** : historique 2022-2024 uniquement, cotes
-   inexploitables (pas de saison en cours, pas d'historique de cotes
-   rétroactif), donc saisie manuelle conservée pour l'actualité.
-
-### Décision requise
-
-- **Option A** : renoncer à RapidAPI et retenir une alternative conforme.
-- **Option B** : accepter explicitement le risque et utiliser RapidAPI comme
-  source principale, avec avertissement dans l'interface, mode manuel de
-  secours et possibilité de retirer le connecteur sans perte de données.
-- **Option C** : utiliser RapidAPI uniquement en test, sans dépendance de
-  production.
-
-Tant que cette décision n'est pas prise, la Phase 7 reste au statut
-« plan proposé » et aucune ligne de code n'est ajoutée.
+Après validation, l'implémentation suivra cet ordre : migration et modèles,
+noyau `http`/`quota`/`matching` testé hors réseau, adaptateur BigBallsData,
+adaptateur The Odds API, adaptateur football-data.org, services et routes API,
+page Connecteurs, puis vérifications complètes et documentation.
