@@ -500,3 +500,78 @@ Nouvelle page **Connecteurs** dans la navigation latérale :
 Après validation de ce plan, l'implémentation suivra l'ordre suivant :
 migration et modèles, client et mapping testés hors réseau, importateur,
 routes API, page Connecteurs, puis vérifications complètes et documentation.
+
+## Annexe — étude d'une source de cotes 1xBet via RapidAPI
+
+> **Décision en attente.** Cette annexe documente une demande d'extension du
+> périmètre : importer aussi les cotes, et non plus seulement les rencontres et
+> statistiques. Aucune implémentation ne sera lancée avant arbitrage explicite.
+
+### Offres examinées
+
+| Offre RapidAPI | Cotes 1xBet | Pré-match | Live | Résultats | Offre gratuite | Prix au-delà |
+|---|---|---|---|---|---|---|
+| **1xBet API** (Cosmx) | Oui | Oui (`line`) | Oui (`live`) | Oui | BASIC 0 $ (quota non publié) | PRO 15 $/mois, ULTRA 50 $/mois |
+| **Sports Betting API** (bet365soft) | Oui, « powered by 1xBet » | Oui | Oui | Oui | BASIC 0 $ | non vérifié |
+| **1XBet API Live odds** | Oui | Non | Oui uniquement | Non | BASIC 0 $ | PRO 5 $/mois |
+| **Odds Feed** (tipsters) | Oui, parmi d'autres books | Oui | Oui | Oui | à confirmer | à confirmer |
+| **OddsPapi** (via RapidAPI) | Oui | Oui | Oui | Non | 250 requêtes/mois | plans payants |
+
+L'offre la plus complète est **1xBet API (Cosmx)** : sports, ligues,
+rencontres, marchés (1X2, double chance, handicap, totaux, BTTS…), résultats
+et événements live. Sa fiche indique explicitement :
+
+> « This API is an unofficial service and is not affiliated with or endorsed
+> by 1xBet. »
+
+### Avantages
+
+- Cotes **1xBet réelles**, ce qui correspond exactement au bookmaker utilisé.
+- Pré-match et live, marchés nombreux, résultats et scores.
+- Aucun identifiant ni compte 1xBet n'est nécessaire : seule une clé RapidAPI
+  est utilisée.
+- Offre gratuite pour tester ; PRO à 15 $/mois, moins cher qu'API-Football Pro.
+- Intégration possible derrière la même abstraction de connecteur que les
+  autres sources.
+
+### Risques et limites
+
+| Risque | Analyse |
+|---|---|
+| **Conformité** | Service non officiel, très probablement alimenté par scraping ou accès inverse aux flux 1xBet. Les conditions 1xBet interdisent l'usage d'outils automatisés pour interagir avec la plateforme. Le projet a une règle explicite : aucun scraping non autorisé de 1xBet. **Conflit direct.** |
+| **Stabilité** | Une API non officielle peut être retirée, bloquée ou modifiée sans préavis. Le fournisseur peut disparaître de RapidAPI. |
+| **Qualité des données** | Fraîcheur, exhaustivité et exactitude non garanties. Les identifiants de marchés et de sélections peuvent changer. |
+| **Quota gratuit** | Le quota du plan BASIC n'est pas publié sur la fiche. Les plans gratuits RapidAPI de ce type sont souvent limités à 100–500 requêtes/mois, insuffisant pour un suivi quotidien de plusieurs compétitions. À confirmer avant tout engagement. |
+| **Dépendance** | Si l'API disparaît, l'import des cotes cesse. Un mode manuel de secours reste indispensable. |
+| **Sécurité** | La clé RapidAPI doit rester côté serveur, comme toute autre clé. Aucun mot de passe 1xBet n'est stocké. |
+| **Maintenance** | Le mapping des marchés 1xBet vers le modèle interne (familles, lignes, sélections) est plus lourd qu'avec un fournisseur normalisé. Les tests devront figer des réponses réelles. |
+
+### Verdict
+
+Techniquement faisable et économiquement attractif, mais **non conforme à la
+règle actuelle du projet** et **juridiquement/techniquement risqué**. Une API
+non officielle de scraping ne peut pas être recommandée comme source
+principale sans un arbitrage explicite de votre part.
+
+### Alternatives conformes
+
+1. **The Odds API** : agrégateur établi, 1xBet inclus (`onexbet`), 500 crédits
+   gratuits par mois, conditions publiées. À combiner avec une source de
+   calendrier/résultats (`football-data.org` gratuit ou API-Football payant).
+2. **API-Football Pro** (~19 $/mois) : source unique, saison en cours, résultats,
+   statistiques et cotes 1xBet (bookmaker n°11), 7 500 requêtes/jour.
+3. **API-Football gratuit** : historique 2022-2024 uniquement, cotes
+   inexploitables (pas de saison en cours, pas d'historique de cotes
+   rétroactif), donc saisie manuelle conservée pour l'actualité.
+
+### Décision requise
+
+- **Option A** : renoncer à RapidAPI et retenir une alternative conforme.
+- **Option B** : accepter explicitement le risque et utiliser RapidAPI comme
+  source principale, avec avertissement dans l'interface, mode manuel de
+  secours et possibilité de retirer le connecteur sans perte de données.
+- **Option C** : utiliser RapidAPI uniquement en test, sans dépendance de
+  production.
+
+Tant que cette décision n'est pas prise, la Phase 7 reste au statut
+« plan proposé » et aucune ligne de code n'est ajoutée.
