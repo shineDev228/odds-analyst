@@ -19,7 +19,7 @@ Application web personnelle d'analyse statistique sportive.
 | 3 — Moteur statistique v1 | ✅ Terminée |
 | 4 — Générateur de combinaisons | ✅ Terminée |
 | 5 — Historique et performance | ✅ Terminée |
-| 6 — Moteur statistique v2 | 🟡 Plan proposé — à valider |
+| 6 — Moteur statistique v2 | ✅ Terminée |
 | 7 — Connecteurs de données | ⬜ À venir |
 | 8 — Durcissement et documentation | ⬜ À venir |
 
@@ -104,23 +104,36 @@ powershell -ExecutionPolicy Bypass -File infra/scripts/dev.ps1
   résultat net et ROI. Les cotes enregistrées sont figées ; le statut est
   recalculé à partir du score actuel. Aucun montant en argent, aucune
   recommandation de mise.
+- **Calibration** : rétro-test honnête des prévisions 1X2 passées, avec score de
+  Brier, log loss, précision, compétence par rapport aux fréquences de base,
+  erreur de calibration (ECE) et tableau de fiabilité par tranches. Chaque
+  rencontre est pronostiquée avec l'historique strictement antérieur à son coup
+  d'envoi ; les rencontres non évaluables sont exclues et comptées.
 - **Tableau de bord** : indicateurs et prochaines rencontres.
 - **Paramètres** : fourchette de cotes 50–100, nombre de sélections, marchés
   autorisés, demi-vie de pondération.
 
-### Modèle statistique v1
+### Modèle statistique v2
 
 Le moteur (`apps/api/engine/`) estime des forces d'attaque et de défense à
-partir des buts marqués et encaissés, avec pondération temporelle (demi-vie),
-régularisation vers la moyenne et avantage du terrain. Les scores suivent une
-loi de Poisson bivariée corrigée par Dixon-Coles. Les buts attendus, les
-probabilités et leurs fourchettes sont calculés sans appel réseau ni accès à la
-base : le service se contente de fournir l'historique.
+partir des buts marqués et encaissés, complétés par le **xG saisi** ou, à
+défaut, par un **proxy fondé sur les tirs cadrés** (`0,30 × tirs cadrés`,
+plafonné à 4,0). Sans statistique, la rencontre utilise les buts réels : aucune
+valeur n'est inventée. La couverture statistique est affichée par équipe et un
+avertissement apparaît sous 50 %.
 
-Le modèle v1 reste volontairement simple : il n'utilise ni xG, ni compositions,
-ni blessures, ni enjeu sportif, et ne couvre que le football. Il exige au moins
-**3 matchs terminés par équipe** avant le coup d'envoi ; sinon l'API répond
-`409` avec un message explicite plutôt que d'inventer une probabilité.
+Les scores suivent une loi de Poisson bivariée corrigée par Dixon-Coles, dont
+le paramètre `rho` est désormais **estimé puis rétréci vers un prior** pour
+protéger les petits échantillons. La pondération temporelle (demi-vie), la
+régularisation vers la moyenne et l'avantage du terrain restent en place. Les
+calculs se font sans appel réseau ni accès à la base.
+
+Le modèle reste volontairement explicable : il n'utilise ni compositions, ni
+blessures, ni enjeu sportif, et ne couvre que le football. Ces éléments, ainsi
+que la force du championnat, sont reportés à la Phase 7 faute de source fiable
+en saisie manuelle. Le moteur exige toujours au moins **3 matchs terminés par
+équipe** avant le coup d'envoi ; sinon l'API répond `409` avec un message
+explicite plutôt que d'inventer une probabilité.
 
 ---
 
@@ -149,7 +162,7 @@ Cette contrainte garantit la fiabilité et la reproductibilité des calculs.
 ## Tests et qualité
 
 ```powershell
-# API et moteur (94 tests)
+# API et moteur (172 tests)
 uv run pytest
 
 # Analyse statique du code Python

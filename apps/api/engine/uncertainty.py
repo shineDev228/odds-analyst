@@ -64,12 +64,14 @@ def simulate_markets(
     *,
     simulations: int | None = None,
     seed: int | None = None,
+    rho: float | None = None,
 ) -> SimulatedMarkets:
     """Simule les probabilités et retourne leurs percentiles 10-90."""
     draws = simulations if simulations is not None else config.simulations
     if draws < 1:
         raise ValueError("Le nombre de simulations doit être positif.")
 
+    correlation = ratings.dixon_coles_rho if rho is None else rho
     rng = np.random.default_rng(config.random_seed if seed is None else seed)
 
     home = np.empty(draws)
@@ -93,7 +95,7 @@ def simulate_markets(
             float(home_lambda),
             float(away_lambda),
             max_goals=config.max_goals,
-            rho=config.dixon_coles_rho,
+            rho=correlation,
         ).probabilities
 
         home[index] = np.tril(matrix, -1).sum()

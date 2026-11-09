@@ -222,6 +222,20 @@ export interface QualitePrediction {
   warnings: string[];
 }
 
+export interface SourcePrediction {
+  matches: number;
+  xg_matches: number;
+  proxy_matches: number;
+  goals_only_matches: number;
+  xg_coverage: number;
+  method: string;
+}
+
+export interface SourcesPrediction {
+  home: SourcePrediction;
+  away: SourcePrediction;
+}
+
 export interface Prediction {
   match_id: string;
   model_version: string;
@@ -230,12 +244,47 @@ export interface Prediction {
   expected_goals_away: number;
   expected_goals_total: number;
   quality: QualitePrediction;
+  sources: SourcesPrediction;
   resultat: SelectionPrediction[];
   double_chance: SelectionPrediction[];
   totaux: TotalPrediction[];
   btts: SelectionPrediction[];
   scores_exacts: ScoreExactPrediction[];
   config: Record<string, number | string>;
+  avertissement: string;
+}
+
+export interface TrancheCalibration {
+  low: number;
+  high: number;
+  count: number;
+  mean_predicted: number;
+  observed: number;
+  wilson_low: number;
+  wilson_high: number;
+}
+
+export interface Calibration {
+  model_version: string;
+  generated_at: string;
+  limit: number;
+  matches_evaluated: number;
+  matches_excluded: number;
+  period_start: string | null;
+  period_end: string | null;
+  home_wins: number;
+  draws: number;
+  away_wins: number;
+  brier: number | null;
+  log_loss: number | null;
+  accuracy: number | null;
+  baseline_brier: number | null;
+  baseline_log_loss: number | null;
+  brier_skill: number | null;
+  ece: number | null;
+  mean_xg_coverage: number | null;
+  bins: TrancheCalibration[];
+  message: string;
   avertissement: string;
 }
 

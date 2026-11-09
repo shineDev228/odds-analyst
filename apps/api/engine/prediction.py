@@ -1,7 +1,11 @@
-"""Orchestration pure de la prédiction football v1.
+"""Orchestration pure de la prédiction football v2.
 
 Ce module relie les briques du moteur : forces, matrice de scores, marchés et
 incertitude. Il ne connaît ni la base de données ni l'API.
+
+La prédiction ponctuelle est séparée des intervalles Monte Carlo : le
+rétro-test de calibration peut ainsi calculer rapidement des probabilités sans
+simulation.
 """
 
 from collections.abc import Sequence
@@ -18,7 +22,7 @@ from engine.ratings import (
 )
 from engine.uncertainty import Interval, SimulatedMarkets, simulate_markets
 
-MODEL_VERSION = "football-poisson-v1"
+MODEL_VERSION = "football-poisson-v2"
 
 
 @dataclass(frozen=True)
@@ -57,6 +61,19 @@ class QualityAssessment:
     effective_matches: float
     matches_home: int
     matches_away: int
+    xg_matches_home: int
+    xg_matches_away: int
+    xg_coverage_home: float
+    xg_coverage_away: float
+
+
+@dataclass(frozen=True)
+class PointPrediction:
+    """Probabilités sans intervalles, utilisées notamment pour la calibration."""
+
+    ratings: Ratings
+    markets: MarketProbabilities
+    quality: QualityAssessment
 
 
 @dataclass(frozen=True)
@@ -96,6 +113,10 @@ def assess_quality(ratings: Ratings) -> QualityAssessment:
         effective_matches=effective,
         matches_home=ratings.home.matches,
         matches_away=ratings.away.matches,
+        xg_matches_home=ratings.home.xg_matches,
+        xg_matches_away=ratings.away.xg_matches,
+        xg_coverage_home=ratings.home.xg_coverage,
+        xg_coverage_away=ratings.away.xg_coverage,
     )
 
 
@@ -111,7 +132,7 @@ def _estimate(code: str, probability: float, interval: Interval) -> Estimate:
     return Estimate(code=code, probability=point, low=low, high=high)
 
 
-def predict_football(
+def predict_point_football(
     matches: Sequence[HistoricalMatch],
     *,
     league_matches: Sequence[HistoricalMatch] | None,
@@ -119,8 +140,8 @@ def predict_football(
     away_team_id: str,
     as_of: datetime,
     config: RatingConfig | None = None,
-) -> FootballPrediction:
-    """Produit la prédiction complète pour une rencontre de football."""
+) -> PointPrediction:
+    """Produit les probabilités ponctuelles, sans simulation d'incertitude."""
     config = config or RatingConfig()
     reference = as_of if as_of.tzinfo is not None else as_of.replace(tzinfo=UTC)
 
@@ -137,13 +158,45 @@ def predict_football(
         ratings.home_lambda,
         ratings.away_lambda,
         max_goals=config.max_goals,
-        rho=config.dixon_coles_rho,
+        rho=ratings.dixon_coles_rho,
     )
     markets = derive_probabilities(
         matrix.probabilities,
         totals_lines=config.totals_lines,
     )
-    intervals = simulate_markets(ratings, config)
+    return PointPrediction(
+        ratings=ratings,
+        markets=markets,
+        quality=assess_quality(ratings),
+    )
+
+
+def predict_football(
+    matches: Sequence[HistoricalMatch],
+    *,
+    league_matches: Sequence[HistoricalMatch] | None,
+    home_team_id: str,
+    away_team_id: str,
+    as_of: datetime,
+    config: RatingConfig | None = None,
+) -> FootballPrediction:
+    """Produit la prédiction complète, avec fourchettes d'incertitude."""
+    config = config or RatingConfig()
+    point = predict_point_football(
+        matches,
+        league_matches=league_matches,
+        home_team_id=home_team_id,
+        away_team_id=away_team_id,
+        as_of=as_of,
+        config=config,
+    )
+    ratings = point.ratings
+    markets = point.markets
+    intervals = simulate_markets(
+        ratings,
+        config,
+        rho=ratings.dixon_coles_rho,
+    )
 
     resultat = (
         _estimate("1", markets.home_win, intervals.home_win),
@@ -187,6 +240,6 @@ def predict_football(
         totaux=totaux,
         btts=btts,
         scores_exacts=scores_exacts,
-        quality=assess_quality(ratings),
+        quality=point.quality,
         config=config,
     )

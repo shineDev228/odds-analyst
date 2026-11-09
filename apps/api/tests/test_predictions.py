@@ -60,14 +60,18 @@ def _seed_history(
     count: int = 6,
     home_goals: int = 2,
     away_goals: int = 1,
-) -> None:
+) -> list[tuple[str, str, str]]:
     home, away = teams
+    created: list[tuple[str, str, str]] = []
     for index in range(count):
         kickoff = TARGET_KICKOFF - timedelta(days=7 * (index + 1))
         if index % 2 == 0:
-            _add_result(client, season_id, home, away, kickoff, home_goals, away_goals)
+            match_id = _add_result(client, season_id, home, away, kickoff, home_goals, away_goals)
+            created.append((match_id, home, away))
         else:
-            _add_result(client, season_id, away, home, kickoff, away_goals, home_goals)
+            match_id = _add_result(client, season_id, away, home, kickoff, away_goals, home_goals)
+            created.append((match_id, away, home))
+    return created
 
 
 def test_prediction_requires_authentication(guest: TestClient) -> None:
@@ -98,7 +102,7 @@ def test_prediction_returns_coherent_probabilities(
     assert response.status_code == 200, response.text
     data = response.json()
 
-    assert data["model_version"] == "football-poisson-v1"
+    assert data["model_version"] == "football-poisson-v2"
     assert data["expected_goals_home"] > 0
     assert data["expected_goals_away"] > 0
     assert data["expected_goals_total"] == pytest.approx(
@@ -120,7 +124,13 @@ def test_prediction_returns_coherent_probabilities(
     assert data["quality"]["label"]
     assert data["quality"]["matches_home"] == 8
     assert data["quality"]["matches_away"] == 8
-    assert any("Modèle v1" in warning for warning in data["quality"]["warnings"])
+    assert data["sources"]["home"]["matches"] == 8
+    assert data["sources"]["home"]["method"] == "buts"
+    assert data["sources"]["home"]["xg_coverage"] == 0.0
+    assert data["sources"]["home"]["goals_only_matches"] == 8
+    assert -0.20 <= data["config"]["dixon_coles_rho"] <= 0.15
+    assert data["config"]["xg_weight"] == pytest.approx(0.5)
+    assert any("Modèle v2" in warning for warning in data["quality"]["warnings"])
     assert "aucun résultat" in data["avertissement"]
 
 
@@ -179,3 +189,46 @@ def test_prediction_applies_preferences(
 def test_prediction_unknown_match_returns_404(auth_client: TestClient) -> None:
     response = auth_client.get("/api/v1/matches/00000000-0000-0000-0000-000000000000/prediction")
     assert response.status_code == 404
+
+
+def _set_expected_goals(
+    client: TestClient,
+    match_id: str,
+    home_team_id: str,
+    away_team_id: str,
+    home_xg: float,
+    away_xg: float,
+) -> None:
+    response = client.put(
+        f"/api/v1/matches/{match_id}/stats",
+        json=[
+            {"team_id": home_team_id, "is_home": True, "expected_goals": home_xg},
+            {"team_id": away_team_id, "is_home": False, "expected_goals": away_xg},
+        ],
+    )
+    assert response.status_code == 200, response.text
+
+
+def test_prediction_uses_entered_xg(
+    auth_client: TestClient, season_id: str, teams: tuple[str, str]
+) -> None:
+    home, away = teams
+    target = _create_match(auth_client, season_id, home, away, TARGET_KICKOFF)
+    history = _seed_history(auth_client, season_id, teams, count=8)
+
+    baseline = auth_client.get(f"/api/v1/matches/{target}/prediction").json()
+    assert baseline["sources"]["home"]["method"] == "buts"
+
+    for match_id, home_team_id, away_team_id in history:
+        if home_team_id == home:
+            home_xg, away_xg = 3.0, 0.4
+        else:
+            home_xg, away_xg = 0.4, 3.0
+        _set_expected_goals(auth_client, match_id, home_team_id, away_team_id, home_xg, away_xg)
+
+    enriched = auth_client.get(f"/api/v1/matches/{target}/prediction").json()
+    assert enriched["sources"]["home"]["xg_matches"] == 8
+    assert enriched["sources"]["home"]["method"] == "xg"
+    assert enriched["sources"]["home"]["xg_coverage"] == pytest.approx(1.0)
+    assert enriched["expected_goals_home"] != baseline["expected_goals_home"]
+    assert enriched["model_version"] == "football-poisson-v2"

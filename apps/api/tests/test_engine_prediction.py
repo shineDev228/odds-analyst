@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from engine.markets.football import derive_probabilities
 from engine.models.poisson import score_matrix
-from engine.prediction import MODEL_VERSION, predict_football
+from engine.prediction import MODEL_VERSION, predict_football, predict_point_football
 from engine.ratings import (
     HistoricalMatch,
     InsufficientDataError,
@@ -161,7 +161,7 @@ def test_insufficient_history_raises() -> None:
 def test_prediction_probabilities_and_intervals_are_ordered() -> None:
     prediction = _prediction(_history(count=10))
     assert prediction.config is CONFIG
-    assert MODEL_VERSION == "football-poisson-v1"
+    assert MODEL_VERSION == "football-poisson-v2"
     assert prediction.expected_goals_home > 0
     assert prediction.expected_goals_away > 0
     assert sum(item.probability for item in prediction.resultat) == pytest.approx(1.0)
@@ -197,3 +197,219 @@ def test_quality_level_depends_on_effective_sample() -> None:
     assert small.quality.level in {"tres_faible", "faible"}
     assert large.quality.level in {"moyenne", "correcte", "bonne"}
     assert large.quality.effective_matches > small.quality.effective_matches
+
+
+def _history_with_statistics(
+    *,
+    team: str = "A",
+    opponent: str = "B",
+    goals: int = 1,
+    count: int = 10,
+    xg: float | None = None,
+    shots_on_target: int | None = None,
+) -> list[HistoricalMatch]:
+    """Historique où l'équipe `team` affiche la même statistique à chaque match."""
+    matches: list[HistoricalMatch] = []
+    for index in range(count):
+        days_ago = index * 7 + 1
+        home_expected = xg
+        away_expected = float(goals) if xg is not None else None
+        home_shots = shots_on_target
+        away_shots = goals if shots_on_target is not None else None
+        if index % 2 == 0:
+            matches.append(
+                HistoricalMatch(
+                    home_team_id=team,
+                    away_team_id=opponent,
+                    home_goals=goals,
+                    away_goals=goals,
+                    played_at=AS_OF - timedelta(days=days_ago),
+                    home_expected_goals=home_expected,
+                    away_expected_goals=away_expected,
+                    home_shots_on_target=home_shots,
+                    away_shots_on_target=away_shots,
+                )
+            )
+        else:
+            matches.append(
+                HistoricalMatch(
+                    home_team_id=opponent,
+                    away_team_id=team,
+                    home_goals=goals,
+                    away_goals=goals,
+                    played_at=AS_OF - timedelta(days=days_ago),
+                    home_expected_goals=away_expected,
+                    away_expected_goals=home_expected,
+                    home_shots_on_target=away_shots,
+                    away_shots_on_target=home_shots,
+                )
+            )
+    return matches
+
+
+def test_xg_improves_attack_when_goals_underperform() -> None:
+    goals_only = estimate_ratings(
+        _history(goals_a=1, goals_b=1, count=10),
+        home_team_id="A",
+        away_team_id="B",
+        as_of=AS_OF,
+        config=CONFIG,
+    )
+    with_xg = estimate_ratings(
+        _history_with_statistics(xg=2.5, count=10),
+        home_team_id="A",
+        away_team_id="B",
+        as_of=AS_OF,
+        config=CONFIG,
+    )
+    assert with_xg.home.attack > goals_only.home.attack
+    assert with_xg.home_lambda > goals_only.home_lambda
+    assert with_xg.home.xg_matches == 10
+    assert with_xg.home.xg_coverage == pytest.approx(1.0)
+
+
+def test_shots_on_target_provide_proxy_when_xg_missing() -> None:
+    goals_only = estimate_ratings(
+        _history(goals_a=1, goals_b=1, count=10),
+        home_team_id="A",
+        away_team_id="B",
+        as_of=AS_OF,
+        config=CONFIG,
+    )
+    with_proxy = estimate_ratings(
+        _history_with_statistics(shots_on_target=8, count=10),
+        home_team_id="A",
+        away_team_id="B",
+        as_of=AS_OF,
+        config=CONFIG,
+    )
+    assert with_proxy.home.attack > goals_only.home.attack
+    assert with_proxy.home.proxy_matches == 10
+    assert with_proxy.home.statistics_method == "proxy"
+    assert with_proxy.home.xg_coverage == pytest.approx(1.0)
+
+
+def test_proxy_is_capped_at_four_expected_goals() -> None:
+    capped = estimate_ratings(
+        _history_with_statistics(shots_on_target=14, count=10),
+        home_team_id="A",
+        away_team_id="B",
+        as_of=AS_OF,
+        config=CONFIG,
+    )
+    excessive = estimate_ratings(
+        _history_with_statistics(shots_on_target=30, count=10),
+        home_team_id="A",
+        away_team_id="B",
+        as_of=AS_OF,
+        config=CONFIG,
+    )
+    assert capped.home.attack == pytest.approx(excessive.home.attack)
+    assert capped.home_lambda == pytest.approx(excessive.home_lambda)
+
+
+def test_missing_statistics_fall_back_exactly_to_goals() -> None:
+    without = estimate_ratings(
+        _history(goals_a=1, goals_b=1, count=10),
+        home_team_id="A",
+        away_team_id="B",
+        as_of=AS_OF,
+        config=CONFIG,
+    )
+    neutral_xg = estimate_ratings(
+        _history_with_statistics(xg=None, count=10),
+        home_team_id="A",
+        away_team_id="B",
+        as_of=AS_OF,
+        config=CONFIG,
+    )
+    assert without.home.attack == pytest.approx(neutral_xg.home.attack)
+    assert without.home_lambda == pytest.approx(neutral_xg.home_lambda)
+    assert without.home.xg_coverage == 0.0
+    assert without.home.statistics_method == "buts"
+    assert without.home.goals_only_matches == 10
+
+
+def test_xg_equal_to_goals_changes_nothing() -> None:
+    without = estimate_ratings(
+        _history(goals_a=1, goals_b=1, count=10),
+        home_team_id="A",
+        away_team_id="B",
+        as_of=AS_OF,
+        config=CONFIG,
+    )
+    identity = estimate_ratings(
+        _history_with_statistics(xg=1.0, count=10),
+        home_team_id="A",
+        away_team_id="B",
+        as_of=AS_OF,
+        config=CONFIG,
+    )
+    assert without.home.attack == pytest.approx(identity.home.attack)
+    assert without.home.defense == pytest.approx(identity.home.defense)
+    assert without.home_lambda == pytest.approx(identity.home_lambda)
+    assert identity.home.xg_matches == 10
+
+
+def test_mixed_statistics_expose_coverage_and_method() -> None:
+    matches: list[HistoricalMatch] = []
+    for index in range(10):
+        days_ago = index * 7 + 1
+        if index < 5:
+            home_expected: float | None = 1.5
+            away_expected: float | None = 1.0
+            home_shots: int | None = None
+            away_shots: int | None = None
+        else:
+            home_expected = None
+            away_expected = None
+            home_shots = 5
+            away_shots = 3
+        matches.append(
+            HistoricalMatch(
+                home_team_id="A",
+                away_team_id="B",
+                home_goals=1,
+                away_goals=1,
+                played_at=AS_OF - timedelta(days=days_ago),
+                home_expected_goals=home_expected,
+                away_expected_goals=away_expected,
+                home_shots_on_target=home_shots,
+                away_shots_on_target=away_shots,
+            )
+        )
+
+    ratings = estimate_ratings(
+        matches,
+        home_team_id="A",
+        away_team_id="B",
+        as_of=AS_OF,
+        config=CONFIG,
+    )
+    assert ratings.home.xg_matches == 5
+    assert ratings.home.proxy_matches == 5
+    assert ratings.home.statistics_method == "xg_et_proxy"
+    assert 0.0 < ratings.home.xg_coverage <= 1.0
+
+
+def test_point_prediction_skips_simulations_but_keeps_markets() -> None:
+    point = predict_point_football(
+        _history(count=10),
+        league_matches=_history(count=10),
+        home_team_id="A",
+        away_team_id="B",
+        as_of=AS_OF,
+        config=CONFIG,
+    )
+    assert point.markets.home_win + point.markets.draw + point.markets.away_win == (
+        pytest.approx(1.0)
+    )
+    assert point.ratings.dixon_coles_rho == pytest.approx(point.ratings.rho_estimate.value)
+    assert point.quality.matches_home == 10
+
+
+def test_estimated_rho_is_bounded_and_deterministic() -> None:
+    first = _prediction(_history(count=12))
+    second = _prediction(_history(count=12))
+    assert -0.20 <= first.ratings.dixon_coles_rho <= 0.15
+    assert first.ratings.dixon_coles_rho == second.ratings.dixon_coles_rho

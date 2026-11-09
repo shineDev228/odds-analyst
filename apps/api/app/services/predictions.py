@@ -13,6 +13,7 @@ from engine.ratings import (
     HistoricalMatch,
     InsufficientDataError,
     RatingConfig,
+    TeamRating,
 )
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
@@ -25,6 +26,8 @@ from app.schemas.prediction import (
     PredictionRead,
     PredictionScoreline,
     PredictionSelection,
+    PredictionSource,
+    PredictionSources,
     PredictionTotal,
 )
 from app.services.preferences import get_preferences
@@ -78,7 +81,7 @@ def _team_history(
     return list(
         db.scalars(
             select(Match)
-            .options(selectinload(Match.season))
+            .options(selectinload(Match.season), selectinload(Match.stats))
             .where(
                 Match.status == MatchStatus.TERMINE,
                 Match.home_score.is_not(None),
@@ -97,6 +100,7 @@ def _league_history(db: Session, sport_id: UUID, before: datetime, limit: int = 
     return list(
         db.scalars(
             select(Match)
+            .options(selectinload(Match.stats))
             .where(
                 Match.status == MatchStatus.TERMINE,
                 Match.home_score.is_not(None),
@@ -110,13 +114,26 @@ def _league_history(db: Session, sport_id: UUID, before: datetime, limit: int = 
     )
 
 
-def _to_historical(match: Match) -> HistoricalMatch:
+def _stats_for(match: Match, team_id: UUID):
+    for stats in match.stats:
+        if stats.team_id == team_id:
+            return stats
+    return None
+
+
+def to_historical(match: Match) -> HistoricalMatch:
+    home_stats = _stats_for(match, match.home_team_id)
+    away_stats = _stats_for(match, match.away_team_id)
     return HistoricalMatch(
         home_team_id=str(match.home_team_id),
         away_team_id=str(match.away_team_id),
         home_goals=int(match.home_score or 0),
         away_goals=int(match.away_score or 0),
         played_at=as_utc(match.kickoff_at),
+        home_expected_goals=home_stats.expected_goals if home_stats else None,
+        away_expected_goals=away_stats.expected_goals if away_stats else None,
+        home_shots_on_target=home_stats.shots_on_target if home_stats else None,
+        away_shots_on_target=away_stats.shots_on_target if away_stats else None,
     )
 
 
@@ -168,11 +185,38 @@ def _warnings(
             "peuvent différer."
         )
 
+    for rating, name in (
+        (prediction.ratings.home, home_name),
+        (prediction.ratings.away, away_name),
+    ):
+        coverage = rating.xg_coverage
+        percentage = f"{coverage * 100:.0f}".replace(".", ",")
+        if coverage <= 0.0:
+            warnings.append(
+                f"{name} : aucune statistique xG ni tir cadré ; estimation fondée sur les buts."
+            )
+        elif coverage < 0.5:
+            warnings.append(
+                f"{name} : xG ou tirs cadrés disponibles sur {percentage} % des matchs "
+                "pondérés ; le modèle s'appuie surtout sur les buts."
+            )
+
     warnings.append(
-        "Modèle v1 fondé uniquement sur les buts marqués et encaissés : il ignore les "
-        "xG, les blessures, les compositions et l'enjeu du match."
+        "Modèle v2 : résultats complétés par le xG saisi ou, à défaut, par un proxy de "
+        "tirs cadrés. Il ignore encore les compositions, les blessures et l'enjeu du match."
     )
     return warnings
+
+
+def _source(rating: TeamRating) -> PredictionSource:
+    return PredictionSource(
+        matches=rating.matches,
+        xg_matches=rating.xg_matches,
+        proxy_matches=rating.proxy_matches,
+        goals_only_matches=rating.goals_only_matches,
+        xg_coverage=rating.xg_coverage,
+        method=rating.statistics_method,
+    )
 
 
 def build_prediction(db: Session, match_id: UUID) -> PredictionRead:
@@ -201,8 +245,8 @@ def build_prediction(db: Session, match_id: UUID) -> PredictionRead:
 
     try:
         prediction = predict_football(
-            [_to_historical(item) for item in history],
-            league_matches=[_to_historical(item) for item in league],
+            [to_historical(item) for item in history],
+            league_matches=[to_historical(item) for item in league],
             home_team_id=str(match.home_team_id),
             away_team_id=str(match.away_team_id),
             as_of=before,
@@ -213,7 +257,7 @@ def build_prediction(db: Session, match_id: UUID) -> PredictionRead:
             "Historique insuffisant : "
             f"{match.home_team.name} compte {exc.home_matches} match(s) terminé(s), "
             f"{match.away_team.name} en compte {exc.away_matches}. "
-            f"Le modèle v1 exige au moins {exc.required} matchs terminés par équipe "
+            f"Le modèle v2 exige au moins {exc.required} matchs terminés par équipe "
             "avant cette rencontre."
         ) from exc
 
@@ -253,6 +297,10 @@ def build_prediction(db: Session, match_id: UUID) -> PredictionRead:
                 computed_at,
             ),
         ),
+        sources=PredictionSources(
+            home=_source(prediction.ratings.home),
+            away=_source(prediction.ratings.away),
+        ),
         resultat=[
             _selection(item, labels.get(item.code, item.code)) for item in prediction.resultat
         ],
@@ -283,7 +331,9 @@ def build_prediction(db: Session, match_id: UUID) -> PredictionRead:
             "nb_matchs_historique": config.max_matches_per_team,
             "simulations": config.simulations,
             "max_goals": config.max_goals,
-            "dixon_coles_rho": config.dixon_coles_rho,
+            "dixon_coles_rho": prediction.ratings.dixon_coles_rho,
+            "rho_prior": config.dixon_coles_rho,
+            "xg_weight": config.xg_weight,
             "version": MODEL_VERSION,
         },
         avertissement=AVERTISSEMENT,

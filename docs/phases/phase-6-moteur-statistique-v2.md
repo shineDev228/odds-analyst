@@ -1,6 +1,6 @@
 # Phase 6 — Moteur statistique v2
 
-> **Statut : proposition — en attente de validation.** Intégration des
+> **Statut : implémentée — en attente de validation.** Intégration des
 > statistiques de tirs et de xG, estimation régularisée du paramètre
 > Dixon-Coles et mesure rétrospective de la calibration du modèle.
 

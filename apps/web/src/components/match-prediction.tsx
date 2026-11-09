@@ -12,7 +12,7 @@ import {
 } from "@/components/ui";
 import { ApiError, apiFetch, messageErreur } from "@/lib/api";
 import { formatDateHeure } from "@/lib/format";
-import type { Prediction, SelectionPrediction } from "@/lib/types";
+import type { Prediction, SelectionPrediction, SourcePrediction } from "@/lib/types";
 
 function pourcent(valeur: number, decimales = 0): string {
   return `${(valeur * 100).toLocaleString("fr-FR", {
@@ -77,6 +77,31 @@ function CarteSelection({
   );
 }
 
+const methodesSource: Record<string, string> = {
+  xg: "xG saisi",
+  proxy: "proxy tirs cadrés",
+  xg_et_proxy: "xG et proxy",
+  buts: "buts uniquement",
+};
+
+function CarteSource({ nom, source }: { nom: string; source: SourcePrediction }) {
+  return (
+    <div className="rounded-lg border border-bordure bg-fond px-3 py-2 text-[11px] text-texte-doux">
+      <p className="font-medium text-texte">{nom}</p>
+      <p className="mt-1">
+        {methodesSource[source.method] ?? source.method} · {source.matches} matchs
+      </p>
+      <p className="text-texte-faible">
+        xG {source.xg_matches} · proxy {source.proxy_matches} · buts seuls{" "}
+        {source.goals_only_matches}
+      </p>
+      <p className="text-texte-faible">
+        Couverture xG / tirs cadrés : {pourcent(source.xg_coverage)}
+      </p>
+    </div>
+  );
+}
+
 export function PanneauPrediction({
   matchId,
   equipeDomicile,
@@ -116,8 +141,8 @@ export function PanneauPrediction({
 
   return (
     <Panneau
-      titre="Analyse statistique (modèle v1)"
-      description="Probabilités estimées à partir des résultats passés. Chaque valeur est une estimation, jamais une certitude : la fourchette indique l'incertitude du modèle."
+      titre="Analyse statistique (modèle v2)"
+      description="Probabilités estimées à partir des résultats passés, complétés par le xG ou les tirs cadrés lorsqu'ils sont saisis. Chaque valeur est une estimation, jamais une certitude : la fourchette indique l'incertitude du modèle."
       action={
         <Bouton variante="secondaire" onClick={() => void charger()} disabled={chargement}>
           {chargement ? "Calcul…" : "Actualiser"}
@@ -171,6 +196,25 @@ export function PanneauPrediction({
                 </ul>
               </Alerte>
             ) : null}
+
+            <section>
+              <h3 className="text-xs font-semibold text-texte">Sources statistiques</h3>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <CarteSource nom={equipeDomicile} source={prediction.sources.home} />
+                <CarteSource nom={equipeExterieur} source={prediction.sources.away} />
+              </div>
+              <p className="mt-2 text-[11px] text-texte-faible">
+                Correction Dixon-Coles estimée :{" "}
+                <span className="font-mono">
+                  {Number(prediction.config.dixon_coles_rho).toLocaleString("fr-FR", {
+                    minimumFractionDigits: 3,
+                    maximumFractionDigits: 3,
+                  })}
+                </span>
+                {" · "}poids du xG :{" "}
+                {pourcent(Number(prediction.config.xg_weight))}
+              </p>
+            </section>
 
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-xl border border-bordure bg-fond p-4">

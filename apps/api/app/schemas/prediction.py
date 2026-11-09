@@ -20,6 +20,24 @@ class PredictionSelection(BaseModel):
     high: float = Field(ge=0.0, le=1.0)
 
 
+class PredictionSource(BaseModel):
+    """Sources statistiques utilisées pour une équipe."""
+
+    matches: int = Field(ge=0)
+    xg_matches: int = Field(ge=0)
+    proxy_matches: int = Field(ge=0)
+    goals_only_matches: int = Field(ge=0)
+    xg_coverage: float = Field(ge=0.0, le=1.0)
+    method: str
+
+
+class PredictionSources(BaseModel):
+    """Sources statistiques des deux équipes."""
+
+    home: PredictionSource
+    away: PredictionSource
+
+
 class PredictionTotal(BaseModel):
     """Marché plus / moins pour une ligne de buts."""
 
@@ -59,6 +77,7 @@ class PredictionRead(BaseModel):
     expected_goals_away: float = Field(gt=0.0)
     expected_goals_total: float = Field(gt=0.0)
     quality: PredictionQuality
+    sources: PredictionSources
     resultat: list[PredictionSelection]
     double_chance: list[PredictionSelection]
     totaux: list[PredictionTotal]
