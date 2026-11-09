@@ -18,7 +18,7 @@ Application web personnelle d'analyse statistique sportive.
 | 2 — Marchés et cotes | ✅ Terminée |
 | 3 — Moteur statistique v1 | ✅ Terminée |
 | 4 — Générateur de combinaisons | ✅ Terminée |
-| 5 — Historique et performance | ⬜ À venir |
+| 5 — Historique et performance | 🟡 Implémentée — à valider |
 | 6 — Moteur statistique v2 | ⬜ À venir |
 | 7 — Connecteurs de données | ⬜ À venir |
 | 8 — Durcissement et documentation | ⬜ À venir |
@@ -96,7 +96,14 @@ powershell -ExecutionPolicy Bypass -File infra/scripts/dev.ps1
   dans la fourchette visée. Chaque résultat affiche la cote totale, la
   probabilité estimée, la fourchette à 80 % et l'espérance estimée. Les
   rencontres sans cote récente ou sans historique suffisant sont ignorées et
-  comptées. Aucune combinaison n'est enregistrée ni présentée comme certaine.
+  comptées. Aucune combinaison n'est présentée comme certaine.
+- **Historique et performance** : enregistrement d'une combinaison générée avec
+  ses cotes et ses estimations, règlement automatique des sélections (1X2,
+  double chance, plus / moins), suivi des statuts (en attente, gagnée, perdue,
+  remboursée, indisponible) et synthèse en unités de mise : taux de réussite,
+  résultat net et ROI. Les cotes enregistrées sont figées ; le statut est
+  recalculé à partir du score actuel. Aucun montant en argent, aucune
+  recommandation de mise.
 - **Tableau de bord** : indicateurs et prochaines rencontres.
 - **Paramètres** : fourchette de cotes 50–100, nombre de sélections, marchés
   autorisés, demi-vie de pondération.

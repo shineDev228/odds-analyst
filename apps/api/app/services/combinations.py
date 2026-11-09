@@ -80,7 +80,7 @@ def _market_is_eligible(market: Market, families: set[str]) -> bool:
     )
 
 
-def _model_selection(
+def model_selection(
     market: Market,
     selection: Selection,
     prediction: PredictionRead,
@@ -153,7 +153,7 @@ def _candidates_for_match(
             snapshot = latest_snapshot(selection)
             if snapshot is None:
                 continue
-            mapped = _model_selection(market, selection, prediction)
+            mapped = model_selection(market, selection, prediction)
             if mapped is None:
                 continue
             model_key, probability, low, high = mapped
@@ -170,6 +170,8 @@ def _candidates_for_match(
                 probability=probability,
                 low=low,
                 high=high,
+                market_id=str(market.id),
+                selection_id=str(selection.id),
             )
             captured_at = as_utc(snapshot.captured_at)
             existing = best.get(key)
@@ -295,6 +297,8 @@ def build_combinations(
             selections=[
                 CombinationSelectionRead(
                     match_id=UUID(selection.match_id),
+                    market_id=UUID(selection.market_id),
+                    selection_id=UUID(selection.selection_id),
                     match_label=selection.match_label,
                     competition_name=selection.competition_name,
                     kickoff_at=selection.kickoff_at,

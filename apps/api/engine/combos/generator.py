@@ -36,6 +36,8 @@ class CombinationCandidate:
     probability: float
     low: float
     high: float
+    market_id: str = ""
+    selection_id: str = ""
 
     def __post_init__(self) -> None:
         if not self.key:

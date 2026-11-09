@@ -1,5 +1,6 @@
 """Modèles ORM — l'import de ce module enregistre toutes les tables."""
 
+from app.models.combination import SavedCombination, SavedCombinationLeg
 from app.models.market import (
     Market,
     MarketSubject,
@@ -22,6 +23,8 @@ __all__ = [
     "Match",
     "MatchStatus",
     "OddsSnapshot",
+    "SavedCombination",
+    "SavedCombinationLeg",
     "Season",
     "Selection",
     "Sport",

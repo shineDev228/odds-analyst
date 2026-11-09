@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import {
@@ -17,6 +18,7 @@ import { apiFetch, messageErreur } from "@/lib/api";
 import { formatDateHeure } from "@/lib/format";
 import type {
   Combinaison,
+  CombinaisonEnregistree,
   Preferences,
   ReponseCombinaisons,
 } from "@/lib/types";
@@ -69,12 +71,24 @@ function tonEsperance(valeur: number): "succes" | "danger" | "neutre" {
   return "neutre";
 }
 
+function cleCombinaison(combinaison: Combinaison): string {
+  return combinaison.selections
+    .map((item) => `${item.selection_id}:${item.decimal_odds}`)
+    .join("|");
+}
+
 function CarteCombinaison({
   combinaison,
   rang,
+  onEnregistrer,
+  enregistrement,
+  dejaEnregistree,
 }: {
   combinaison: Combinaison;
   rang: number;
+  onEnregistrer: () => void;
+  enregistrement: boolean;
+  dejaEnregistree: boolean;
 }) {
   return (
     <article className="rounded-xl border border-bordure bg-fond p-4">
@@ -92,6 +106,28 @@ function CarteCombinaison({
               {cote(combinaison.total_odds)}
             </span>
           </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Bouton
+              type="button"
+              variante="secondaire"
+              onClick={onEnregistrer}
+              disabled={enregistrement || dejaEnregistree}
+            >
+              {dejaEnregistree
+                ? "Enregistrée"
+                : enregistrement
+                  ? "Enregistrement…"
+                  : "Enregistrer dans l'historique"}
+            </Bouton>
+            {dejaEnregistree ? (
+              <Link
+                href="/historique"
+                className="text-[11px] font-medium text-accent hover:underline"
+              >
+                Voir l&apos;historique
+              </Link>
+            ) : null}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-right text-[11px]">
@@ -165,6 +201,9 @@ export default function PageCombinaisons() {
   const [chargement, setChargement] = useState(true);
   const [calcul, setCalcul] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [succes, setSucces] = useState<string | null>(null);
+  const [enregistrement, setEnregistrement] = useState<string | null>(null);
+  const [enregistrees, setEnregistrees] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let actif = true;
@@ -210,6 +249,7 @@ export default function PageCombinaisons() {
       return;
     }
     setErreur(null);
+    setSucces(null);
     setReponse(null);
     setCalcul(true);
     try {
@@ -222,6 +262,39 @@ export default function PageCombinaisons() {
       setErreur(messageErreur(error));
     } finally {
       setCalcul(false);
+    }
+  }
+
+  async function enregistrer(combinaison: Combinaison) {
+    if (!reponse || enregistrement) return;
+    const cle = cleCombinaison(combinaison);
+    if (enregistrees.has(cle)) return;
+
+    setEnregistrement(cle);
+    setErreur(null);
+    setSucces(null);
+    try {
+      const sauvee = await apiFetch<CombinaisonEnregistree>("/v1/combinations", {
+        methode: "POST",
+        corps: {
+          selections: combinaison.selections.map((item) => ({
+            match_id: item.match_id,
+            selection_id: item.selection_id,
+            decimal_odds: item.decimal_odds,
+          })),
+          parametres: reponse.parametres,
+          note: null,
+        },
+      });
+      setEnregistrees((courant) => new Set(courant).add(cle));
+      setSucces(
+        `Combinaison enregistrée avec la cote ${cote(sauvee.total_odds)}. ` +
+          "Retrouvez-la dans l'historique pour suivre son règlement.",
+      );
+    } catch (error) {
+      setErreur(messageErreur(error));
+    } finally {
+      setEnregistrement(null);
     }
   }
 
@@ -249,6 +322,7 @@ export default function PageCombinaisons() {
       </header>
 
       {erreur ? <Alerte ton="erreur">{erreur}</Alerte> : null}
+      {succes ? <Alerte ton="succes">{succes}</Alerte> : null}
 
       <form onSubmit={generer} className="flex flex-col gap-6">
         <Panneau
@@ -378,13 +452,19 @@ export default function PageCombinaisons() {
                 </EtatVide>
               ) : (
                 <div className="flex flex-col gap-3">
-                  {reponse.combinaisons.map((combinaison, index) => (
-                    <CarteCombinaison
-                      key={index}
-                      combinaison={combinaison}
-                      rang={index + 1}
-                    />
-                  ))}
+                  {reponse.combinaisons.map((combinaison, index) => {
+                    const cle = cleCombinaison(combinaison);
+                    return (
+                      <CarteCombinaison
+                        key={cle}
+                        combinaison={combinaison}
+                        rang={index + 1}
+                        onEnregistrer={() => void enregistrer(combinaison)}
+                        enregistrement={enregistrement === cle}
+                        dejaEnregistree={enregistrees.has(cle)}
+                      />
+                    );
+                  })}
                 </div>
               )}
 

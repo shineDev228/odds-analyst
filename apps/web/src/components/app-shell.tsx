@@ -16,6 +16,7 @@ const navigation = [
   { href: "/equipes", libelle: "Équipes", symbole: "◉" },
   { href: "/rencontres", libelle: "Rencontres", symbole: "⚽" },
   { href: "/combinaisons", libelle: "Combinaisons", symbole: "∑" },
+  { href: "/historique", libelle: "Historique", symbole: "◷" },
   { href: "/parametres", libelle: "Paramètres", symbole: "⚙" },
 ];
 

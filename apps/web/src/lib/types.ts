@@ -241,6 +241,8 @@ export interface Prediction {
 
 export interface SelectionCombinaison {
   match_id: string;
+  market_id: string;
+  selection_id: string;
   match_label: string;
   competition_name: string;
   kickoff_at: string;
@@ -278,6 +280,77 @@ export interface ReponseCombinaisons {
   selections_disponibles: number;
   recherche_tronquee: boolean;
   message: string;
+  avertissement: string;
+}
+
+export type StatutReglement =
+  | "gagnee"
+  | "perdue"
+  | "remboursee"
+  | "en_attente"
+  | "indisponible";
+
+export interface SelectionEnregistree {
+  id: string;
+  position: number;
+  match_id: string | null;
+  market_id: string | null;
+  selection_id: string | null;
+  match_label: string;
+  competition_name: string;
+  kickoff_at: string;
+  market_name: string;
+  market_family: string;
+  market_period: string;
+  selection_code: string;
+  selection_label: string;
+  line: number | null;
+  decimal_odds: number;
+  probability: number;
+  low: number;
+  high: number;
+  status: StatutReglement;
+  status_label: string;
+  reason: string;
+  home_score: number | null;
+  away_score: number | null;
+}
+
+export interface CombinaisonEnregistree {
+  id: string;
+  created_at: string;
+  nombre_selections: number;
+  cote_min: number;
+  cote_max: number;
+  marches_autorises: string[];
+  total_odds: number;
+  probability: number;
+  low: number;
+  high: number;
+  expected_value: number;
+  note: string | null;
+  status: StatutReglement;
+  status_label: string;
+  effective_odds: number;
+  payout_units: number | null;
+  net_units: number | null;
+  selections: SelectionEnregistree[];
+}
+
+export interface ResumePerformance {
+  total: number;
+  en_attente: number;
+  gagnees: number;
+  perdues: number;
+  remboursees: number;
+  indisponibles: number;
+  reglees: number;
+  taux_reussite: number | null;
+  cote_moyenne: number | null;
+  unites_engagees: number;
+  unites_retournees: number;
+  resultat_net: number;
+  roi: number | null;
   avertissement: string;
 }
 

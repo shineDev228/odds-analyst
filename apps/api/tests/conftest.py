@@ -2,8 +2,8 @@
 
 from collections.abc import Iterator
 
-import app.models
 import pytest
+from app import models as _models  # noqa: F401  (enregistre les tables)
 from app.db.base import Base
 from app.db.seed import seed_defaults
 from app.db.session import get_db

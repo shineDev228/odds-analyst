@@ -45,6 +45,8 @@ class CombinationSelectionRead(BaseModel):
     """Sélection d'une rencontre dans une combinaison."""
 
     match_id: UUID
+    market_id: UUID
+    selection_id: UUID
     match_label: str
     competition_name: str
     kickoff_at: datetime
