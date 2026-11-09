@@ -19,7 +19,7 @@ Application web personnelle d'analyse statistique sportive.
 | 3 — Moteur statistique v1 | ✅ Terminée |
 | 4 — Générateur de combinaisons | ✅ Terminée |
 | 5 — Historique et performance | ✅ Terminée |
-| 6 — Moteur statistique v2 | ⬜ À venir |
+| 6 — Moteur statistique v2 | 🟡 Plan proposé — à valider |
 | 7 — Connecteurs de données | ⬜ À venir |
 | 8 — Durcissement et documentation | ⬜ À venir |
 
