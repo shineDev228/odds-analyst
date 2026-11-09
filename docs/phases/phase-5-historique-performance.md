@@ -1,6 +1,6 @@
 # Phase 5 — Historique et performance
 
-> **Statut : implémentée — en attente de validation.** Enregistrement des
+> **Statut : validée.** Enregistrement des
 > combinaisons générées, règlement automatique des sélections et mesure de
 > performance, sans recommandation de mise.
 
