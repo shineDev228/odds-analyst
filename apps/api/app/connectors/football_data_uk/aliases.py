@@ -17,7 +17,7 @@ _RAW: dict[str, str] = {
     "Le Havre": "Le Havre AC",
     "Le Mans": "Le Mans FC",
     "Lens": "RC Lens",
-    "Lille": "LOSC Lille",
+    "Lille": "Lille OSC",
     "Lorient": "FC Lorient",
     "Lyon": "Olympique Lyonnais",
     "Marseille": "Olympique de Marseille",
