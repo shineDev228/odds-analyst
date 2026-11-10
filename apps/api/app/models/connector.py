@@ -49,12 +49,13 @@ class SyncStatus(enum.StrEnum):
 class SyncOperation(enum.StrEnum):
     FIXTURES = "fixtures"
     STATS = "stats"
+    RESULTS_STATS = "results_stats"
     ODDS = "odds"
     ODDS_EXTENDED = "odds_extended"
     EVENTS = "events"
 
 
-PROVIDERS = ("bigballsdata", "the_odds_api", "football_data")
+PROVIDERS = ("bigballsdata", "the_odds_api", "football_data", "football_data_uk")
 
 
 class ProviderRef(Base, TimestampMixin):
@@ -112,7 +113,7 @@ class ConnectorLink(Base, TimestampMixin):
             name="uq_connector_link_external",
         ),
         CheckConstraint(
-            "provider IN ('bigballsdata', 'the_odds_api', 'football_data')",
+            "provider IN ('bigballsdata', 'the_odds_api', 'football_data', 'football_data_uk')",
             name="ck_connector_link_provider",
         ),
     )

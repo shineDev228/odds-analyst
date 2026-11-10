@@ -63,6 +63,8 @@ class Settings(BaseSettings):
     the_odds_api_base_url: str = "https://api.the-odds-api.com/v4"
     football_data_key: str = ""
     football_data_base_url: str = "https://api.football-data.org/v4"
+    # Fichiers CSV publics : aucune clé, aucun quota.
+    football_data_uk_base_url: str = "https://football-data.co.uk"
 
     # Budgets locaux (réserves déjà déduites).
     bigballsdata_daily_budget: int = 200

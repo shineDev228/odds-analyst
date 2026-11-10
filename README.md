@@ -110,9 +110,10 @@ powershell -ExecutionPolicy Bypass -File infra/scripts/dev.ps1
   rencontre est pronostiquée avec l'historique strictement antérieur à son coup
   d'envoi ; les rencontres non évaluables sont exclues et comptées.
 - **Tableau de bord** : indicateurs et prochaines rencontres.
-- **Connecteurs de données** : import du calendrier, des résultats et des
-  statistiques via BigBallsData, avec football-data.org en repli, et des cotes
-  1xBet agrégées via The Odds API (1X2, totaux, double chance, « les deux
+- **Connecteurs de données** : import du calendrier et des résultats via
+  football-data.org, des statistiques (xG, tirs cadrés, corners, cartons) via
+  les fichiers CSV publics de football-data.co.uk — sans clé ni quota — et des
+  cotes 1xBet agrégées via The Odds API (1X2, totaux, double chance, « les deux
   équipes marquent »). Chaque import commence par un aperçu stocké deux heures
   et ne s'applique qu'après validation. Les quotas gratuits sont suivis
   localement. Le score exact et le handicap restent manuels ; si 1xBet est

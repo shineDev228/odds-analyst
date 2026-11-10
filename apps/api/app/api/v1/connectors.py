@@ -15,6 +15,9 @@ from app.schemas.connector import (
     ConnectorLinkRead,
     ConnectorLinkUpdate,
     ConnectorOverviewRead,
+    CsvPreviewRead,
+    CsvSkippedRowRead,
+    CsvTeamLinkRequest,
     DiscoveredCompetitionRead,
     EventLinkRequest,
     ExtendedOddsRequest,
@@ -147,6 +150,50 @@ def football_data_competitions(db: deps.DbSession) -> list[DiscoveredCompetition
         db.rollback()
         raise _connector_error(exc) from exc
     return [DiscoveredCompetitionRead(**item) for item in items]
+
+
+@router.get("/football-data-uk/divisions", response_model=list[DiscoveredCompetitionRead])
+def football_data_uk_divisions(
+    search: str | None = Query(default=None, max_length=120),
+) -> list[DiscoveredCompetitionRead]:
+    return [
+        DiscoveredCompetitionRead(**item) for item in service.discover_csv_divisions(search)
+    ]
+
+
+@router.post("/links/{link_id}/csv/preview", response_model=CsvPreviewRead)
+def preview_csv(db: deps.DbSession, link_id: UUID) -> CsvPreviewRead:
+    link = _link_or_404(db, link_id)
+    try:
+        run = service.preview_csv(db, link)
+        db.commit()
+    except ConnectorError as exc:
+        db.rollback()
+        raise _connector_error(exc) from exc
+    summary = run.summary or {}
+    return CsvPreviewRead(
+        **_preview_payload(run),
+        skipped=[CsvSkippedRowRead(**item) for item in summary.get("skipped", [])],
+    )
+
+
+@router.post(
+    "/football-data-uk/teams/link", status_code=status.HTTP_204_NO_CONTENT
+)
+def link_csv_team(
+    db: deps.DbSession,
+    payload: CsvTeamLinkRequest,
+    link_id: Annotated[UUID, Query()],
+) -> None:
+    link = _link_or_404(db, link_id)
+    try:
+        service.link_csv_team(db, link, payload.external_id, payload.team_id)
+    except LookupError as exc:
+        not_found(str(exc))
+    except ConnectorError as exc:
+        db.rollback()
+        raise _connector_error(exc) from exc
+    commit_or_conflict(db, "Association impossible.")
 
 
 @router.post("/links/{link_id}/fixtures/preview", response_model=FixturesPreviewRead)

@@ -119,7 +119,7 @@ publie réellement le marché.
 
 ## Décisions techniques
 
-### 1. Architecture : un noyau commun, trois adaptateurs
+### 1. Architecture : un noyau commun, un adaptateur par fournisseur
 
 ```
 apps/api/app/connectors/
@@ -445,13 +445,16 @@ Aucune table existante n'est réécrite.
 
 | Méthode | Route | Coût | Rôle |
 |---|---|---|---|
-| `GET` | `/connectors` | 0 | État des trois connecteurs |
+| `GET` | `/connectors` | 0 | État des quatre connecteurs |
 | `GET` | `/connectors/links` | 0 | Compétitions suivies |
 | `POST` | `/connectors/links` | 0–1 | Créer un lien |
 | `PATCH` | `/connectors/links/{id}` | 0 | Activer / désactiver |
 | `DELETE` | `/connectors/links/{id}` | 0 | Supprimer le lien, conserver les données |
 | `GET` | `/connectors/bigballsdata/leagues?search=` | 0–1 | Recherche de compétition (cache 24 h) |
 | `GET` | `/connectors/the-odds-api/sports` | 0 | Sports football disponibles |
+| `GET` | `/connectors/football-data-uk/divisions?search=` | 0 | Divisions CSV connues |
+| `POST` | `/connectors/links/{id}/csv/preview` | 1 fichier | Aperçu résultats + statistiques (CSV) |
+| `POST` | `/connectors/football-data-uk/teams/link?link_id=` | 0 | Associer un nom CSV à une équipe |
 | `POST` | `/connectors/links/{id}/fixtures/preview` | 1–N | Aperçu du calendrier |
 | `POST` | `/connectors/links/{id}/stats/preview` | 0 | Rencontres à compléter et coût |
 | `POST` | `/connectors/links/{id}/stats/apply` | 1–10 | Lot de statistiques |
@@ -677,8 +680,8 @@ Nouvelle page **Connecteurs** dans la navigation latérale :
 
 ## Livrables
 
-- `apps/api/app/connectors/` : noyau, trois adaptateurs, mapping pur, clients,
-  importateurs.
+- `apps/api/app/connectors/` : noyau, quatre adaptateurs (dont un CSV sans
+  clé), mapping pur, clients, importateurs.
 - `apps/api/app/models/connector.py` : `ProviderRef`, `ConnectorLink`,
   `SyncRun`, `ProviderUsage`.
 - `apps/api/app/services/connectors.py` : orchestration, aperçus, quotas,
@@ -687,7 +690,8 @@ Nouvelle page **Connecteurs** dans la navigation latérale :
 - `apps/api/app/api/v1/connectors.py` : routes et dépendances.
 - Ajouts `data_source` et index sur les modèles existants, migration Alembic
   additive.
-- `apps/api/app/core/config.py` : trois clés facultatives, budgets et délais.
+- `apps/api/app/core/config.py` : trois clés facultatives, URL CSV sans clé,
+  budgets et délais.
 - `apps/web/src/app/(app)/connecteurs/page.tsx` : page complète.
 - `apps/web/src/components/` : cartes d'état, assistant de lien, aperçu,
   conflits, lots, cotes, journal.
@@ -717,3 +721,84 @@ Après validation, l'implémentation suivra cet ordre : migration et modèles,
 noyau `http`/`quota`/`matching` testé hors réseau, adaptateur BigBallsData,
 adaptateur The Odds API, adaptateur football-data.org, services et routes API,
 page Connecteurs, puis vérifications complètes et documentation.
+
+---
+
+## Phase 7.1 — Fournisseur CSV `football_data_uk`
+
+> **Statut : implémentée — en attente de validation.** Ajout d'une source de
+> statistiques gratuite, sans clé et sans quota, en complément de
+> football-data.org pour le calendrier et de The Odds API pour les cotes.
+
+### Objectif
+
+BigBallsData n'étant pas disponible sur le compte utilisé, la Phase 7.1 apporte
+une source de secours **sans aucune démarche administrative** : les fichiers CSV
+publics de [football-data.co.uk](https://www.football-data.co.uk/data.php).
+Ils contiennent, pour chaque rencontre jouée, le score, la mi-temps, l'xG, les
+tirs, les tirs cadrés, les fautes, les corners et les cartons.
+
+### Décisions techniques
+
+| Sujet | Décision |
+|---|---|
+| Identifiant | `football_data_uk`, libellé « football-data.co.uk (CSV) » |
+| Authentification | **aucune** : fichier public, aucun en-tête secret |
+| Quota | **aucun** : `provider_usage` affiche `limit = null`, `remaining = null` |
+| URL | `https://www.football-data.co.uk/mmz4281/{2627}/{F1}.csv`, construite depuis `external_league_id` et `external_season` |
+| Téléchargement | un seul GET par aperçu, fichier complet de la division |
+| Opération | `results_stats` : résultats **et** statistiques dans le même fichier |
+| Appariement rencontre | saison + équipes + date à ±1 jour, **jamais l'heure** (heure locale sans fuseau) |
+| Appariement équipe | alias statiques (Ligue 1, clubs récents) puis égalité stricte de jetons ; suggestions floues affichées |
+| Création d'équipe | **interdite** : une équipe inconnue produit un conflit et une association manuelle |
+| Cotes | **aucune** : les cotes Bet365/Pinnacle/Betfair du fichier ne sont jamais lues |
+| Priorité | une valeur `manual` n'est jamais écrasée ; des statistiques existantes ne sont jamais remplacées |
+| Aperçu | stocké 2 h dans `sync_runs`, application sans appel réseau |
+| Colonnes écrites | scores, mi-temps, statut `termine`, tirs, tirs cadrés, corners, cartons, xG, fautes (dans `extra`) |
+| Possession | laissée vide : le moteur utilise l'xG, sinon le proxy « 0,30 × tirs cadrés » |
+| Identifiant externe d'équipe | `team_key(nom_csv)` (jetons normalisés joints par `-`), stable et réutilisable |
+
+Une migration additive (`f2a7c9d4e613`) élargit seulement la contrainte
+`ck_connector_link_provider` pour accepter `football_data_uk`.
+
+### Comportement de l'aperçu
+
+- `created` : rencontres complétées par des statistiques ;
+- `updated` : résultats corrigés (source non manuelle) ou complétés (source
+  manuelle avec score vide) ;
+- `conflicts` : valeur manuelle différente conservée, ou statistiques déjà
+  présentes ;
+- `ignored` : rencontre du fichier absente du calendrier interne ;
+- `skipped` : lignes non importées avec motif ; pour une équipe inconnue,
+  `external_id` permet de l'associer depuis l'interface puis de relancer
+  l'aperçu.
+
+### Risques et parades
+
+| Risque | Parade |
+|---|---|
+| Noms d'équipes différents (`Paris SG` vs `Paris Saint-Germain FC`) | table d'alias + association manuelle durable, aucune création automatique |
+| Heure locale sans fuseau | appariement sur la date seule, tolérance ±1 jour, ambiguïté refusée |
+| Fichier vide, déplacé ou format changé | `502` explicite, aucune écriture partielle ; tests sur un extrait figé |
+| Division ou saison erronée | `422` explicite + catalogue statique des divisions |
+| Cotes présentes dans le fichier | jamais mappées ; test dédié vérifiant `odds_snapshots` vide |
+| Réimport | identifiants et références stables ; deuxième application sans nouvelle statistique |
+| Charge sur le serveur | un téléchargement par action manuelle, aucune boucle |
+
+### Tests
+
+`apps/api/tests/test_connectors_csv.py` couvre 14 cas, sans aucun réseau :
+construction d'URL et de saison, lecture de l'xG et rejet des rencontres non
+jouées, aperçu puis application, idempotence, priorité du score manuel, absence
+de cote importée, équipe inconnue jamais créée, association d'équipe, rencontre
+hors calendrier, catalogue des divisions, routes d'aperçu et d'application,
+route d'association et persistance de la référence externe.
+
+### Fichiers
+
+- `apps/api/app/connectors/football_data_uk/` : `csvar.py`, `mapping.py`,
+  `aliases.py`, `client.py`, `importer.py`.
+- `apps/api/migrations/versions/f2a7c9d4e613_fournisseur_csv.py`.
+- Extensions : `quota.py`, `models/connector.py`, `schemas/connector.py`,
+  `services/connectors.py`, `api/v1/connectors.py`, `core/config.py`,
+  `apps/web/src/lib/types.ts`, page `connecteurs`.

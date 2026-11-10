@@ -21,6 +21,9 @@ from app.connectors.bigballsdata.mapping import map_league, map_match, map_stati
 from app.connectors.football_data.client import MIN_INTERVAL_SECONDS, FootballDataClient
 from app.connectors.football_data.importer import match_entry as fd_match_entry
 from app.connectors.football_data.mapping import map_match as fd_map_match
+from app.connectors.football_data_uk import importer as csv_importer
+from app.connectors.football_data_uk.client import FootballDataUkClient
+from app.connectors.football_data_uk.mapping import discover_divisions, division_label
 from app.connectors.http import HttpClient
 from app.connectors.import_common import (
     apply_matches,
@@ -54,7 +57,7 @@ from app.models.connector import (
     SyncStatus,
 )
 from app.models.match import Match, MatchStatus, TeamMatchStats
-from app.models.reference import Competition, Season
+from app.models.reference import Competition, Season, Team
 from app.schemas.connector import (
     ConnectorLinkCreate,
     ConnectorLinkRead,
@@ -66,24 +69,30 @@ from app.schemas.connector import (
 
 logger = logging.getLogger("odds_analyst.connectors")
 
-PROVIDERS = ("bigballsdata", "the_odds_api", "football_data")
+PROVIDERS = ("bigballsdata", "the_odds_api", "football_data", "football_data_uk")
 
 PROVIDER_LABELS = {
     "bigballsdata": "BigBallsData",
     "the_odds_api": "The Odds API (cotes 1xBet)",
     "football_data": "football-data.org",
+    "football_data_uk": "football-data.co.uk (CSV)",
 }
 
 PROVIDER_ROLES = {
     "bigballsdata": "Calendrier, résultats et statistiques — source primaire.",
     "the_odds_api": "Cotes 1xBet agrégées — source primaire des marchés.",
     "football_data": "Repli calendrier et résultats — aucune cote, aucune statistique.",
+    "football_data_uk": (
+        "Résultats et statistiques (xG, tirs, corners, cartons) — fichier public, "
+        "sans clé, sans quota."
+    ),
 }
 
 PROVIDER_DOCS = {
     "bigballsdata": "https://bigballsdata.com/docs",
     "the_odds_api": "https://the-odds-api.com/liveapi/guides/v4/",
     "football_data": "https://docs.football-data.org/general/v4/index.html",
+    "football_data_uk": "https://www.football-data.co.uk/data.php",
 }
 
 _LEAGUE_CACHE: dict[str, tuple[datetime, list[dict[str, Any]]]] = {}
@@ -152,6 +161,15 @@ def client_for(provider: str, *, transport: Any = None) -> Any:
         return FootballDataClient(
             api_key=key, base_url=settings.football_data_base_url, http=http
         )
+    if provider == "football_data_uk":
+        http = HttpClient(
+            timeout=settings.connector_timeout_seconds,
+            max_retries=settings.connector_max_retries,
+            transport=transport,
+        )
+        return FootballDataUkClient(
+            base_url=settings.football_data_uk_base_url, http=http
+        )
     raise ConnectorError("Fournisseur de données inconnu.", status_code=422)
 
 
@@ -168,6 +186,7 @@ def provider_statuses(db: Session) -> list[ProviderStatusRead]:
                 "bigballsdata": settings.bigballsdata_key,
                 "the_odds_api": settings.the_odds_api_key,
                 "football_data": settings.football_data_key,
+                "football_data_uk": True,
             }[provider]
         )
         last_run = db.scalar(
@@ -250,6 +269,19 @@ def provider_usage(db: Session) -> list[ProviderUsageRead]:
     rows: list[ProviderUsageRead] = []
     for provider in PROVIDERS:
         info = snapshot(db, provider)
+        if info.limit is None:
+            rows.append(
+                ProviderUsageRead(
+                    provider=provider,
+                    period_kind="day",
+                    period_start=datetime.now(UTC).date().isoformat(),
+                    used=0,
+                    limit=None,
+                    remaining=None,
+                    reset_at=None,
+                )
+            )
+            continue
         usage = get_usage(db, provider)
         rows.append(
             ProviderUsageRead(
@@ -257,8 +289,8 @@ def provider_usage(db: Session) -> list[ProviderUsageRead]:
                 period_kind=usage.period_kind,
                 period_start=usage.period_start.isoformat(),
                 used=info.used,
-                limit=info.limit or 0,
-                remaining=info.remaining or 0,
+                limit=info.limit,
+                remaining=info.remaining,
                 reset_at=info.reset_at,
             )
         )
@@ -289,6 +321,20 @@ def discover_bigballs_leagues(db: Session, search: str | None = None) -> list[di
         needle = search.strip().lower()
         leagues = [item for item in leagues if needle in str(item["name"]).lower()]
     return leagues
+
+
+def discover_csv_divisions(search: str | None = None) -> list[dict[str, Any]]:
+    """Catalogue statique des divisions football-data.co.uk (pas d'API)."""
+    items: list[dict[str, Any]] = [dict(item) for item in discover_divisions()]
+    if search:
+        needle = search.strip().lower()
+        items = [
+            item
+            for item in items
+            if needle in str(item["name"]).lower()
+            or needle in str(item["external_id"]).lower()
+        ]
+    return items
 
 
 def discover_competitions(db: Session, provider: str) -> list[dict[str, Any]]:
@@ -469,6 +515,71 @@ def preview_fixtures(db: Session, link: ConnectorLink) -> SyncRun:
     )
 
 
+def preview_csv(db: Session, link: ConnectorLink) -> SyncRun:
+    """Télécharge le fichier CSV et prépare résultats et statistiques."""
+    if link.provider != "football_data_uk":
+        raise ProviderNotCoveredError(
+            "Cette opération concerne uniquement football-data.co.uk."
+        )
+    if not link.is_enabled:
+        raise ProviderNotCoveredError("Ce lien est désactivé.")
+    competition = db.get(Competition, link.competition_id)
+    if competition is None:
+        raise LookupError("Compétition interne introuvable.")
+
+    client = client_for("football_data_uk")
+    try:
+        rows = client.fetch_rows(
+            division=link.external_league_id, season=link.external_season
+        )
+    finally:
+        client.close()
+
+    plan, counts, skipped = csv_importer.plan_import(
+        db,
+        provider="football_data_uk",
+        season_id=link.season_id,
+        sport_id=competition.sport_id,
+        rows=rows,
+    )
+    plan["plan_kind"] = SyncOperation.RESULTS_STATS.value
+    plan["division"] = division_label(link.external_league_id)
+
+    warnings: list[str] = []
+    if not rows:
+        warnings.append("Aucune rencontre jouée dans ce fichier pour l'instant.")
+    manquantes = sum(
+        1 for item in skipped if str(item["reason"]).startswith("Rencontre")
+    )
+    if manquantes:
+        warnings.append(
+            f"{manquantes} rencontre(s) du fichier sont absentes du calendrier interne : "
+            "importez d'abord le calendrier, puis relancez cet aperçu."
+        )
+    inconnues = sum(1 for item in skipped if str(item["reason"]).startswith("Équipe"))
+    if inconnues:
+        warnings.append(
+            f"{inconnues} rencontre(s) ignorée(s) : équipe(s) non reconnue(s). "
+            "Associez-les ci-dessous, puis relancez l'aperçu."
+        )
+
+    return _store_run(
+        db,
+        provider="football_data_uk",
+        operation=SyncOperation.RESULTS_STATS.value,
+        link=link,
+        payload=plan,
+        counts=counts,
+        requests_used=1,
+        warnings=warnings,
+        extra={
+            "skipped": skipped,
+            "division": plan["division"],
+            "source": "fichier CSV public",
+        },
+    )
+
+
 def apply_preview(db: Session, run: SyncRun) -> PreviewCounts:
     if run.status != SyncStatus.PREVIEW.value:
         raise ConnectorError(
@@ -487,6 +598,11 @@ def apply_preview(db: Session, run: SyncRun) -> PreviewCounts:
         link = db.get(ConnectorLink, run.link_id) if run.link_id else None
         if link is not None:
             link.last_fixtures_sync_at = datetime.now(UTC)
+    elif kind == SyncOperation.RESULTS_STATS.value:
+        counts = csv_importer.apply_import(db, plan)
+        link = db.get(ConnectorLink, run.link_id) if run.link_id else None
+        if link is not None:
+            link.last_stats_sync_at = datetime.now(UTC)
     elif kind in {SyncOperation.ODDS.value, SyncOperation.ODDS_EXTENDED.value}:
         counts = apply_odds(db, plan)
         link = db.get(ConnectorLink, run.link_id) if run.link_id else None
@@ -705,6 +821,18 @@ def link_event(db: Session, link: ConnectorLink, event_id: str, match_id: UUID) 
     if match is None:
         raise LookupError("Rencontre interne introuvable.")
     link_ref(db, "the_odds_api", RefEntity.MATCH, match.id, event_id)
+
+
+def link_csv_team(db: Session, link: ConnectorLink, external_id: str, team_id: UUID) -> None:
+    """Associe durablement un nom d'équipe du CSV à une équipe interne."""
+    if link.provider != "football_data_uk":
+        raise ProviderNotCoveredError(
+            "Cette association concerne uniquement football-data.co.uk."
+        )
+    team = db.get(Team, team_id)
+    if team is None:
+        raise LookupError("Équipe interne introuvable.")
+    link_ref(db, "football_data_uk", RefEntity.TEAM, team.id, external_id.strip())
 
 
 # ---------------------------------------------------------------------------

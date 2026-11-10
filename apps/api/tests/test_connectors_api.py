@@ -43,7 +43,7 @@ def test_connectors_require_authentication(guest: TestClient) -> None:
     assert guest.get("/api/v1/connectors").status_code == 401
 
 
-def test_overview_lists_three_providers(auth_client: TestClient, monkeypatch) -> None:
+def test_overview_lists_four_providers(auth_client: TestClient, monkeypatch) -> None:
     monkeypatch.setattr(settings, "bigballsdata_key", "")
     monkeypatch.setattr(settings, "the_odds_api_key", "")
     monkeypatch.setattr(settings, "football_data_key", "")
@@ -54,9 +54,21 @@ def test_overview_lists_three_providers(auth_client: TestClient, monkeypatch) ->
         "bigballsdata",
         "the_odds_api",
         "football_data",
+        "football_data_uk",
     }
-    assert all(item["configured"] is False for item in data["providers"])
-    assert len(data["usage"]) == 3
+    configure = {item["provider"]: item["configured"] for item in data["providers"]}
+    assert configure["football_data_uk"] is True
+    assert all(
+        item["configured"] is False
+        for item in data["providers"]
+        if item["provider"] != "football_data_uk"
+    )
+    assert len(data["usage"]) == 4
+    csv_usage = next(
+        item for item in data["usage"] if item["provider"] == "football_data_uk"
+    )
+    assert csv_usage["limit"] is None
+    assert csv_usage["remaining"] is None
     for provider in data["providers"]:
         assert "key" not in provider
         assert "api_key" not in provider

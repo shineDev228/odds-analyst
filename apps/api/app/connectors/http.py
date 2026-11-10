@@ -58,7 +58,9 @@ class HttpClient:
         self._min_interval = min_interval
         self._sleep = sleep
         self._last_call: float | None = None
-        self._client = httpx.Client(timeout=timeout, transport=transport)
+        self._client = httpx.Client(
+            timeout=timeout, transport=transport, follow_redirects=True
+        )
 
     def close(self) -> None:
         self._client.close()
@@ -85,6 +87,35 @@ class HttpClient:
         provider: str = "connector",
     ) -> tuple[Any, httpx.Headers]:
         """Exécute un GET et renvoie la charge JSON et les en-têtes de réponse."""
+        response = self._get(url, params=params, headers=headers, provider=provider)
+        try:
+            return response.json(), response.headers
+        except ValueError as exc:
+            raise ProviderPayloadError(
+                "La réponse du fournisseur est illisible."
+            ) from exc
+
+    def get_bytes(
+        self,
+        url: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        provider: str = "connector",
+    ) -> tuple[bytes, httpx.Headers]:
+        """Exécute un GET et renvoie le corps brut et les en-têtes de réponse."""
+        response = self._get(url, params=params, headers=headers, provider=provider)
+        return response.content, response.headers
+
+    def _get(
+        self,
+        url: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        provider: str = "connector",
+    ) -> httpx.Response:
+        """Exécute un GET avec réessais bornés et erreurs traduites."""
         attempt = 0
         while True:
             self._throttle()
@@ -121,9 +152,4 @@ class HttpClient:
                 raise ConnectorError(
                     f"Le fournisseur a refusé la requête ({response.status_code})."
                 )
-            try:
-                return response.json(), response.headers
-            except ValueError as exc:
-                raise ProviderPayloadError(
-                    "La réponse du fournisseur est illisible."
-                ) from exc
+            return response

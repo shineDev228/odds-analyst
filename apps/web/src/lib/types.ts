@@ -407,7 +407,11 @@ export interface ResumePerformance {
 /* Connecteurs de données (Phase 7)                                    */
 /* ------------------------------------------------------------------ */
 
-export type Fournisseur = "bigballsdata" | "the_odds_api" | "football_data";
+export type Fournisseur =
+  | "bigballsdata"
+  | "the_odds_api"
+  | "football_data"
+  | "football_data_uk";
 
 export interface QuotaFournisseur {
   used: number;
@@ -499,6 +503,32 @@ export interface ApercuStatistiques {
   budget_remaining: number;
 }
 
+export interface EquipeIgnoreeCsv {
+  external_id: string;
+  csv_name: string;
+  status: "existing" | "missing" | "ambiguous";
+  suggestions: string[];
+}
+
+export interface LigneIgnoreeCsv {
+  label: string;
+  played_on: string;
+  reason: string;
+  teams: EquipeIgnoreeCsv[];
+}
+
+export interface ApercuCsv {
+  run_id: string;
+  provider: Fournisseur;
+  operation: string;
+  status: string;
+  expires_at: string | null;
+  quota: QuotaFournisseur;
+  counts: CompteursSynchronisation;
+  warnings: string[];
+  skipped: LigneIgnoreeCsv[];
+}
+
 export interface ResultatStatistiques {
   match_id: string;
   status: string;
@@ -549,8 +579,8 @@ export interface UtilisationFournisseur {
   period_kind: "day" | "month";
   period_start: string;
   used: number;
-  limit: number;
-  remaining: number;
+  limit: number | null;
+  remaining: number | null;
   reset_at: string | null;
 }
 
@@ -570,6 +600,7 @@ export const libellesFournisseur: Record<Fournisseur, string> = {
   bigballsdata: "BigBallsData",
   the_odds_api: "The Odds API",
   football_data: "football-data.org",
+  football_data_uk: "football-data.co.uk (CSV)",
 };
 
 export const statutsRencontre: Record<StatutRencontre, string> = {

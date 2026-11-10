@@ -26,7 +26,9 @@ class ProviderStatusRead(BaseModel):
 
 
 class ConnectorLinkCreate(BaseModel):
-    provider: str = Field(pattern="^(bigballsdata|the_odds_api|football_data)$")
+    provider: str = Field(
+        pattern="^(bigballsdata|the_odds_api|football_data|football_data_uk)$"
+    )
     competition_id: UUID
     season_id: UUID
     external_league_id: str = Field(min_length=1, max_length=200)
@@ -129,6 +131,37 @@ class StatsApplyRead(BaseModel):
     ignored: int
 
 
+class CsvSkippedTeamRead(BaseModel):
+    external_id: str
+    csv_name: str
+    status: str
+    suggestions: list[str] = []
+
+
+class CsvSkippedRowRead(BaseModel):
+    label: str
+    played_on: str
+    reason: str
+    teams: list[CsvSkippedTeamRead] = []
+
+
+class CsvPreviewRead(BaseModel):
+    run_id: UUID
+    provider: str
+    operation: str
+    status: str
+    expires_at: datetime | None
+    quota: ProviderQuotaRead
+    counts: SyncCounts
+    warnings: list[str]
+    skipped: list[CsvSkippedRowRead]
+
+
+class CsvTeamLinkRequest(BaseModel):
+    external_id: str = Field(min_length=1, max_length=120)
+    team_id: UUID
+
+
 class OddsEventRead(BaseModel):
     event_id: str
     home_team: str
@@ -175,8 +208,8 @@ class ProviderUsageRead(BaseModel):
     period_kind: str
     period_start: str
     used: int
-    limit: int
-    remaining: int
+    limit: int | None
+    remaining: int | None
     reset_at: datetime | None
 
 

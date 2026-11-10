@@ -18,10 +18,12 @@ import { formatDateHeure } from "@/lib/format";
 import type {
   ApercuCalendrier,
   ApercuCotes,
+  ApercuCsv,
   ApercuStatistiques,
   Competition,
   CompetitionDistante,
   CompteursSynchronisation,
+  Equipe,
   EtatFournisseur,
   EvenementsCotes,
   Fournisseur,
@@ -60,6 +62,7 @@ const routesDecouverte: Record<Fournisseur, string> = {
   bigballsdata: "/v1/connectors/bigballsdata/leagues",
   the_odds_api: "/v1/connectors/the-odds-api/sports",
   football_data: "/v1/connectors/football-data/competitions",
+  football_data_uk: "/v1/connectors/football-data-uk/divisions",
 };
 
 function resumeCompteurs(compteurs: CompteursSynchronisation): string {
@@ -100,7 +103,9 @@ function CarteFournisseur({ etat }: { etat: EtatFournisseur }) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-medium text-texte">{etat.label}</p>
-            {etat.configured ? (
+            {etat.provider === "football_data_uk" ? (
+              <Badge ton="succes">Sans clé</Badge>
+            ) : etat.configured ? (
               <Badge ton="succes">Clé configurée</Badge>
             ) : (
               <Badge ton="alerte">Clé absente</Badge>
@@ -160,6 +165,9 @@ export default function PageConnecteurs() {
   const [lienActif, setLienActif] = useState<string | null>(null);
   const [apercuCalendrier, setApercuCalendrier] = useState<ApercuCalendrier | null>(null);
   const [apercuStats, setApercuStats] = useState<ApercuStatistiques | null>(null);
+  const [apercuCsv, setApercuCsv] = useState<ApercuCsv | null>(null);
+  const [equipes, setEquipes] = useState<Equipe[]>([]);
+  const [associationsCsv, setAssociationsCsv] = useState<Record<string, string>>({});
   const [selectionStats, setSelectionStats] = useState<string[]>([]);
   const [resultatStats, setResultatStats] = useState<ReponseStatistiques | null>(null);
   const [evenements, setEvenements] = useState<EvenementsCotes | null>(null);
@@ -210,6 +218,9 @@ export default function PageConnecteurs() {
   function reinitialiserActions() {
     setApercuCalendrier(null);
     setApercuStats(null);
+    setApercuCsv(null);
+    setEquipes([]);
+    setAssociationsCsv({});
     setSelectionStats([]);
     setResultatStats(null);
     setEvenements(null);
@@ -365,7 +376,61 @@ export default function PageConnecteurs() {
       setApercuCotes(null);
       setApercuEtendu(null);
       setEvenements(null);
+      setApercuCsv(null);
       signalerSucces(`${message} ${resumeCompteurs(resultat.counts)}`);
+    } catch (error) {
+      setErreur(messageErreur(error));
+    } finally {
+      setAction(null);
+    }
+  }
+
+  async function lancerApercuCsv(cible: LienConnecteur) {
+    setErreur(null);
+    setAction("csv");
+    try {
+      const resultat = await apiFetch<ApercuCsv>(
+        `/v1/connectors/links/${cible.id}/csv/preview`,
+        { methode: "POST" },
+      );
+      setApercuCsv(resultat);
+      const inconnues = resultat.skipped.some((ligne) =>
+        ligne.teams.some((equipe) => equipe.status !== "existing"),
+      );
+      if (inconnues) {
+        await chargerEquipesCsv(cible);
+      }
+    } catch (error) {
+      setErreur(messageErreur(error));
+    } finally {
+      setAction(null);
+    }
+  }
+
+  async function chargerEquipesCsv(cible: LienConnecteur) {
+    const competition = competitions.find((item) => item.id === cible.competition_id);
+    if (!competition) return;
+    const page = await apiFetch<Page<Equipe>>(
+      `/v1/teams?sport_id=${competition.sport_id}&page_size=200`,
+    );
+    setEquipes(page.items);
+  }
+
+  async function associerEquipeCsv(cible: LienConnecteur, externalId: string) {
+    const teamId = associationsCsv[externalId];
+    if (!teamId) {
+      setErreur("Choisissez une équipe interne avant d'associer.");
+      return;
+    }
+    setErreur(null);
+    setAction(`csv-lien-${externalId}`);
+    try {
+      await apiFetch<void>(
+        `/v1/connectors/football-data-uk/teams/link?link_id=${cible.id}`,
+        { corps: { external_id: externalId, team_id: teamId } },
+      );
+      await lancerApercuCsv(cible);
+      signalerSucces("Équipe associée durablement. L'aperçu a été relancé.");
     } catch (error) {
       setErreur(messageErreur(error));
     } finally {
@@ -590,7 +655,9 @@ export default function PageConnecteurs() {
             aide={
               form.provider === "the_odds_api"
                 ? "Clé de sport The Odds API, par exemple soccer_france_ligue_one."
-                : "Identifiant de compétition du fournisseur."
+                : form.provider === "football_data_uk"
+                  ? "Code de division du fichier : F1 (Ligue 1), F2 (Ligue 2), E0 (Premier League)…"
+                  : "Identifiant de compétition du fournisseur."
             }
           >
             <div className="flex gap-2">
@@ -599,7 +666,13 @@ export default function PageConnecteurs() {
                 maxLength={200}
                 value={form.external_league_id}
                 onChange={(e) => setForm({ ...form, external_league_id: e.target.value })}
-                placeholder={form.provider === "the_odds_api" ? "soccer_france_ligue_one" : "ligue-1"}
+                placeholder={
+                  form.provider === "the_odds_api"
+                    ? "soccer_france_ligue_one"
+                    : form.provider === "football_data_uk"
+                      ? "F1"
+                      : "ligue-1"
+                }
               />
               <Bouton type="button" onClick={() => void decouvrir()} disabled={decouverte}>
                 {decouverte ? "…" : "Découvrir"}
@@ -607,13 +680,20 @@ export default function PageConnecteurs() {
             </div>
           </Champ>
 
-          <Champ label="Saison externe">
+          <Champ
+            label="Saison externe"
+            aide={
+              form.provider === "football_data_uk"
+                ? "Année de début de saison : 2026 pour la saison 2026-2027."
+                : undefined
+            }
+          >
             <Saisie
               required
               maxLength={40}
               value={form.external_season}
               onChange={(e) => setForm({ ...form, external_season: e.target.value })}
-              placeholder="2025"
+              placeholder={form.provider === "football_data_uk" ? "2026" : "2025"}
             />
           </Champ>
 
@@ -683,7 +763,8 @@ export default function PageConnecteurs() {
                     <p className="mt-0.5 text-[11px] text-texte-faible">
                       Externe : <code className="text-texte-doux">{cible.external_league_id}</code>{" "}
                       · saison {cible.external_season} · calendrier{" "}
-                      {formatDateHeure(cible.last_fixtures_sync_at)} · cotes{" "}
+                      {formatDateHeure(cible.last_fixtures_sync_at)} · stats{" "}
+                      {formatDateHeure(cible.last_stats_sync_at)} · cotes{" "}
                       {formatDateHeure(cible.last_odds_sync_at)}
                     </p>
                   </div>
@@ -703,6 +784,7 @@ export default function PageConnecteurs() {
 
                 {lienActif === cible.id && lien ? (
                   <div className="mt-4 flex flex-col gap-4 border-t border-bordure pt-4">
+                    {cible.provider === "football_data_uk" ? null : (
                     <section>
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <h3 className="text-xs font-semibold text-texte">Calendrier et résultats</h3>
@@ -759,6 +841,121 @@ export default function PageConnecteurs() {
                         </div>
                       ) : null}
                     </section>
+                    )}
+
+                    {cible.provider === "football_data_uk" ? (
+                      <section className="border-t border-bordure pt-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <h3 className="text-xs font-semibold text-texte">
+                            Résultats et statistiques (fichier public)
+                          </h3>
+                          <Bouton
+                            onClick={() => void lancerApercuCsv(cible)}
+                            disabled={action === "csv" || !cible.is_enabled}
+                          >
+                            {action === "csv" ? "Téléchargement…" : "Aperçu du fichier"}
+                          </Bouton>
+                        </div>
+                        <p className="mt-1 text-[11px] text-texte-faible">
+                          Fichier complet de la division : xG, tirs, tirs cadrés, corners, cartons.
+                          Aucune clé, aucun quota, aucune cote importée depuis ce fichier. Les
+                          valeurs manuelles ne sont jamais écrasées.
+                        </p>
+
+                        {apercuCsv ? (
+                          <div className="mt-3 flex flex-col gap-3">
+                            {apercuCsv.warnings.map((warning) => (
+                              <Alerte key={warning} ton="avertissement">
+                                {warning}
+                              </Alerte>
+                            ))}
+                            <Compteurs compteurs={apercuCsv.counts} />
+                            <p className="text-[11px] text-texte-faible">
+                              « créées » = rencontres complétées par des statistiques · « mises à
+                              jour » = résultats corrigés · « conflits » = valeurs déjà présentes,
+                              conservées · « ignorées » = rencontres hors du calendrier interne.
+                            </p>
+
+                            {apercuCsv.skipped.length > 0 ? (
+                              <div className="rounded-lg border border-bordure bg-fond-eleve p-3">
+                                <p className="text-[11px] font-semibold text-texte">
+                                  Lignes non importées ({apercuCsv.skipped.length})
+                                </p>
+                                <ul className="mt-2 flex max-h-72 flex-col gap-2 overflow-auto pr-1">
+                                  {apercuCsv.skipped.map((ligne) => (
+                                    <li
+                                      key={`${ligne.label}-${ligne.played_on}`}
+                                      className="text-[11px] text-texte-doux"
+                                    >
+                                      <span className="text-texte">{ligne.label}</span> ·{" "}
+                                      {ligne.played_on} · {ligne.reason}
+                                      {ligne.teams
+                                        .filter((equipe) => equipe.status !== "existing")
+                                        .map((equipe) => (
+                                          <div
+                                            key={equipe.external_id}
+                                            className="mt-1 flex flex-wrap items-center gap-2"
+                                          >
+                                            <code className="text-texte">{equipe.csv_name}</code>
+                                            <Selection
+                                              value={associationsCsv[equipe.external_id] ?? ""}
+                                              onChange={(e) =>
+                                                setAssociationsCsv({
+                                                  ...associationsCsv,
+                                                  [equipe.external_id]: e.target.value,
+                                                })
+                                              }
+                                            >
+                                              <option value="">Choisir une équipe…</option>
+                                              {equipes.map((item) => (
+                                                <option key={item.id} value={item.id}>
+                                                  {item.name}
+                                                </option>
+                                              ))}
+                                            </Selection>
+                                            <Bouton
+                                              variante="discret"
+                                              onClick={() =>
+                                                void associerEquipeCsv(cible, equipe.external_id)
+                                              }
+                                              disabled={action === `csv-lien-${equipe.external_id}`}
+                                            >
+                                              Associer
+                                            </Bouton>
+                                            {equipe.suggestions.length > 0 ? (
+                                              <span className="text-texte-faible">
+                                                Suggestions : {equipe.suggestions.join(", ")}
+                                              </span>
+                                            ) : null}
+                                          </div>
+                                        ))}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : null}
+
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Bouton
+                                variante="principal"
+                                onClick={() =>
+                                  void appliquer(
+                                    apercuCsv.run_id,
+                                    "Résultats et statistiques appliqués.",
+                                  )
+                                }
+                                disabled={action?.startsWith("apply-")}
+                              >
+                                Appliquer l&apos;aperçu
+                              </Bouton>
+                              <span className="text-[11px] text-texte-faible">
+                                Expire le {formatDateHeure(apercuCsv.expires_at)}
+                              </span>
+                            </div>
+                          </div>
+                        ) : null}
+                      </section>
+                    ) : null}
 
                     {cible.provider === "bigballsdata" ? (
                       <section className="border-t border-bordure pt-4">

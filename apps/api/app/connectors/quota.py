@@ -18,6 +18,8 @@ from app.models.connector import ProviderUsage
 
 DAY_PROVIDERS = {"bigballsdata", "football_data"}
 MONTH_PROVIDERS = {"the_odds_api"}
+# Fournisseurs sans quota : fichier public, aucune clé, aucun plafond.
+UNLIMITED_PROVIDERS = {"football_data_uk"}
 
 
 def period_kind(provider: str) -> str:
@@ -72,7 +74,7 @@ def remaining(db: Session, provider: str, now: datetime | None = None) -> int:
 
 def ensure_budget(db: Session, provider: str, amount: int, now: datetime | None = None) -> None:
     """Refuse l'appel avant consommation si le budget restant est insuffisant."""
-    if amount <= 0:
+    if amount <= 0 or provider in UNLIMITED_PROVIDERS:
         return
     available = remaining(db, provider, now)
     if amount > available:
@@ -136,6 +138,8 @@ def _reset_at(provider: str, now: datetime | None) -> datetime:
 
 
 def snapshot(db: Session, provider: str, now: datetime | None = None) -> QuotaInfo:
+    if provider in UNLIMITED_PROVIDERS:
+        return QuotaInfo(used=0, remaining=None, limit=None, reset_at=None)
     usage = get_usage(db, provider, now)
     return QuotaInfo(
         used=usage.used,
