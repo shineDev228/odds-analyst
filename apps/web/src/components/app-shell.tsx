@@ -13,6 +13,7 @@ import { Chargement } from "./ui";
 const navigation = [
   { href: "/tableau-de-bord", libelle: "Tableau de bord", symbole: "◧" },
   { href: "/competitions", libelle: "Compétitions", symbole: "▤" },
+  { href: "/connecteurs", libelle: "Connecteurs", symbole: "⇄" },
   { href: "/equipes", libelle: "Équipes", symbole: "◉" },
   { href: "/rencontres", libelle: "Rencontres", symbole: "⚽" },
   { href: "/combinaisons", libelle: "Combinaisons", symbole: "∑" },

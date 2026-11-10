@@ -6,6 +6,7 @@ from app.api.v1 import (
     auth,
     combinations,
     competitions,
+    connectors,
     dashboard,
     health,
     markets,
@@ -30,3 +31,4 @@ api_router.include_router(predictions.router)
 api_router.include_router(combinations.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(settings.router)
+api_router.include_router(connectors.router)

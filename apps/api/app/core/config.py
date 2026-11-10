@@ -56,6 +56,26 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "json"
 
+    # Connecteurs de données — les clés vivent uniquement dans `.env`.
+    bigballsdata_key: str = ""
+    bigballsdata_base_url: str = "https://api.bigballsdata.com"
+    the_odds_api_key: str = ""
+    the_odds_api_base_url: str = "https://api.the-odds-api.com/v4"
+    football_data_key: str = ""
+    football_data_base_url: str = "https://api.football-data.org/v4"
+
+    # Budgets locaux (réserves déjà déduites).
+    bigballsdata_daily_budget: int = 200
+    the_odds_api_monthly_budget: int = 400
+    football_data_minute_budget: int = 8
+
+    # Réseau des connecteurs.
+    connector_timeout_seconds: float = 15.0
+    connector_max_retries: int = 2
+    connector_preview_ttl_seconds: int = 7200
+    connector_max_extended_events: int = 20
+    connector_max_stats_batch: int = 10
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"

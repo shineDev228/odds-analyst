@@ -169,4 +169,10 @@ class OddsSnapshot(Base):
     __table_args__ = (
         CheckConstraint("decimal_odds > 1", name="ck_odds_decimal_gt_one"),
         Index("ix_odds_selection_captured", "selection_id", "captured_at"),
+        Index(
+            "ix_odds_selection_source_captured",
+            "selection_id",
+            "source",
+            "captured_at",
+        ),
     )

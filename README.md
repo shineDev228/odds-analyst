@@ -20,7 +20,7 @@ Application web personnelle d'analyse statistique sportive.
 | 4 — Générateur de combinaisons | ✅ Terminée |
 | 5 — Historique et performance | ✅ Terminée |
 | 6 — Moteur statistique v2 | ✅ Terminée |
-| 7 — Connecteurs de données | 🟨 Plan révisé — à valider |
+| 7 — Connecteurs de données | 🟨 Implémentée — en attente de validation |
 | 8 — Durcissement et documentation | ⬜ À venir |
 
 ---
@@ -110,6 +110,14 @@ powershell -ExecutionPolicy Bypass -File infra/scripts/dev.ps1
   rencontre est pronostiquée avec l'historique strictement antérieur à son coup
   d'envoi ; les rencontres non évaluables sont exclues et comptées.
 - **Tableau de bord** : indicateurs et prochaines rencontres.
+- **Connecteurs de données** : import du calendrier, des résultats et des
+  statistiques via BigBallsData, avec football-data.org en repli, et des cotes
+  1xBet agrégées via The Odds API (1X2, totaux, double chance, « les deux
+  équipes marquent »). Chaque import commence par un aperçu stocké deux heures
+  et ne s'applique qu'après validation. Les quotas gratuits sont suivis
+  localement. Le score exact et le handicap restent manuels ; si 1xBet est
+  absent, aucune cote n'est inventée et aucun autre bookmaker ne le remplace.
+  Une correction manuelle n'est jamais écrasée.
 - **Paramètres** : fourchette de cotes 50–100, nombre de sélections, marchés
   autorisés, demi-vie de pondération.
 
@@ -162,7 +170,7 @@ Cette contrainte garantit la fiabilité et la reproductibilité des calculs.
 ## Tests et qualité
 
 ```powershell
-# API et moteur (172 tests)
+# API et moteur (207 tests)
 uv run pytest
 
 # Analyse statique du code Python

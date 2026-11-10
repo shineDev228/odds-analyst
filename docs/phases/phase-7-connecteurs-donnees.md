@@ -1,6 +1,6 @@
 # Phase 7 — Connecteurs de données
 
-> **Statut : plan révisé — en attente de validation.** Import automatique du
+> **Statut : implémentée — en attente de validation.** Import automatique du
 > calendrier, des résultats, des statistiques et des **cotes 1xBet** via une
 > combinaison de sources gratuites et autorisées. La saisie manuelle reste
 > disponible comme secours et correction.

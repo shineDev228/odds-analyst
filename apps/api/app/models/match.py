@@ -69,6 +69,10 @@ class Match(Base, TimestampMixin):
     venue: Mapped[str | None] = mapped_column(String(120))
     referee: Mapped[str | None] = mapped_column(String(120))
     notes: Mapped[str | None] = mapped_column(String(2000))
+    data_source: Mapped[str] = mapped_column(
+        String(40), default="manual", server_default="manual", nullable=False, index=True
+    )
+    source_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     season: Mapped["Season"] = relationship()
     home_team: Mapped["Team"] = relationship(foreign_keys=[home_team_id])
@@ -111,6 +115,9 @@ class TeamMatchStats(Base, TimestampMixin):
     red_cards: Mapped[int | None] = mapped_column(Integer)
     expected_goals: Mapped[float | None] = mapped_column(Float)
     extra: Mapped[dict | None] = mapped_column(JSONType)
+    data_source: Mapped[str] = mapped_column(
+        String(40), default="manual", server_default="manual", nullable=False
+    )
 
     match: Mapped[Match] = relationship(back_populates="stats")
     team: Mapped["Team"] = relationship()

@@ -403,6 +403,175 @@ export interface ResumePerformance {
   avertissement: string;
 }
 
+/* ------------------------------------------------------------------ */
+/* Connecteurs de données (Phase 7)                                    */
+/* ------------------------------------------------------------------ */
+
+export type Fournisseur = "bigballsdata" | "the_odds_api" | "football_data";
+
+export interface QuotaFournisseur {
+  used: number;
+  remaining: number | null;
+  limit: number | null;
+  reset_at: string | null;
+}
+
+export interface EtatFournisseur {
+  provider: Fournisseur;
+  label: string;
+  configured: boolean;
+  role: string;
+  quota: QuotaFournisseur;
+  last_sync_at: string | null;
+  documentation_url: string;
+}
+
+export interface LienConnecteur {
+  id: string;
+  provider: Fournisseur;
+  competition_id: string;
+  season_id: string;
+  external_league_id: string;
+  external_season: string;
+  is_enabled: boolean;
+  last_fixtures_sync_at: string | null;
+  last_stats_sync_at: string | null;
+  last_odds_sync_at: string | null;
+  competition_name: string | null;
+  season_label: string | null;
+}
+
+export interface CompteursSynchronisation {
+  received: number;
+  created: number;
+  updated: number;
+  unchanged: number;
+  conflicts: number;
+  ignored: number;
+}
+
+export interface ApercuCalendrier {
+  run_id: string;
+  provider: Fournisseur;
+  operation: string;
+  status: string;
+  expires_at: string | null;
+  quota: QuotaFournisseur;
+  counts: CompteursSynchronisation;
+  teams_to_create: Array<{
+    external_id: string;
+    name: string;
+    short_name: string | null;
+  }>;
+  conflicts: string[];
+  warnings: string[];
+}
+
+export interface ApercuCotes {
+  run_id: string;
+  provider: Fournisseur;
+  operation: string;
+  status: string;
+  expires_at: string | null;
+  quota: QuotaFournisseur;
+  counts: CompteursSynchronisation;
+  bookmaker: string;
+  warnings: string[];
+}
+
+export interface ResultatApplication {
+  run_id: string;
+  status: string;
+  counts: CompteursSynchronisation;
+}
+
+export interface CandidatStatistiques {
+  match_id: string;
+  label: string;
+  kickoff_at: string;
+  status: StatutRencontre;
+}
+
+export interface ApercuStatistiques {
+  provider: Fournisseur;
+  candidates: CandidatStatistiques[];
+  cost: number;
+  budget_remaining: number;
+}
+
+export interface ResultatStatistiques {
+  match_id: string;
+  status: string;
+  message: string | null;
+}
+
+export interface ReponseStatistiques {
+  results: ResultatStatistiques[];
+  created: number;
+  conflicts: number;
+  ignored: number;
+}
+
+export interface EvenementCotes {
+  event_id: string;
+  home_team: string;
+  away_team: string;
+  commence_time: string;
+  match_id: string | null;
+  match_label: string | null;
+}
+
+export interface EvenementsCotes {
+  matched: EvenementCotes[];
+  unmatched: EvenementCotes[];
+  bookmaker: string;
+}
+
+export interface JournalSynchronisation {
+  id: string;
+  provider: Fournisseur;
+  operation: string;
+  status: string;
+  link_id: string | null;
+  params: Record<string, unknown>;
+  summary: Record<string, unknown>;
+  requests_used: number;
+  credits_used: number;
+  quota_remaining: number | null;
+  error_message: string | null;
+  expires_at: string | null;
+  applied_at: string | null;
+  created_at: string;
+}
+
+export interface UtilisationFournisseur {
+  provider: Fournisseur;
+  period_kind: "day" | "month";
+  period_start: string;
+  used: number;
+  limit: number;
+  remaining: number;
+  reset_at: string | null;
+}
+
+export interface VueConnecteurs {
+  providers: EtatFournisseur[];
+  usage: UtilisationFournisseur[];
+  links: LienConnecteur[];
+}
+
+export interface CompetitionDistante {
+  external_id: string;
+  name: string;
+  country: string | null;
+}
+
+export const libellesFournisseur: Record<Fournisseur, string> = {
+  bigballsdata: "BigBallsData",
+  the_odds_api: "The Odds API",
+  football_data: "football-data.org",
+};
+
 export const statutsRencontre: Record<StatutRencontre, string> = {
   programme: "Programmé",
   en_cours: "En cours",

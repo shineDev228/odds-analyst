@@ -16,9 +16,12 @@ _TITLES: dict[int, str] = {
     403: "Accès refusé",
     404: "Ressource introuvable",
     409: "Conflit de données",
+    410: "Aperçu expiré",
     422: "Données invalides",
     429: "Trop de tentatives",
     500: "Erreur interne",
+    502: "Fournisseur indisponible",
+    503: "Service indisponible",
 }
 
 # Traduction française des principaux codes d'erreur Pydantic.
