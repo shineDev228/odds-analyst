@@ -109,13 +109,17 @@ def _has_stats(db: Session, match_id: UUID) -> bool:
 
 
 def _result_action(match: Match, row: CsvRow) -> str:
-    """Décide du sort du résultat : `update`, `unchanged` ou `conflict`."""
+    """Décide du sort du résultat : `update`, `unchanged` ou `conflict`.
+
+    Une rencontre manuelle conserve son score, mais son statut suit le fichier :
+    un score final implique une rencontre terminée, jamais « programmée ».
+    """
     if match.data_source == MANUAL:
         if match.home_score is None and match.away_score is None:
             return "update"
-        if (match.home_score, match.away_score) == (row.home_score, row.away_score):
-            return "unchanged"
-        return "conflict"
+        if (match.home_score, match.away_score) != (row.home_score, row.away_score):
+            return "conflict"
+        return "unchanged" if match.status == MatchStatus.TERMINE else "update"
     if (
         (match.home_score, match.away_score) == (row.home_score, row.away_score)
         and (match.half_time_home_score, match.half_time_away_score)
@@ -255,12 +259,17 @@ def apply_import(db: Session, plan: dict[str, Any]) -> PreviewCounts:
                     match.half_time_home_score = item["half_time_home_score"]
                 if match.half_time_away_score is None:
                     match.half_time_away_score = item["half_time_away_score"]
+                match.status = MatchStatus.TERMINE
                 resultat_ecrit = True
             elif (match.home_score, match.away_score) != (
                 item["home_score"],
                 item["away_score"],
             ):
                 conflit = True
+            elif match.status != MatchStatus.TERMINE:
+                # Score manuel conservé, statut aligné sur le fichier.
+                match.status = MatchStatus.TERMINE
+                resultat_ecrit = True
         elif (
             (match.home_score, match.away_score)
             != (item["home_score"], item["away_score"])

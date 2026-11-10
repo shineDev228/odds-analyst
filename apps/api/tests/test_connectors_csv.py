@@ -102,6 +102,11 @@ def _link(db: Session) -> ConnectorLink:
     return _require(db.scalar(select(ConnectorLink)))
 
 
+def _match_of(db: Session, home_name: str) -> Match:
+    domicile = _require(db.scalar(select(Team).where(Team.name == home_name)))
+    return _require(db.scalar(select(Match).where(Match.home_team_id == domicile.id)))
+
+
 # ---------------------------------------------------------------------------
 # Lecture du fichier
 # ---------------------------------------------------------------------------
@@ -235,6 +240,48 @@ def test_manual_score_is_never_overwritten(engine, seeded_db) -> None:
         db.commit()
         match = _require(db.get(Match, match.id))
         assert (match.home_score, match.away_score) == (0, 0)
+
+
+def test_manual_empty_match_is_completed_and_finished(engine, seeded_db) -> None:
+    """Une rencontre manuelle sans score reçoit le résultat et passe à « terminé »."""
+    _setup(engine)
+    with Session(engine) as db:
+        marseille = _match_of(db, "Olympique de Marseille")
+        marseille.data_source = "manual"
+        db.commit()
+
+        rows = parse_rows(CSV, division="F1")
+        plan, counts, _ = _projection(db, _link(db), rows)
+        assert counts.updated == 3
+        service.apply_preview(db, _run(db, _link(db), plan))
+        db.commit()
+
+        marseille = _require(db.get(Match, marseille.id))
+        assert (marseille.home_score, marseille.away_score) == (4, 0)
+        assert marseille.status == MatchStatus.TERMINE
+        assert marseille.data_source == "manual"
+
+
+def test_manual_score_keeps_value_and_aligns_status(engine, seeded_db) -> None:
+    """Un score manuel identique au fichier est conservé, mais le statut suit."""
+    _setup(engine)
+    with Session(engine) as db:
+        match = _match_of(db, "ES Troyes AC")
+        match.data_source = "manual"
+        match.home_score = 1
+        match.away_score = 2
+        db.commit()
+
+        rows = parse_rows(CSV, division="F1")
+        plan, counts, _ = _projection(db, _link(db), rows)
+        assert counts.updated == 3
+        service.apply_preview(db, _run(db, _link(db), plan))
+        db.commit()
+
+        match = _require(db.get(Match, match.id))
+        assert (match.home_score, match.away_score) == (1, 2)
+        assert match.status == MatchStatus.TERMINE
+        assert match.data_source == "manual"
 
 
 def test_no_odds_are_imported(engine, seeded_db) -> None:

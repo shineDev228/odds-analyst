@@ -765,7 +765,8 @@ Une migration additive (`f2a7c9d4e613`) élargit seulement la contrainte
 
 - `created` : rencontres complétées par des statistiques ;
 - `updated` : résultats corrigés (source non manuelle) ou complétés (source
-  manuelle avec score vide) ;
+  manuelle avec score vide), ou statut aligné sur `termine` quand le score
+  manuel est déjà identique au fichier ;
 - `conflicts` : valeur manuelle différente conservée, ou statistiques déjà
   présentes ;
 - `ignored` : rencontre du fichier absente du calendrier interne ;
@@ -787,12 +788,13 @@ Une migration additive (`f2a7c9d4e613`) élargit seulement la contrainte
 
 ### Tests
 
-`apps/api/tests/test_connectors_csv.py` couvre 14 cas, sans aucun réseau :
+`apps/api/tests/test_connectors_csv.py` couvre 16 cas, sans aucun réseau :
 construction d'URL et de saison, lecture de l'xG et rejet des rencontres non
-jouées, aperçu puis application, idempotence, priorité du score manuel, absence
-de cote importée, équipe inconnue jamais créée, association d'équipe, rencontre
-hors calendrier, catalogue des divisions, routes d'aperçu et d'application,
-route d'association et persistance de la référence externe.
+jouées, aperçu puis application, idempotence, priorité du score manuel,
+complétion d'une rencontre manuelle sans score, alignement du statut `termine`,
+absence de cote importée, équipe inconnue jamais créée, association d'équipe,
+rencontre hors calendrier, catalogue des divisions, routes d'aperçu et
+d'application, route d'association et persistance de la référence externe.
 
 ### Fichiers
 
