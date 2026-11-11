@@ -9,6 +9,15 @@
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 const CSRF_COOKIE = "odds_analyst_csrf";
 
+/**
+ * Délai maximal d'une requête.
+ *
+ * Les imports de connecteurs font des appels réseau chez le fournisseur ;
+ * au-delà de cette limite, l'interface affiche une erreur explicite plutôt
+ * que de rester bloquée indéfiniment.
+ */
+const DELAI_MAX_MS = 60_000;
+
 export interface DetailErreur {
   champ: string;
   message: string;
@@ -65,9 +74,16 @@ export async function apiFetch<T>(chemin: string, options: OptionsRequete = {}):
       headers: entetes,
       credentials: "include",
       cache: "no-store",
+      signal: AbortSignal.timeout(DELAI_MAX_MS),
       body: options.corps === undefined ? undefined : JSON.stringify(options.corps),
     });
-  } catch {
+  } catch (erreur) {
+    if (erreur instanceof DOMException && erreur.name === "TimeoutError") {
+      throw new ApiError(
+        0,
+        "L'API met trop de temps à répondre. Réessayez dans un instant.",
+      );
+    }
     throw new ApiError(
       0,
       "Impossible de joindre l'API. Vérifiez que le serveur est démarré sur le port 8000.",

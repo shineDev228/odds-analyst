@@ -12,6 +12,7 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     UniqueConstraint,
@@ -90,6 +91,8 @@ class Match(Base, TimestampMixin):
             "(home_score IS NULL AND away_score IS NULL) OR (home_score >= 0 AND away_score >= 0)",
             name="ck_match_scores_positive",
         ),
+        # Listing d'une saison trié par date : évite un tri complet.
+        Index("ix_matches_season_kickoff", "season_id", "kickoff_at"),
     )
 
 

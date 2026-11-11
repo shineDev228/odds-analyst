@@ -14,6 +14,11 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+// La CSP de production utilise un nonce différent à chaque requête. Une page
+// pré-rendue statiquement ne peut pas en recevoir : le rendu doit donc être
+// dynamique. Le coût est négligeable pour une application à utilisateur unique.
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">

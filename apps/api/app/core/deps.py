@@ -5,13 +5,13 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.security import hash_token
 from app.db.session import get_db
 from app.models.user import User, UserSession
+from app.services.auth import resolve_session
 
 DbSession = Annotated[Session, Depends(get_db)]
 
@@ -35,24 +35,18 @@ def get_auth_context(request: Request, db: DbSession) -> AuthContext:
     if not raw_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Connexion requise.")
 
-    row = db.scalar(select(UserSession).where(UserSession.token_hash == hash_token(raw_token)))
+    row, reason = resolve_session(db, raw_token)
     if row is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session invalide.")
-
-    now = datetime.now(UTC)
-    if as_utc(row.expires_at) <= now:
-        db.delete(row)
-        db.commit()
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expirée.")
+        detail = {
+            "expired": "Session expirée.",
+            "idle": "Session fermée après une longue inactivité. Reconnectez-vous.",
+            "invalid": "Session invalide.",
+        }[reason]
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
 
     user = db.get(User, row.user_id)
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Compte désactivé.")
-
-    # Rafraîchissement léger : on n'écrit qu'une fois par minute.
-    if (now - as_utc(row.last_seen_at)).total_seconds() > 60:
-        row.last_seen_at = now
-        db.commit()
 
     return AuthContext(user=user, session=row)
 

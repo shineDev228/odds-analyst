@@ -148,6 +148,8 @@ class SyncRun(Base, TimestampMixin):
             "status IN ('preview', 'applied', 'partial', 'failed', 'expired', 'interrompue')",
             name="ck_sync_run_status",
         ),
+        # Le journal est lu du plus récent au plus ancien.
+        Index("ix_sync_runs_created_at", "created_at"),
     )
 
 

@@ -15,8 +15,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.errors import register_error_handlers
+from app.core.logging import configure_logging
+from app.core.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
 from app.db.seed import seed_defaults
 from app.db.session import SessionLocal
+from app.services import auth as auth_service
+
+configure_logging()
 
 logger = logging.getLogger("odds_analyst")
 
@@ -32,6 +37,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     try:
         with SessionLocal() as db:
             seed_defaults(db)
+            purgees = auth_service.purge_expired_sessions(db)
+            if purgees:
+                logger.info("Sessions expirées supprimées au démarrage : %s", purgees)
     except Exception as exc:
         logger.warning("Initialisation des données de référence ignorée : %s", exc)
     yield
@@ -56,6 +64,9 @@ app.add_middleware(
 )
 
 register_error_handlers(app)
+# Le dernier middleware ajouté s'exécute en premier.
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestContextMiddleware)
 app.include_router(api_router, prefix="/api/v1")
 
 

@@ -1,16 +1,13 @@
 """Authentification de l'administrateur unique."""
 
-from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core import deps
 from app.core.config import settings
-from app.core.security import hash_token
-from app.models.user import User, UserSession
+from app.models.user import User
 from app.schemas.auth import AuthStatus, BootstrapRequest, Credentials, UserRead
 from app.services import audit
 from app.services import auth as auth_service
@@ -24,10 +21,8 @@ def _session_user(db: Session, request: Request) -> User | None:
     raw = request.cookies.get(settings.session_cookie_name)
     if not raw:
         return None
-    row = db.scalar(select(UserSession).where(UserSession.token_hash == hash_token(raw)))
+    row, _reason = auth_service.resolve_session(db, raw)
     if row is None:
-        return None
-    if deps.as_utc(row.expires_at) <= datetime.now(UTC):
         return None
     user = db.get(User, row.user_id)
     return user if user and user.is_active else None

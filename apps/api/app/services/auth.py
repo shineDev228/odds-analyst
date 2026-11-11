@@ -20,6 +20,11 @@ from app.core.security import (
 from app.models.user import User, UserSession
 
 
+def _as_utc(value: datetime) -> datetime:
+    """Normalise une date en UTC (SQLite renvoie des dates naïves)."""
+    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+
+
 @dataclass
 class _Attempts:
     count: int = 0
@@ -116,6 +121,34 @@ def authenticate(db: Session, email: str, password: str, request: Request) -> Us
     return user
 
 
+def resolve_session(db: Session, raw_token: str) -> tuple[UserSession | None, str]:
+    """Valide une session : expiration absolue puis inactivité.
+
+    Retourne `(session, état)` avec un état parmi `ok`, `invalid`, `expired`
+    ou `idle`. Les sessions périmées sont supprimées immédiatement.
+    """
+    row = db.scalar(select(UserSession).where(UserSession.token_hash == hash_token(raw_token)))
+    if row is None:
+        return None, "invalid"
+
+    now = datetime.now(UTC)
+    if _as_utc(row.expires_at) <= now:
+        db.delete(row)
+        db.commit()
+        return None, "expired"
+
+    if now - _as_utc(row.last_seen_at) > timedelta(seconds=settings.session_idle_seconds):
+        db.delete(row)
+        db.commit()
+        return None, "idle"
+
+    if (now - _as_utc(row.last_seen_at)).total_seconds() >= settings.session_touch_seconds:
+        row.last_seen_at = now
+        db.commit()
+
+    return row, "ok"
+
+
 def create_session(db: Session, user: User, request: Request) -> tuple[str, str]:
     token = generate_token()
     csrf = generate_token()
@@ -150,7 +183,14 @@ def revoke_current_cookie_session(db: Session, request: Request) -> None:
 
 
 def purge_expired_sessions(db: Session) -> int:
-    result = db.query(UserSession).filter(UserSession.expires_at < datetime.now(UTC)).delete()
+    """Supprime les sessions expirées ou inactives depuis trop longtemps."""
+    now = datetime.now(UTC)
+    idle_limit = now - timedelta(seconds=settings.session_idle_seconds)
+    result = (
+        db.query(UserSession)
+        .filter((UserSession.expires_at < now) | (UserSession.last_seen_at < idle_limit))
+        .delete(synchronize_session=False)
+    )
     db.commit()
     return int(result or 0)
 

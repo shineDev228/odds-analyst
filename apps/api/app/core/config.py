@@ -46,7 +46,13 @@ class Settings(BaseSettings):
     session_cookie_name: str = "odds_analyst_session"
     csrf_cookie_name: str = "odds_analyst_csrf"
     session_max_age_seconds: int = 86_400
+    # Expiration d'inactivité : une session sans requête est fermée.
+    session_idle_seconds: int = 43_200
+    # Fréquence minimale d'écriture de `last_seen_at`.
+    session_touch_seconds: int = 60
     cookie_secure: bool = False
+    # HSTS n'a de sens qu'en HTTPS ; il suit donc `cookie_secure`.
+    hsts_max_age_seconds: int = 63_072_000
 
     # Limitation des tentatives de connexion
     login_max_attempts: int = 5
