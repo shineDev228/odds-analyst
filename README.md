@@ -21,7 +21,7 @@ Application web personnelle d'analyse statistique sportive.
 | 5 — Historique et performance | ✅ Terminée |
 | 6 — Moteur statistique v2 | ✅ Terminée |
 | 7 — Connecteurs de données | ✅ Terminée |
-| 8 — Durcissement et documentation | 🟨 Implémentée — en attente de validation |
+| 8 — Durcissement et documentation | ✅ Terminée |
 
 ---
 

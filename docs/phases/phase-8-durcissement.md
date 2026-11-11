@@ -1,5 +1,7 @@
 # Phase 8 — Durcissement et documentation
 
+> **Statut : validée le 11 novembre 2026.**
+>
 > Cette phase ne modifie aucun calcul statistique. Elle rend l'application plus
 > difficile à attaquer, plus simple à sauvegarder et à diagnostiquer. Elle ne
 > change ni le caractère incertain des estimations, ni l'interdiction de placer
