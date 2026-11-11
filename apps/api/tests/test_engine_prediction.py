@@ -2,9 +2,10 @@
 
 from datetime import UTC, datetime, timedelta
 
+import numpy as np
 import pytest
 from engine.markets.football import derive_probabilities
-from engine.models.poisson import score_matrix
+from engine.models.poisson import score_matrices, score_matrix
 from engine.prediction import MODEL_VERSION, predict_football, predict_point_football
 from engine.ratings import (
     HistoricalMatch,
@@ -12,6 +13,7 @@ from engine.ratings import (
     RatingConfig,
     estimate_ratings,
 )
+from engine.uncertainty import simulate_markets
 
 AS_OF = datetime(2026, 11, 20, 18, 0, tzinfo=UTC)
 CONFIG = RatingConfig(simulations=250, totals_lines=(2.5,), max_goals=10)
@@ -413,3 +415,33 @@ def test_estimated_rho_is_bounded_and_deterministic() -> None:
     second = _prediction(_history(count=12))
     assert -0.20 <= first.ratings.dixon_coles_rho <= 0.15
     assert first.ratings.dixon_coles_rho == second.ratings.dixon_coles_rho
+
+
+def test_batched_score_matrices_match_single_calls() -> None:
+    """La version groupée doit reproduire exactement la matrice unitaire."""
+    home = np.array([0.0, 0.6, 1.6, 3.2, 12.0])
+    away = np.array([-1.0, 1.1, 0.9, 2.4, 0.2])
+    batch = score_matrices(home, away, max_goals=7, rho=-0.05)
+    assert batch.shape == (5, 8, 8)
+    for index in range(home.size):
+        expected = score_matrix(float(home[index]), float(away[index]), max_goals=7, rho=-0.05)
+        assert np.allclose(batch[index], expected.probabilities, rtol=1e-12, atol=1e-15)
+        assert batch[index].sum() == pytest.approx(1.0)
+
+
+def test_simulated_intervals_are_reproducible() -> None:
+    ratings = estimate_ratings(
+        _history(count=10),
+        home_team_id="A",
+        away_team_id="B",
+        as_of=AS_OF,
+        config=CONFIG,
+    )
+    first = simulate_markets(ratings, CONFIG, simulations=200)
+    second = simulate_markets(ratings, CONFIG, simulations=200)
+    assert first == second
+    for interval in (first.home_win, first.draw, first.away_win, first.btts_yes):
+        assert 0.0 <= interval.low <= interval.median <= interval.high <= 1.0
+    for total in first.totals:
+        assert total.over.low <= total.over.median <= total.over.high
+        assert total.under.low <= total.under.median <= total.under.high

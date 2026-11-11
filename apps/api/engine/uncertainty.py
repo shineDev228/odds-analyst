@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from engine.models.poisson import score_matrix
+from engine.models.poisson import score_matrices
 from engine.ratings import RatingConfig, Ratings
 
 LEAGUE_SIGMA = 0.05
@@ -81,29 +81,42 @@ def simulate_markets(
     totals_over = np.empty((len(config.totals_lines), draws))
     goals = np.add.outer(np.arange(config.max_goals + 1), np.arange(config.max_goals + 1))
 
+    # Même ordre de tirages que la version séquentielle : la graine fixe
+    # garantit des fourchettes identiques d'une exécution à l'autre.
+    global_factor = np.empty(draws)
+    home_boost = np.empty(draws)
+    home_attack = np.empty(draws)
+    home_defense = np.empty(draws)
+    away_attack = np.empty(draws)
+    away_defense = np.empty(draws)
     for index in range(draws):
-        global_factor = np.exp(rng.normal(0.0, LEAGUE_SIGMA))
-        home_boost = np.exp(rng.normal(0.0, HOME_SIGMA))
-        home_attack = np.exp(rng.normal(0.0, ratings.home.sigma_attack))
-        home_defense = np.exp(rng.normal(0.0, ratings.home.sigma_defense))
-        away_attack = np.exp(rng.normal(0.0, ratings.away.sigma_attack))
-        away_defense = np.exp(rng.normal(0.0, ratings.away.sigma_defense))
+        global_factor[index] = np.exp(rng.normal(0.0, LEAGUE_SIGMA))
+        home_boost[index] = np.exp(rng.normal(0.0, HOME_SIGMA))
+        home_attack[index] = np.exp(rng.normal(0.0, ratings.home.sigma_attack))
+        home_defense[index] = np.exp(rng.normal(0.0, ratings.home.sigma_defense))
+        away_attack[index] = np.exp(rng.normal(0.0, ratings.away.sigma_attack))
+        away_defense[index] = np.exp(rng.normal(0.0, ratings.away.sigma_defense))
 
-        home_lambda = ratings.home_lambda * home_attack * away_defense * global_factor * home_boost
-        away_lambda = ratings.away_lambda * away_attack * home_defense * global_factor
-        matrix = score_matrix(
-            float(home_lambda),
-            float(away_lambda),
-            max_goals=config.max_goals,
-            rho=correlation,
-        ).probabilities
+    home_lambda = ratings.home_lambda * home_attack * away_defense * global_factor * home_boost
+    away_lambda = ratings.away_lambda * away_attack * home_defense * global_factor
+    matrices = score_matrices(
+        home_lambda,
+        away_lambda,
+        max_goals=config.max_goals,
+        rho=correlation,
+    )
 
-        home[index] = np.tril(matrix, -1).sum()
-        draw[index] = np.trace(matrix)
-        away[index] = np.triu(matrix, 1).sum()
-        btts[index] = matrix[1:, 1:].sum()
-        for position, line in enumerate(config.totals_lines):
-            totals_over[position, index] = matrix[goals > line].sum()
+    size = config.max_goals + 1
+    lower = np.tril(np.ones((size, size), dtype=bool), -1)
+    diagonal = np.eye(size, dtype=bool)
+    upper = np.triu(np.ones((size, size), dtype=bool), 1)
+
+    home = matrices[:, lower].sum(axis=1)
+    draw = matrices[:, diagonal].sum(axis=1)
+    away = matrices[:, upper].sum(axis=1)
+    btts = matrices[:, 1:, 1:].sum(axis=(1, 2))
+    for position, line in enumerate(config.totals_lines):
+        totals_over[position] = matrices[:, goals > line].sum(axis=1)
 
     totals = tuple(
         SimulatedTotal(

@@ -37,7 +37,7 @@ from app.connectors.import_common import (
     plan_odds,
     plan_stats,
 )
-from app.connectors.matching import kickoff_close, same_team
+from app.connectors.matching import kickoff_close, same_team_relaxed
 from app.connectors.quota import (
     apply_headers,
     consume,
@@ -760,13 +760,13 @@ def _resolve_event_match(
         candidate
         for candidate in candidates
         if kickoff_close(as_utc(candidate.kickoff_at), commence_time)
-        and same_team(
+        and same_team_relaxed(
             home_team,
             None,
             candidate.home_team.name,
             candidate.home_team.short_name,
         )
-        and same_team(
+        and same_team_relaxed(
             away_team,
             None,
             candidate.away_team.name,

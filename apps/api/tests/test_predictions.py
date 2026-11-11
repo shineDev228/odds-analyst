@@ -134,6 +134,40 @@ def test_prediction_returns_coherent_probabilities(
     assert "aucun résultat" in data["avertissement"]
 
 
+def test_batch_predictions_match_individual_ones(
+    auth_client: TestClient, session_factory, season_id: str, teams: tuple[str, str]
+) -> None:
+    """Le chargement partagé doit produire exactement les mêmes pronostics."""
+    from uuid import UUID
+
+    from app.models.match import Match
+    from app.services.predictions import build_prediction, build_predictions
+
+    home, away = teams
+    _seed_history(auth_client, season_id, teams, count=8)
+    first_id = _create_match(auth_client, season_id, home, away, TARGET_KICKOFF)
+    second_id = _create_match(
+        auth_client, season_id, away, home, TARGET_KICKOFF + timedelta(days=7)
+    )
+
+    with session_factory() as db:
+        first = db.get(Match, UUID(first_id))
+        second = db.get(Match, UUID(second_id))
+        assert first is not None and second is not None
+
+        single_first = build_prediction(db, first.id)
+        single_second = build_prediction(db, second.id)
+        batch = build_predictions(db, [first, second])
+
+    assert batch[first.id] is not None and batch[second.id] is not None
+    assert batch[first.id].model_dump(exclude={"computed_at"}) == single_first.model_dump(
+        exclude={"computed_at"}
+    )
+    assert batch[second.id].model_dump(exclude={"computed_at"}) == single_second.model_dump(
+        exclude={"computed_at"}
+    )
+
+
 def test_prediction_ignores_future_and_unfinished_matches(
     auth_client: TestClient, season_id: str, teams: tuple[str, str]
 ) -> None:

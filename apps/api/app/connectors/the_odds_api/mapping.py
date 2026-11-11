@@ -57,7 +57,7 @@ def _double_chance_code(name: str, home: str, away: str) -> str | None:
 
     normalized = normalize_name(name)
     segments = [
-        segment.strip()
+        normalize_name(segment)
         for segment in normalized.replace("/", " or ").split(" or ")
         if segment.strip()
     ]

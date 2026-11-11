@@ -1,7 +1,13 @@
 """Tests des mappings purs et de la normalisation des noms."""
 
 from app.connectors.bigballsdata.mapping import map_match, map_statistics, parse_datetime
-from app.connectors.matching import kickoff_close, normalize_name, same_team, similar_teams
+from app.connectors.matching import (
+    kickoff_close,
+    normalize_name,
+    same_team,
+    same_team_relaxed,
+    similar_teams,
+)
 from app.connectors.the_odds_api.mapping import map_event_odds, map_events, valid_price
 
 
@@ -257,6 +263,39 @@ def test_name_normalization_and_suggestions() -> None:
     assert not same_team("Lens", None, "Lille", None)
     suggestions = similar_teams("Paris Saint Germain", [("t1", "Paris Saint-Germain", "PSG")])
     assert suggestions and suggestions[0][0] == "t1"
+
+
+def test_relaxed_matching_accepts_common_french_abbreviations() -> None:
+    cases = [
+        ("Troyes", "ESTAC Troyes"),
+        ("Nice", "OGC Nice"),
+        ("Auxerre", "AJ Auxerre"),
+        ("Strasbourg", "RC Strasbourg Alsace"),
+        ("Lille", "LOSC Lille"),
+        ("Lyon", "Olympique Lyonnais"),
+        ("Rennes", "Stade Rennais FC 1901"),
+        ("Brest", "Stade Brestois 29"),
+        ("Marseille", "Olympique de Marseille"),
+        ("Lens", "RC Lens"),
+        ("Girondins de Bordeaux", "Bordeaux"),
+    ]
+    for short, full in cases:
+        assert same_team_relaxed(short, None, full, None), (short, full)
+        assert same_team_relaxed(full, None, short, None), (full, short)
+
+
+def test_relaxed_matching_rejects_distinct_clubs() -> None:
+    assert not same_team_relaxed("Lens", None, "Lille", None)
+    assert not same_team_relaxed("Le Havre", None, "Le Mans", None)
+    assert not same_team_relaxed("Paris", None, "Paris Saint-Germain", None)
+    assert not same_team_relaxed("Stade Rennais", None, "Stade Brestois 29", None)
+
+
+def test_strict_matching_stays_conservative() -> None:
+    """L'import des équipes ne fusionne jamais un nom court et un nom complet."""
+    assert not same_team("Brest", None, "Stade Brestois 29", None)
+    assert not same_team("Lyon", None, "Olympique Lyonnais", None)
+    assert not same_team("Strasbourg", None, "RC Strasbourg Alsace", None)
 
 
 def test_kickoff_tolerance() -> None:

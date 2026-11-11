@@ -179,7 +179,7 @@ Cette contrainte garantit la fiabilité et la reproductibilité des calculs.
 ## Tests et qualité
 
 ```powershell
-# API et moteur (235 tests)
+# API et moteur (241 tests)
 uv run pytest
 
 # Analyse statique du code Python
@@ -206,6 +206,7 @@ d'environnement `API_URL` avant de démarrer l'interface.
 | Pannes courantes, ports, quotas | `docs/exploitation/depannage.md` |
 | Routes et erreurs de l'API | `docs/exploitation/api.md` |
 | Phase 8 : décisions et tests | `docs/phases/phase-8-durcissement.md` |
+| Phase 9 : appariement et performance | `docs/phases/phase-9-appariement-performance.md` |
 
 Commandes utiles :
 

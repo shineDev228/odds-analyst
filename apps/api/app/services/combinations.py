@@ -32,10 +32,7 @@ from app.services.markets import latest_snapshot
 from app.services.predictions import (
     AVERTISSEMENT as PREDICTION_WARNING,
 )
-from app.services.predictions import (
-    InsufficientHistoryError,
-    build_prediction,
-)
+from app.services.predictions import build_predictions
 from app.services.preferences import get_preferences
 
 MAX_MATCHES = 50
@@ -85,7 +82,7 @@ def model_selection(
     selection: Selection,
     prediction: PredictionRead,
 ) -> tuple[str, float, float, float] | None:
-    """Associe une sélection saisie à une probabilité du modèle v1."""
+    """Associe une sélection saisie à une probabilité du modèle statistique."""
     code = selection.code
 
     if market.family == "resultat" and market.period == "match" and code in {"1", "X", "2"}:
@@ -239,21 +236,27 @@ def build_combinations(
 
     families = _allowed_families(marches)
     matches = _upcoming_matches(db, datetime.now(UTC))
-    groups: list[list[CombinationCandidate]] = []
-    ignored = 0
 
+    # Les rencontres sans cote récente sont écartées avant tout calcul : elles ne
+    # produiraient aucun candidat. Les pronostics restants partagent ensuite un
+    # seul chargement d'historique.
+    with_odds: list[Match] = []
     for match in matches:
         eligible = [market for market in match.markets if _market_is_eligible(market, families)]
-        if not any(
+        if any(
             latest_snapshot(selection) is not None
             for market in eligible
             for selection in market.selections
         ):
-            ignored += 1
-            continue
-        try:
-            prediction = build_prediction(db, match.id)
-        except InsufficientHistoryError:
+            with_odds.append(match)
+
+    predictions = build_predictions(db, with_odds, preferences)
+    groups: list[list[CombinationCandidate]] = []
+    ignored = 0
+
+    for match in matches:
+        prediction = predictions.get(match.id)
+        if prediction is None:
             ignored += 1
             continue
 
@@ -276,7 +279,7 @@ def build_combinations(
     elif not groups:
         message = (
             "Aucune rencontre à venir ne réunit une cote récente et un historique "
-            "suffisant pour le modèle v1."
+            "suffisant pour le modèle statistique."
         )
     elif len(groups) < nombre:
         message = (

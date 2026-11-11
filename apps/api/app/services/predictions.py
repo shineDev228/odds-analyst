@@ -1,5 +1,7 @@
 """Service de prédiction : chargement de l'historique et sérialisation."""
 
+from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -30,6 +32,7 @@ from app.schemas.prediction import (
     PredictionSources,
     PredictionTotal,
 )
+from app.schemas.settings import PreferencesRead
 from app.services.preferences import get_preferences
 
 AVERTISSEMENT = (
@@ -50,6 +53,38 @@ _MATCH_LOAD = (
     selectinload(Match.away_team),
     selectinload(Match.season).selectinload(Season.competition).selectinload(Competition.sport),
 )
+
+#: Nombre maximal de rencontres terminées retenues comme historique de ligue.
+LEAGUE_HISTORY_LIMIT = 400
+#: Fenêtre plus large chargée une fois : couvre plusieurs saisons par équipe.
+SNAPSHOT_HISTORY_LIMIT = 1_200
+
+
+@dataclass(frozen=True)
+class HistorySnapshot:
+    """Rencontres terminées chargées une fois pour plusieurs pronostics.
+
+    Les rencontres sont triées du plus récent au plus ancien. Les sélections
+    par équipe ou par ligue reproduisent exactement les requêtes unitaires :
+    l'échantillon de ligue est borné à `LEAGUE_HISTORY_LIMIT`, la fenêtre
+    chargée est plus large pour couvrir plusieurs saisons par équipe.
+    """
+
+    matches: tuple[Match, ...]
+
+    def team(self, team_id: UUID, before: datetime, limit: int) -> list[Match]:
+        selected: list[Match] = []
+        for match in self.matches:
+            if as_utc(match.kickoff_at) >= before:
+                continue
+            if match.home_team_id == team_id or match.away_team_id == team_id:
+                selected.append(match)
+                if len(selected) >= limit:
+                    break
+        return selected
+
+    def league(self, before: datetime, limit: int = LEAGUE_HISTORY_LIMIT) -> list[Match]:
+        return [match for match in self.matches if as_utc(match.kickoff_at) < before][:limit]
 
 
 class InsufficientHistoryError(ValueError):
@@ -153,7 +188,7 @@ def _format_line(line: float) -> str:
 
 def _warnings(
     prediction: FootballPrediction,
-    history: list[Match],
+    history: Sequence[Match],
     home_name: str,
     away_name: str,
     computed_at: datetime,
@@ -236,8 +271,83 @@ def build_prediction(db: Session, match_id: UUID) -> PredictionRead:
 
     merged: dict[UUID, Match] = {item.id: item for item in home_history}
     merged.update({item.id: item for item in away_history})
-    history = list(merged.values())
+    return _prediction_read(match, preferences, list(merged.values()), league)
 
+
+def load_history_snapshot(db: Session, sport_id: UUID, before: datetime) -> HistorySnapshot:
+    """Charge en une requête l'historique terminé utile à plusieurs pronostics."""
+    rows = db.scalars(
+        select(Match)
+        .options(selectinload(Match.season), selectinload(Match.stats))
+        .where(
+            Match.status == MatchStatus.TERMINE,
+            Match.home_score.is_not(None),
+            Match.away_score.is_not(None),
+            Match.kickoff_at < before,
+            Match.season_id.in_(_season_ids_for_sport(sport_id)),
+        )
+        .order_by(Match.kickoff_at.desc())
+        .limit(SNAPSHOT_HISTORY_LIMIT)
+    ).all()
+    return HistorySnapshot(matches=tuple(rows))
+
+
+def build_predictions(
+    db: Session,
+    matches: Sequence[Match],
+    preferences: PreferencesRead | None = None,
+) -> dict[UUID, PredictionRead | None]:
+    """Calcule plusieurs pronostics en partageant le chargement de l'historique.
+
+    La valeur `None` signale un historique insuffisant pour la rencontre.
+    """
+    settings = preferences or get_preferences(db)
+    latest: dict[UUID, datetime] = {}
+    for match in matches:
+        sport_id = match.season.competition.sport_id
+        kickoff = as_utc(match.kickoff_at)
+        if sport_id not in latest or kickoff > latest[sport_id]:
+            latest[sport_id] = kickoff
+
+    snapshots = {
+        sport_id: load_history_snapshot(db, sport_id, before)
+        for sport_id, before in latest.items()
+    }
+
+    results: dict[UUID, PredictionRead | None] = {}
+    for match in matches:
+        sport_id = match.season.competition.sport_id
+        before = as_utc(match.kickoff_at)
+        snapshot = snapshots[sport_id]
+        merged: dict[UUID, Match] = {
+            item.id: item
+            for item in snapshot.team(
+                match.home_team_id, before, settings.nb_matchs_historique
+            )
+        }
+        merged.update(
+            {
+                item.id: item
+                for item in snapshot.team(
+                    match.away_team_id, before, settings.nb_matchs_historique
+                )
+            }
+        )
+        try:
+            results[match.id] = _prediction_read(
+                match, settings, list(merged.values()), snapshot.league(before)
+            )
+        except InsufficientHistoryError:
+            results[match.id] = None
+    return results
+
+
+def _prediction_read(
+    match: Match,
+    preferences: PreferencesRead,
+    history: Sequence[Match],
+    league: Sequence[Match],
+) -> PredictionRead:
     config = RatingConfig(
         half_life_days=float(preferences.demi_vie_jours),
         max_matches_per_team=preferences.nb_matchs_historique,
@@ -249,7 +359,7 @@ def build_prediction(db: Session, match_id: UUID) -> PredictionRead:
             league_matches=[to_historical(item) for item in league],
             home_team_id=str(match.home_team_id),
             away_team_id=str(match.away_team_id),
-            as_of=before,
+            as_of=as_utc(match.kickoff_at),
             config=config,
         )
     except InsufficientDataError as exc:
