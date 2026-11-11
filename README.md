@@ -151,6 +151,15 @@ explicite plutôt que d'inventer une probabilité.
 
 ---
 
+## Guide utilisateur
+
+Le parcours complet, écran par écran, de la création du référentiel à la
+génération des combinaisons est décrit dans
+[`docs/guide-utilisation.md`](docs/guide-utilisation.md) : prérequis, saisie des
+cotes, lecture des fourchettes, critères du générateur, dépannage et check-list.
+
+---
+
 ## Structure du dépôt
 
 ```
