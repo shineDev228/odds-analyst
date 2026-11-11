@@ -1,5 +1,7 @@
 # ODDS ANALYST
 
+[![CI](https://github.com/shineDev228/odds-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/shineDev228/odds-analyst/actions/workflows/ci.yml)
+
 Application web personnelle d'analyse statistique sportive.
 
 > **ODDS ANALYST est un outil d'analyse.**
@@ -207,6 +209,19 @@ L'interface appelle l'API via le proxy Next.js `/api` (voir
 Si l'API tourne ailleurs que sur `http://127.0.0.1:8000`, définir la variable
 d'environnement `API_URL` avant de démarrer l'interface.
 
+### Intégration continue
+
+Le workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) rejoue ces
+vérifications à chaque envoi sur `main` :
+
+| Job | Contenu |
+|---|---|
+| API et moteur statistique | `ruff`, `mypy app engine`, `pytest` |
+| Interface Next.js | `eslint`, `tsc --noEmit`, `next build` |
+
+Les tests s'exécutent sur une base SQLite en mémoire : la CI ne se connecte ni
+à PostgreSQL, ni à un fournisseur de données, et n'utilise aucun secret.
+
 ## Sécurité et exploitation
 
 | Sujet | Document |
@@ -233,6 +248,8 @@ powershell -ExecutionPolicy Bypass -File infra/scripts/restore.ps1 `
 
 ## Licence et usage
 
-Projet privé, usage strictement personnel.
+Projet personnel, publié publiquement à titre de démonstration technique.
+Aucune licence n'est accordée : tous droits réservés. Le code peut être lu et
+cité, mais ni réutilisé, ni modifié, ni redistribué sans autorisation écrite.
 Aucun scraping non autorisé, aucune automatisation de pari,
 aucun stockage d'identifiants de bookmaker.
