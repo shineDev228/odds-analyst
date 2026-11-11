@@ -20,8 +20,8 @@ Application web personnelle d'analyse statistique sportive.
 | 4 — Générateur de combinaisons | ✅ Terminée |
 | 5 — Historique et performance | ✅ Terminée |
 | 6 — Moteur statistique v2 | ✅ Terminée |
-| 7 — Connecteurs de données | 🟨 Implémentée — en attente de validation |
-| 8 — Durcissement et documentation | ⬜ À venir |
+| 7 — Connecteurs de données | ✅ Terminée |
+| 8 — Durcissement et documentation | 🟨 Implémentée — en attente de validation |
 
 ---
 
@@ -118,7 +118,12 @@ powershell -ExecutionPolicy Bypass -File infra/scripts/dev.ps1
   et ne s'applique qu'après validation. Les quotas gratuits sont suivis
   localement. Le score exact et le handicap restent manuels ; si 1xBet est
   absent, aucune cote n'est inventée et aucun autre bookmaker ne le remplace.
-  Une correction manuelle n'est jamais écrasée.
+  Une correction manuelle n'est jamais écrasée. Ordre conseillé :
+  **calendrier → résultats et statistiques (CSV) → cotes**.
+- **Sécurité et exploitation** : en-têtes de sécurité, CSP par nonce en
+  production, expiration d'inactivité de 12 h, purge des sessions, journal JSON
+  avec identifiant de requête, sauvegarde et restauration vérifiée dans une base
+  de test.
 - **Paramètres** : fourchette de cotes 50–100, nombre de sélections, marchés
   autorisés, demi-vie de pondération.
 
@@ -156,8 +161,11 @@ apps/
     engine/    Moteur statistique pur (sans base de données ni réseau)
 docs/
   adr/         Décisions d'architecture documentées
+  exploitation/ Sauvegarde, restauration, sécurité, dépannage, API
+  phases/      Journal des phases et décisions
 infra/
-  scripts/     Installation, démarrage, sauvegarde
+  scripts/     Installation, démarrage, sauvegarde, restauration
+  backups/     Archives locales (exclues de Git)
 ```
 
 ### Règle d'architecture fondamentale
@@ -171,7 +179,7 @@ Cette contrainte garantit la fiabilité et la reproductibilité des calculs.
 ## Tests et qualité
 
 ```powershell
-# API et moteur (207 tests)
+# API et moteur (235 tests)
 uv run pytest
 
 # Analyse statique du code Python
@@ -181,12 +189,34 @@ uv run mypy app engine
 # Interface
 npm run lint
 npm run typecheck
+npm run build
 ```
 
 L'interface appelle l'API via le proxy Next.js `/api` (voir
 `apps/web/next.config.ts`) : cookies et jeton CSRF restent en même origine.
 Si l'API tourne ailleurs que sur `http://127.0.0.1:8000`, définir la variable
 d'environnement `API_URL` avant de démarrer l'interface.
+
+## Sécurité et exploitation
+
+| Sujet | Document |
+|---|---|
+| En-têtes, CSP, sessions, CSRF, clés | `docs/exploitation/securite.md` |
+| Sauvegarde et restauration vérifiée | `docs/exploitation/sauvegarde-restauration.md` |
+| Pannes courantes, ports, quotas | `docs/exploitation/depannage.md` |
+| Routes et erreurs de l'API | `docs/exploitation/api.md` |
+| Phase 8 : décisions et tests | `docs/phases/phase-8-durcissement.md` |
+
+Commandes utiles :
+
+```powershell
+# Sauvegarde
+powershell -ExecutionPolicy Bypass -File infra/scripts/backup.ps1
+
+# Restauration dans une base de test (jamais la base réelle par défaut)
+powershell -ExecutionPolicy Bypass -File infra/scripts/restore.ps1 `
+  -BackupFile infra\backups\odds_analyst-AAAAMMJJ-HHMMSS.dump
+```
 
 ---
 
