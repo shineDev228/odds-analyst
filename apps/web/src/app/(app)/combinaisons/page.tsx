@@ -316,8 +316,9 @@ export default function PageCombinaisons() {
         <h1 className="text-xl font-semibold tracking-tight">Combinaisons</h1>
         <p className="mt-1 text-xs text-texte-doux">
           Assemblages de sélections dont la cote totale tombe dans la fourchette
-          visée. Les probabilités sont estimées par le modèle v1 et restent
-          incertaines : aucune combinaison n&apos;est un conseil de pari.
+          visée. Les probabilités sont estimées par le modèle statistique et
+          restent incertaines : aucune combinaison n&apos;est un conseil de
+          pari.
         </p>
       </header>
 
@@ -485,7 +486,8 @@ export default function PageCombinaisons() {
               </li>
               <li>
                 • La <span className="text-texte">probabilité estimée</span> est
-                le produit des probabilités du modèle v1 ; la fourchette à 80 %
+                le produit des probabilités du modèle statistique ; la
+                fourchette à 80 %
                 reflète l&apos;incertitude du modèle, pas une garantie.
               </li>
               <li>
