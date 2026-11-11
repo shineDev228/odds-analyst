@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # Application
     app_name: str = "ODDS ANALYST"
-    app_version: str = "1.0.0"
+    app_version: str = "1.1.0"
     app_env: str = "development"
     app_debug: bool = True
     app_timezone: str = "Europe/Paris"

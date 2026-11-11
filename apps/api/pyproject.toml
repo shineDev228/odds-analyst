@@ -1,6 +1,6 @@
 [project]
 name = "odds-analyst-api"
-version = "1.0.0"
+version = "1.1.0"
 description = "API et moteur statistique de ODDS ANALYST"
 readme = "README.md"
 requires-python = ">=3.12"

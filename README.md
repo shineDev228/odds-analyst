@@ -25,6 +25,7 @@ Application web personnelle d'analyse statistique sportive.
 | 7 — Connecteurs de données | ✅ Terminée |
 | 8 — Durcissement et documentation | ✅ Terminée |
 | 9 — Appariement des noms et performance | ✅ Terminée |
+| 10 — Marché « les deux équipes marquent » | ✅ Terminée |
 
 ---
 

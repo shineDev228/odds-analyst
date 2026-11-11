@@ -16,4 +16,4 @@ Sous-modules prévus :
     combos/        générateur de combinaisons
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
