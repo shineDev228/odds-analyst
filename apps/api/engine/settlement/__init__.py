@@ -18,6 +18,7 @@ SUPPORTED_FAMILIES: dict[str, frozenset[str]] = {
     "resultat": frozenset({"1", "X", "2"}),
     "double_chance": frozenset({"1X", "12", "X2"}),
     "totaux": frozenset({"plus", "moins"}),
+    "btts": frozenset({"oui", "non"}),
 }
 
 PENDING_MATCH_STATUSES = frozenset({"programme", "en_cours"})
@@ -164,6 +165,21 @@ def _settle_total(rule: LegRule, result: MatchResult) -> LegSettlement:
     )
 
 
+def _settle_btts(rule: LegRule, result: MatchResult) -> LegSettlement:
+    """Règle « les deux équipes marquent » : aucun remboursement possible."""
+    if result.home_score is None or result.away_score is None:  # pragma: no cover - défense
+        return LegSettlement(LegStatus.INDISPONIBLE, "Score manquant : sélection indisponible.")
+
+    both_scored = result.home_score > 0 and result.away_score > 0
+    label = _score_label(result)
+    won = (rule.selection_code == "oui" and both_scored) or (
+        rule.selection_code == "non" and not both_scored
+    )
+    if won:
+        return LegSettlement(LegStatus.GAGNEE, f"Score {label} : sélection gagnante.")
+    return LegSettlement(LegStatus.PERDUE, f"Score {label} : sélection perdante.")
+
+
 def settle_leg(rule: LegRule, result: MatchResult) -> LegSettlement:
     """Règle une sélection à partir de son instantané et de la rencontre actuelle."""
     if result.status in VOID_MATCH_STATUSES:
@@ -186,7 +202,7 @@ def settle_leg(rule: LegRule, result: MatchResult) -> LegSettlement:
     if rule.period != "match":
         return LegSettlement(
             LegStatus.INDISPONIBLE,
-            "Marché hors période « match » : non réglable en v1.",
+            "Marché hors période « match » : non réglable par le modèle statistique.",
         )
 
     if rule.family == "resultat" and rule.selection_code in SUPPORTED_FAMILIES["resultat"]:
@@ -198,10 +214,12 @@ def settle_leg(rule: LegRule, result: MatchResult) -> LegSettlement:
         return _settle_double_chance(rule, result)
     if rule.family == "totaux" and rule.selection_code in SUPPORTED_FAMILIES["totaux"]:
         return _settle_total(rule, result)
+    if rule.family == "btts" and rule.selection_code in SUPPORTED_FAMILIES["btts"]:
+        return _settle_btts(rule, result)
 
     return LegSettlement(
         LegStatus.INDISPONIBLE,
-        "Marché non réglable par le modèle v1 : sélection indisponible.",
+        "Marché non réglable par le modèle statistique : sélection indisponible.",
     )
 
 

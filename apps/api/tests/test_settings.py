@@ -10,6 +10,12 @@ def test_defaults(auth_client: TestClient) -> None:
     assert payload["cote_min"] == 50.0
     assert payload["cote_max"] == 100.0
     assert payload["nb_selections_defaut"] == 8
+    assert payload["marches_autorises"] == [
+        "1X2",
+        "DOUBLE_CHANCE",
+        "PLUS_MOINS",
+        "BTTS",
+    ]
 
 
 def test_update_and_persist(auth_client: TestClient) -> None:

@@ -83,6 +83,25 @@ def _create_result_market(
     assert response.status_code == 201, response.text
 
 
+def _create_btts_market(
+    client: TestClient,
+    match_id: str,
+    *,
+    odds: float = 8.0,
+) -> None:
+    response = client.post(
+        f"/api/v1/matches/{match_id}/markets",
+        json={
+            "template_code": "football.btts",
+            "selections": [
+                {"code": "oui", "label": "Oui", "decimal_odds": odds},
+                {"code": "non", "label": "Non", "decimal_odds": odds},
+            ],
+        },
+    )
+    assert response.status_code == 201, response.text
+
+
 def _playable_matches(
     client: TestClient,
     season_id: str,
@@ -268,6 +287,20 @@ def test_combinations_validate_parameters(auth_client: TestClient) -> None:
 
     response = auth_client.post(
         "/api/v1/combinations/generate",
+        json={
+            "marches_autorises": [
+                "1X2",
+                "DOUBLE_CHANCE",
+                "PLUS_MOINS",
+                "BTTS",
+                "1X2",
+            ]
+        },
+    )
+    assert response.status_code == 422
+
+    response = auth_client.post(
+        "/api/v1/combinations/generate",
         json={"nombre_selections": 1},
     )
     assert response.status_code == 422
@@ -298,3 +331,76 @@ def test_combinations_report_impossible_odds_range(
     ).json()
     assert data["combinaisons"] == []
     assert "Élargissez la fourchette" in data["message"]
+
+
+def _btts_matches(
+    client: TestClient,
+    season_id: str,
+    teams: tuple[str, str],
+    *,
+    count: int = 2,
+) -> list[str]:
+    _seed_history(client, season_id, teams)
+    ids = []
+    for index in range(count):
+        match_id = _create_match(
+            client,
+            season_id,
+            teams[0],
+            teams[1],
+            TARGET_KICKOFF + timedelta(hours=index),
+        )
+        _create_btts_market(client, match_id)
+        ids.append(match_id)
+    return ids
+
+
+def test_btts_market_produces_selections(
+    auth_client: TestClient, season_id: str, teams: tuple[str, str]
+) -> None:
+    _btts_matches(auth_client, season_id, teams)
+
+    response = auth_client.post(
+        "/api/v1/combinations/generate",
+        json={
+            "nombre_selections": 2,
+            "cote_min": 50,
+            "cote_max": 100,
+            "marches_autorises": ["BTTS"],
+            "limite": 5,
+        },
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+
+    assert data["matchs_disponibles"] == 2
+    assert data["selections_disponibles"] == 4
+    assert data["parametres"]["marches_autorises"] == ["BTTS"]
+    assert data["combinaisons"]
+
+    for combination in data["combinaisons"]:
+        for item in combination["selections"]:
+            assert item["market_name"] == "Les deux équipes marquent"
+            assert item["selection_label"] in {"Oui", "Non"}
+            assert item["low"] <= item["probability"] <= item["high"]
+            assert item["decimal_odds"] == 8.0
+        assert 50 <= combination["total_odds"] <= 100
+
+
+def test_btts_market_is_ignored_when_not_allowed(
+    auth_client: TestClient, season_id: str, teams: tuple[str, str]
+) -> None:
+    _btts_matches(auth_client, season_id, teams)
+
+    data = auth_client.post(
+        "/api/v1/combinations/generate",
+        json={
+            "nombre_selections": 2,
+            "cote_min": 50,
+            "cote_max": 100,
+            "marches_autorises": ["1X2"],
+        },
+    ).json()
+    assert data["combinaisons"] == []
+    assert data["matchs_disponibles"] == 0
+    assert data["selections_disponibles"] == 0

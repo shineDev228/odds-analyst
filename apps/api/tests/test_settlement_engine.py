@@ -101,6 +101,34 @@ def test_totals(
     assert settlement.status == expected
 
 
+@pytest.mark.parametrize(
+    ("code", "home", "away", "expected"),
+    [
+        ("oui", 1, 1, LegStatus.GAGNEE),
+        ("oui", 2, 1, LegStatus.GAGNEE),
+        ("oui", 4, 3, LegStatus.GAGNEE),
+        ("oui", 1, 0, LegStatus.PERDUE),
+        ("oui", 0, 0, LegStatus.PERDUE),
+        ("non", 1, 0, LegStatus.GAGNEE),
+        ("non", 0, 0, LegStatus.GAGNEE),
+        ("non", 2, 2, LegStatus.PERDUE),
+    ],
+)
+def test_btts(code: str, home: int, away: int, expected: LegStatus) -> None:
+    settlement = settle_leg(_rule("btts", code), _result(home=home, away=away))
+    assert settlement.status == expected
+
+
+def test_btts_missing_score_is_unavailable() -> None:
+    settlement = settle_leg(_rule("btts", "oui"), _result(home=None, away=None))
+    assert settlement.status == LegStatus.INDISPONIBLE
+
+
+def test_btts_void_match_is_refunded() -> None:
+    settlement = settle_leg(_rule("btts", "non"), _result(status="reporte", home=None, away=None))
+    assert settlement.status == LegStatus.REMBOURSEE
+
+
 @pytest.mark.parametrize("status", ["programme", "en_cours"])
 def test_pending_match(status: str) -> None:
     settlement = settle_leg(_rule("resultat", "1"), _result(status=status, home=None, away=None))
@@ -120,7 +148,7 @@ def test_missing_score_is_unavailable() -> None:
 
 def test_unknown_market_and_period_are_unavailable() -> None:
     assert (
-        settle_leg(_rule("btts", "oui"), _result()).status
+        settle_leg(_rule("corners", "plus", line=9.5), _result()).status
         == LegStatus.INDISPONIBLE
     )
     assert (

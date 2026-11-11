@@ -17,6 +17,7 @@ const marchesDisponibles = [
   { code: "1X2", libelle: "1X2 (résultat du match)" },
   { code: "DOUBLE_CHANCE", libelle: "Double chance" },
   { code: "PLUS_MOINS", libelle: "Plus / moins de buts" },
+  { code: "BTTS", libelle: "Les deux équipes marquent" },
 ];
 
 export default function PageParametres() {

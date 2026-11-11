@@ -41,6 +41,7 @@ MARKET_FAMILIES: dict[str, tuple[str, ...]] = {
     "1X2": ("resultat",),
     "DOUBLE_CHANCE": ("double_chance",),
     "PLUS_MOINS": ("totaux",),
+    "BTTS": ("btts",),
 }
 
 COMBINATION_WARNING = (
@@ -112,6 +113,11 @@ def model_selection(
             total_selection.low,
             total_selection.high,
         )
+
+    if market.family == "btts" and market.period == "match" and code in {"oui", "non"}:
+        item = next((entry for entry in prediction.btts if entry.code == code), None)
+        if item is not None:
+            return f"btts:{code}", item.probability, item.low, item.high
     return None
 
 

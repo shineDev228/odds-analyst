@@ -31,7 +31,7 @@ DEFAULT_SETTINGS = {
         "cote_min": 50.0,
         "cote_max": 100.0,
         "nb_selections_defaut": 8,
-        "marches_autorises": ["1X2", "DOUBLE_CHANCE", "PLUS_MOINS"],
+        "marches_autorises": ["1X2", "DOUBLE_CHANCE", "PLUS_MOINS", "BTTS"],
         "demi_vie_jours": 240,
         "nb_matchs_historique": 38,
     }

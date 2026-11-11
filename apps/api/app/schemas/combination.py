@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-ALLOWED_MARKETS = ("1X2", "DOUBLE_CHANCE", "PLUS_MOINS")
+ALLOWED_MARKETS = ("1X2", "DOUBLE_CHANCE", "PLUS_MOINS", "BTTS")
 ALLOWED_MARKET_SET = set(ALLOWED_MARKETS)
 
 
@@ -15,7 +15,7 @@ class CombinationRequest(BaseModel):
     nombre_selections: int | None = Field(default=None, ge=2, le=15)
     cote_min: float | None = Field(default=None, gt=1.0, le=10_000.0)
     cote_max: float | None = Field(default=None, gt=1.0, le=10_000.0)
-    marches_autorises: list[str] | None = Field(default=None, max_length=3)
+    marches_autorises: list[str] | None = Field(default=None, max_length=4)
     limite: int = Field(default=10, ge=1, le=50)
 
     @field_validator("marches_autorises")

@@ -80,6 +80,21 @@ def _create_result_market(client: TestClient, match_id: str, *, odds: float = 8.
     return response.json()
 
 
+def _create_btts_market(client: TestClient, match_id: str, *, odds: float = 8.0) -> dict:
+    response = client.post(
+        f"/api/v1/matches/{match_id}/markets",
+        json={
+            "template_code": "football.btts",
+            "selections": [
+                {"code": "oui", "label": "Oui", "decimal_odds": odds},
+                {"code": "non", "label": "Non", "decimal_odds": odds},
+            ],
+        },
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
 def _playable_matches(
     client: TestClient,
     season_id: str,
@@ -343,16 +358,17 @@ def test_save_rejects_unsupported_market(
     response = auth_client.post(
         f"/api/v1/matches/{other_match}/markets",
         json={
-            "template_code": "football.btts",
+            "template_code": "football.total_corners",
+            "line": 9.5,
             "selections": [
-                {"code": "oui", "label": "Oui", "decimal_odds": 8.0},
-                {"code": "non", "label": "Non", "decimal_odds": 8.0},
+                {"code": "plus", "label": "Plus", "decimal_odds": 8.0},
+                {"code": "moins", "label": "Moins", "decimal_odds": 8.0},
             ],
         },
     )
     assert response.status_code == 201, response.text
     market = response.json()
-    selection = next(item for item in market["selections"] if item["code"] == "oui")
+    selection = next(item for item in market["selections"] if item["code"] == "plus")
 
     payload = _save_payload(data["combinaisons"][0], data["parametres"])
     payload["selections"][0] = {
@@ -428,6 +444,47 @@ def test_settlement_won_and_performance(
     assert performance["unites_retournees"] == pytest.approx(64.0)
     assert performance["resultat_net"] == pytest.approx(63.0)
     assert performance["roi"] == pytest.approx(63.0)
+
+
+def test_btts_combination_is_saved_and_settled(
+    auth_client: TestClient, season_id: str, teams: tuple[str, str]
+) -> None:
+    _seed_history(auth_client, season_id, teams)
+    for index in range(2):
+        match_id = _create_match(
+            auth_client,
+            season_id,
+            teams[0],
+            teams[1],
+            TARGET_KICKOFF + timedelta(hours=index),
+        )
+        _create_btts_market(auth_client, match_id)
+
+    data = auth_client.post(
+        "/api/v1/combinations/generate",
+        json={
+            "nombre_selections": 2,
+            "cote_min": 50,
+            "cote_max": 100,
+            "marches_autorises": ["BTTS"],
+            "limite": 5,
+        },
+    ).json()
+    assert data["combinaisons"], data
+    combinaison = data["combinaisons"][0]
+    assert {item["market_name"] for item in combinaison["selections"]} == {
+        "Les deux équipes marquent"
+    }
+
+    saved = _save(auth_client, combinaison, data["parametres"])
+    for item in saved["selections"]:
+        home, away = (1, 1) if item["selection_label"] == "Oui" else (1, 0)
+        _finish(auth_client, item["match_id"], home, away)
+
+    detail = auth_client.get(f"/api/v1/combinations/{saved['id']}").json()
+    assert detail["status"] == "gagnee"
+    assert all(item["status"] == "gagnee" for item in detail["selections"])
+    assert all(item["market_family"] == "btts" for item in detail["selections"])
 
 
 def test_settlement_lost(

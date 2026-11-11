@@ -72,12 +72,14 @@ MARKET_FAMILIES_BY_CODE: dict[str, str] = {
     "1X2": "resultat",
     "DOUBLE_CHANCE": "double_chance",
     "PLUS_MOINS": "totaux",
+    "BTTS": "btts",
 }
 
 SUPPORTED_CODES: dict[str, frozenset[str]] = {
     "resultat": frozenset({"1", "X", "2"}),
     "double_chance": frozenset({"1X", "12", "X2"}),
     "totaux": frozenset({"plus", "moins"}),
+    "btts": frozenset({"oui", "non"}),
 }
 
 _COMBINATION_LOAD = (selectinload(SavedCombination.legs),)
@@ -252,7 +254,7 @@ def _validate_rule(market: Market, selection: Selection) -> tuple[str, str, floa
     family = market.family
     code = selection.code
     if code not in SUPPORTED_CODES.get(family, frozenset()):
-        raise InvalidSave("Cette sélection n'est pas réglable par le modèle v1.")
+        raise InvalidSave("Cette sélection n'est pas réglable par le modèle statistique.")
 
     line = market.line if market.line is not None else selection.line
     if family == "totaux" and line is None:
