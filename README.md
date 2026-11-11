@@ -96,17 +96,18 @@ powershell -ExecutionPolicy Bypass -File infra/scripts/dev.ps1
   modèle sont affichés ; l'analyse est refusée si l'historique est trop court.
 - **Générateur de combinaisons (football)** : assemblages de 2 à 15 sélections
   issus des rencontres à venir, une seule sélection par rencontre, cote totale
-  dans la fourchette visée. Chaque résultat affiche la cote totale, la
-  probabilité estimée, la fourchette à 80 % et l'espérance estimée. Les
-  rencontres sans cote récente ou sans historique suffisant sont ignorées et
-  comptées. Aucune combinaison n'est présentée comme certaine.
+  dans la fourchette visée. Marchés disponibles : 1X2, double chance,
+  plus / moins de buts et « les deux équipes marquent ». Chaque résultat affiche
+  la cote totale, la probabilité estimée, la fourchette à 80 % et l'espérance
+  estimée. Les rencontres sans cote récente ou sans historique suffisant sont
+  ignorées et comptées. Aucune combinaison n'est présentée comme certaine.
 - **Historique et performance** : enregistrement d'une combinaison générée avec
   ses cotes et ses estimations, règlement automatique des sélections (1X2,
-  double chance, plus / moins), suivi des statuts (en attente, gagnée, perdue,
-  remboursée, indisponible) et synthèse en unités de mise : taux de réussite,
-  résultat net et ROI. Les cotes enregistrées sont figées ; le statut est
-  recalculé à partir du score actuel. Aucun montant en argent, aucune
-  recommandation de mise.
+  double chance, plus / moins, les deux équipes marquent), suivi des statuts
+  (en attente, gagnée, perdue, remboursée, indisponible) et synthèse en unités
+  de mise : taux de réussite, résultat net et ROI. Les cotes enregistrées sont
+  figées ; le statut est recalculé à partir du score actuel. Aucun montant en
+  argent, aucune recommandation de mise.
 - **Calibration** : rétro-test honnête des prévisions 1X2 passées, avec score de
   Brier, log loss, précision, compétence par rapport aux fréquences de base,
   erreur de calibration (ECE) et tableau de fiabilité par tranches. Chaque

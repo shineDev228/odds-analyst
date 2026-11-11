@@ -350,14 +350,17 @@ Pour corriger une erreur :
   (l'historique affiché est limité aux 10 relevés les plus récents) ;
 - marché entier erroné : supprimez le marché et recréez-le.
 
-> **Marchés réellement utilisés par le générateur** : 1X2, double chance et
-> plus / moins de buts. Les autres marchés (BTTS, corners, joueurs…) restent
-> disponibles pour l'analyse et la saisie, mais ne produisent pas de sélections
-> dans les combinaisons.
+> **Marchés réellement utilisés par le générateur** : 1X2, double chance,
+> plus / moins de buts et « les deux équipes marquent ». Les autres marchés
+> (corners, cartons, joueurs, mi-temps…) restent disponibles pour l'analyse et
+> la saisie, mais ne produisent pas de sélections dans les combinaisons.
 >
 > Pour les totaux, le modèle fournit les lignes **1,5 / 2,5 / 3,5 buts**. Une
 > cote sur une autre ligne (4,5 par exemple) n'est pas utilisée par le
 > générateur.
+>
+> Pour « les deux équipes marquent », le marché du catalogue s'appelle
+> exactement « Les deux équipes marquent », avec les issues « Oui » et « Non ».
 
 ### 8.2 Import des cotes 1xBet via The Odds API
 
@@ -460,7 +463,7 @@ Page « Combinaisons ».
 |---|---|
 | Rencontres | Au moins autant de rencontres exploitables que de sélections demandées (2 minimum), **programmées**, à venir, en football |
 | Historique | Au moins 3 matchs terminés par équipe, avant chaque coup d'envoi |
-| Cotes | Une cote récente sur les sélections voulues (1X2, double chance, total 1,5/2,5/3,5) |
+| Cotes | Une cote récente sur les sélections voulues (1X2, double chance, total 1,5/2,5/3,5, « les deux équipes marquent ») |
 | Marchés | Au moins un marché coché dans le formulaire |
 | Cotes du générateur | Cote minimale strictement inférieure à la cote maximale |
 
@@ -474,7 +477,7 @@ Le panneau « Critères de recherche » est prérempli avec vos « Paramètres �
 | « Cote minimale » | Cote totale minimale visée | 50 |
 | « Cote maximale » | Cote totale maximale visée | 100 |
 | « Résultats » | Nombre maximal de combinaisons affichées (5, 10, 20, 30 ou 50) | 10 |
-| « Marchés autorisés » | 1X2, double chance, plus / moins de buts | les trois cochés |
+| « Marchés autorisés » | 1X2, double chance, plus / moins de buts, les deux équipes marquent | les quatre cochés |
 
 Modifier ces valeurs ici **ne change pas** vos préférences enregistrées : c'est
 un réglage pour la recherche en cours.
@@ -540,6 +543,8 @@ la fiche concernée pour voir laquelle s'applique.
 - Le générateur utilise les marchés du **match** (pas mi-temps, pas joueur).
 - Une seule sélection par rencontre dans une combinaison.
 - Les totaux sont limités aux lignes **1,5 / 2,5 / 3,5**.
+- « Les deux équipes marquent » se règle sans remboursement possible : « Oui »
+  gagne si chaque équipe marque au moins un but, « Non » sinon.
 - L'espérance est calculée avec la cote saisie : une cote obsolète fausse le
   résultat.
 
@@ -621,7 +626,8 @@ avec une forte incertitude et un risque élevé de perte totale.
 [ ] Au moins 2 rencontres à venir, statut « Programmé », date future
 [ ] Au moins 3 matchs terminés par équipe, avec scores
 [ ] Statistiques xG ou tirs cadrés saisies si disponibles
-[ ] Cotes récentes sur les marchés voulus (1X2, double chance, total 1,5/2,5/3,5)
+[ ] Cotes récentes sur les marchés voulus (1X2, double chance, total 1,5/2,5/3,5,
+    « les deux équipes marquent »)
 [ ] Paramètres : cote min < cote max, marchés cochés
 [ ] Fiche rencontre : pronostic affiché et fiabilité lue
 [ ] Page Combinaisons : critères choisis, puis « Générer les combinaisons »
