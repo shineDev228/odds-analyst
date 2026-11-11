@@ -1,0 +1,80 @@
+name: CI
+
+# Vérifie chaque envoi sur `main` et chaque proposition de fusion.
+#
+# Aucun secret n'est nécessaire : les tests de l'API s'exécutent sur une base
+# SQLite en mémoire et ne contactent aucun service externe. La compilation de
+# l'interface n'appelle pas l'API.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: API et moteur statistique
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    env:
+      UV_PYTHON: "3.12"
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer uv et Python 3.12
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Installer les dépendances figées
+        run: uv sync --frozen
+
+      - name: Analyse statique (ruff)
+        run: uv run ruff check .
+
+      - name: Vérification des types (mypy)
+        run: uv run mypy app engine
+
+      - name: Tests unitaires et d'intégration
+        run: uv run pytest
+
+  web:
+    name: Interface Next.js
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Installer les dépendances figées
+        run: npm ci
+
+      - name: Analyse statique (eslint)
+        run: npm run lint
+
+      - name: Vérification des types (tsc)
+        run: npm run typecheck
+
+      - name: Compilation de production
+        run: npm run build
