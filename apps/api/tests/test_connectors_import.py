@@ -16,6 +16,10 @@ from sqlalchemy.orm import Session
 COMPETITION = "Ligue 1 Test"
 SEASON = "2025-2026"
 
+# Date de référence stable pour les tests : dans la fenêtre de 10 jours, et
+# identique pour la rencontre interne et l'événement de cotes.
+KICKOFF = datetime.now(UTC).replace(microsecond=0) + timedelta(days=3)
+
 
 def _require[T](value: T | None) -> T:
     """Réduit l'optionnel des lectures SQLAlchemy dans les tests."""
@@ -59,10 +63,12 @@ def _raw_match(
     *,
     status: str = "scheduled",
     score: dict | None = None,
+    kickoff: datetime | None = None,
 ) -> dict:
+    moment = kickoff or KICKOFF
     return {
         "id": external_id,
-        "kickoff_utc": "2026-11-15T16:00:00Z",
+        "kickoff_utc": moment.astimezone(UTC).isoformat().replace("+00:00", "Z"),
         "status": status,
         "home": {"id": "bbd-h", "name": "Paris Saint-Germain", "short_name": "PSG"},
         "away": {"id": "bbd-a", "name": "RC Lens", "short_name": "RCL"},
@@ -104,7 +110,7 @@ def _setup_internal_match(engine) -> tuple[str, str, str]:
         away = Team(sport_id=sport.id, name="RC Lens", short_name="RCL")
         db.add_all([home, away])
         db.flush()
-        kickoff = datetime(2026, 11, 15, 16, 0, tzinfo=UTC)
+        kickoff = KICKOFF
         match = Match(
             season_id=season.id,
             home_team_id=home.id,
@@ -129,7 +135,7 @@ def _setup_internal_match(engine) -> tuple[str, str, str]:
 def _event(captured: str = "2026-11-10T09:30:00Z", bookmaker: str = "onexbet") -> dict:
     return {
         "id": "evt-1",
-        "commence_time": "2026-11-15T16:00:00Z",
+        "commence_time": KICKOFF.isoformat().replace("+00:00", "Z"),
         "home_team": "Paris Saint-Germain",
         "away_team": "RC Lens",
         "bookmakers": [
@@ -271,6 +277,57 @@ def test_manual_match_is_preserved(engine, seeded_db, monkeypatch) -> None:
         assert counts.conflicts == 1
 
 
+def test_fixture_window_keeps_results_and_excludes_far_fixtures(
+    engine, seeded_db, monkeypatch
+) -> None:
+    _setup(engine)
+    now = datetime.now(UTC)
+    near = _raw_match("bbd-near", kickoff=now + timedelta(days=3))
+    far = _raw_match("bbd-far", kickoff=now + timedelta(days=20))
+    result = _raw_match(
+        "bbd-old",
+        status="finished",
+        score={"home": 2, "away": 1},
+        kickoff=now - timedelta(days=400),
+    )
+    monkeypatch.setattr(
+        service, "client_for", lambda *_, **__: FakeBigBalls([near, far, result])
+    )
+    with Session(engine) as db:
+        link = _require(db.scalar(select(ConnectorLink)))
+        run = service.preview_fixtures(db, link)
+        db.commit()
+
+        payload = _require(run.payload)
+        external_ids = {item["external_id"] for item in payload["matches"]}
+        assert external_ids == {"bbd-near", "bbd-old"}
+        assert run.summary["counts"]["received"] == 3
+        assert run.summary["counts"]["created"] == 2
+        warnings = run.summary["warnings"]
+        assert any("10 prochains jours" in warning for warning in warnings)
+        assert any("1 rencontre(s)" in warning for warning in warnings)
+
+        counts = service.apply_preview(db, run)
+        db.commit()
+        assert counts.created == 2
+        assert db.scalar(select(func.count()).select_from(Match)) == 2
+
+
+def test_fixture_window_boundary_and_non_programmed_status() -> None:
+    now = datetime(2026, 11, 12, 12, 0, tzinfo=UTC)
+    entries = [
+        {"status": "programme", "kickoff_at": now + timedelta(days=10)},
+        {"status": "programme", "kickoff_at": now + timedelta(days=10, seconds=1)},
+        {"status": "termine", "kickoff_at": now + timedelta(days=400)},
+    ]
+
+    kept, excluded, horizon = service._within_fixture_window(entries, now=now)
+
+    assert horizon == now + timedelta(days=service.FIXTURE_WINDOW_DAYS)
+    assert [item["status"] for item in kept] == ["programme", "termine"]
+    assert excluded == 1
+
+
 def test_odds_preview_and_apply_are_append_only(engine, seeded_db, monkeypatch) -> None:
     _setup_internal_match(engine)
     monkeypatch.setattr(service, "client_for", lambda *_, **__: FakeOdds([_event()]))
@@ -332,7 +389,7 @@ def test_extended_markets_are_limited_and_flagged(engine, seeded_db, monkeypatch
     extended = {
         "evt-1": {
             "id": "evt-1",
-            "commence_time": "2026-11-15T16:00:00Z",
+            "commence_time": KICKOFF.isoformat().replace("+00:00", "Z"),
             "home_team": "Paris Saint-Germain",
             "away_team": "RC Lens",
             "bookmakers": [

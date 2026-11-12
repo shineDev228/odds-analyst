@@ -1,8 +1,12 @@
 """Tests des routes des connecteurs."""
 
+from datetime import UTC, datetime, timedelta
+
 from app.core.config import settings
 from app.services import connectors as service
 from fastapi.testclient import TestClient
+
+KICKOFF = datetime.now(UTC).replace(microsecond=0) + timedelta(days=3)
 
 
 class FakeBigBalls:
@@ -10,7 +14,7 @@ class FakeBigBalls:
         return [
             {
                 "id": "bbd-1",
-                "kickoff_utc": "2026-12-01T20:00:00Z",
+                "kickoff_utc": KICKOFF.isoformat().replace("+00:00", "Z"),
                 "status": "scheduled",
                 "home": {"id": "bbd-h", "name": "Équipe Alpha", "short_name": "EA"},
                 "away": {"id": "bbd-a", "name": "Équipe Beta", "short_name": "EB"},

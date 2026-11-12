@@ -98,6 +98,44 @@ PROVIDER_DOCS = {
 _LEAGUE_CACHE: dict[str, tuple[datetime, list[dict[str, Any]]]] = {}
 _LEAGUE_CACHE_TTL = timedelta(hours=24)
 
+# Seules les rencontres programmées dans cette fenêtre sont importées. Les
+# rencontres déjà jouées restent toujours importées : elles nourrissent le
+# modèle statistique.
+FIXTURE_WINDOW_DAYS = 10
+
+
+def _entry_kickoff(entry: dict[str, Any]) -> datetime | None:
+    value = entry.get("kickoff_at")
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return as_utc(value)
+    try:
+        return as_utc(datetime.fromisoformat(str(value).replace("Z", "+00:00")))
+    except ValueError:
+        return None
+
+
+def _within_fixture_window(
+    entries: list[dict[str, Any]], *, now: datetime | None = None
+) -> tuple[list[dict[str, Any]], int, datetime]:
+    """Écarte les rencontres programmées au-delà de la fenêtre.
+
+    Les rencontres dont le statut n'est pas « programme » (résultats, annulées)
+    sont conservées sans limite de date : l'historique reste complet.
+    """
+    horizon = as_utc(now or datetime.now(UTC)) + timedelta(days=FIXTURE_WINDOW_DAYS)
+    kept: list[dict[str, Any]] = []
+    excluded = 0
+    for entry in entries:
+        if entry.get("status") == "programme":
+            kickoff = _entry_kickoff(entry)
+            if kickoff is not None and kickoff > horizon:
+                excluded += 1
+                continue
+        kept.append(entry)
+    return kept, excluded, horizon
+
 
 def _quota_read(info: Any) -> ProviderQuotaRead:
     return ProviderQuotaRead(
@@ -474,6 +512,9 @@ def preview_fixtures(db: Session, link: ConnectorLink) -> SyncRun:
             "The Odds API ne fournit que des cotes, pas de calendrier."
         )
 
+    received = len(entries)
+    entries, excluded, horizon = _within_fixture_window(entries)
+
     plan, counts = plan_matches(
         db,
         provider=link.provider,
@@ -482,7 +523,14 @@ def preview_fixtures(db: Session, link: ConnectorLink) -> SyncRun:
         matches=entries,
     )
     plan["plan_kind"] = SyncOperation.FIXTURES.value
+    counts.received = received
     warnings: list[str] = []
+    if excluded:
+        warnings.append(
+            f"{excluded} rencontre(s) programmée(s) au-delà du "
+            f"{horizon.strftime('%d/%m/%Y')} ignorée(s) : seules les rencontres "
+            f"des {FIXTURE_WINDOW_DAYS} prochains jours sont importées."
+        )
     unknown = [
         item["raw_status"]
         for item in entries

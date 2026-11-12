@@ -26,6 +26,7 @@ Application web personnelle d'analyse statistique sportive.
 | 8 — Durcissement et documentation | ✅ Terminée |
 | 9 — Appariement des noms et performance | ✅ Terminée |
 | 10 — Marché « les deux équipes marquent » | ✅ Terminée |
+| 11 — Fenêtre de calendrier des connecteurs | ✅ Terminée |
 
 ---
 
@@ -235,6 +236,7 @@ Les tests s'exécutent sur une base SQLite en mémoire : la CI ne se connecte ni
 | Phase 8 : décisions et tests | `docs/phases/phase-8-durcissement.md` |
 | Phase 9 : appariement et performance | `docs/phases/phase-9-appariement-performance.md` |
 | Phase 10 : marché « les deux équipes marquent » | `docs/phases/phase-10-btts.md` |
+| Phase 11 : fenêtre de calendrier | `docs/phases/phase-11-fenetre-calendrier.md` |
 
 Commandes utiles :
 

@@ -261,6 +261,13 @@ statistiques → cotes**.
 > Un aperçu **n'écrit rien** : il prépare un plan que vous validez. Un aperçu
 > expiré doit être relancé.
 
+> **Fenêtre de calendrier** : seules les rencontres **programmées dans les
+> 10 prochains jours** sont importées. Les rencontres déjà jouées restent
+> toujours importées, même anciennes, car elles nourrissent le modèle. Les
+> rencontres programmées plus loin sont ignorées et comptées dans les
+> avertissements de l'aperçu. Relancez l'aperçu une semaine plus tard pour
+> charger la suite du calendrier.
+
 ### 7.3 Import des statistiques (football-data.co.uk, gratuit)
 
 Ce connecteur remplit les résultats et les statistiques présentes dans le
@@ -599,6 +606,7 @@ avec une forte incertitude et un risque élevé de perte totale.
 | Peu de sélections disponibles | Marchés autorisés trop restrictifs, cotes incomplètes | Cochez plus de marchés, complétez les cotes |
 | Cote affichée comme incohérente | Somme des probabilités implicites < 100 % | Vérifiez que toutes les issues sont saisies |
 | Un import CSV ignore des rencontres | Calendrier interne incomplet ou équipes non associées | Importez le calendrier, associez les équipes, relancez |
+| Le calendrier importé s'arrête à 10 jours | Fenêtre volontaire : seules les rencontres programmées à court terme sont chargées | Relancez l'aperçu une semaine plus tard pour la suite |
 | « Cet aperçu a expiré » | Plus de 2 heures entre l'aperçu et l'application | Relancez l'aperçu |
 | 1xBet absent lors de l'import | Le bookmaker ne couvre pas l'événement | Aucune cote n'est importée : saisissez à la main |
 | Le quota The Odds API baisse vite | Aperçus de cotes (2 crédits) et marchés étendus (2 par rencontre) | Utilisez l'appariement gratuit et limitez les aperçus |
@@ -640,4 +648,5 @@ Pour aller plus loin :
 - modèle statistique : `docs/phases/phase-6-moteur-statistique-v2.md` ;
 - performances et appariement : `docs/phases/phase-9-appariement-performance.md` ;
 - marché « les deux équipes marquent » : `docs/phases/phase-10-btts.md` ;
+- fenêtre de calendrier des connecteurs : `docs/phases/phase-11-fenetre-calendrier.md` ;
 - sauvegarde et dépannage : `docs/exploitation/`.
