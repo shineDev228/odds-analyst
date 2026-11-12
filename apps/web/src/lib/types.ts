@@ -55,6 +55,12 @@ export interface Page<T> {
 
 export type StatutRencontre = "programme" | "en_cours" | "termine" | "reporte" | "annule";
 
+export interface Cotes1x2 {
+  home: number | null;
+  draw: number | null;
+  away: number | null;
+}
+
 export interface Rencontre {
   id: string;
   season_id: string;
@@ -75,6 +81,7 @@ export interface Rencontre {
   season_label: string;
   sport_id: string;
   sport_code: string;
+  odds_1x2: Cotes1x2 | null;
 }
 
 export interface EquipeRef {

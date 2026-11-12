@@ -76,6 +76,62 @@ def test_list_matches_filters(
     assert by_status["total"] == 0
 
 
+def _add_1x2_odds(
+    client: TestClient,
+    match_id: str,
+    home: float,
+    draw: float,
+    away: float,
+) -> dict:
+    response = client.post(
+        f"/api/v1/matches/{match_id}/markets",
+        json={
+            "template_code": "football.resultat_1x2",
+            "selections": [
+                {"code": "1", "label": "Domicile", "decimal_odds": home},
+                {"code": "X", "label": "Match nul", "decimal_odds": draw},
+                {"code": "2", "label": "Extérieur", "decimal_odds": away},
+            ],
+        },
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def test_list_matches_exposes_latest_1x2_odds(
+    auth_client: TestClient, season_id: str, teams: tuple[str, str]
+) -> None:
+    match = _create_match(auth_client, season_id, *teams)
+    market = _add_1x2_odds(auth_client, match["id"], 1.85, 3.4, 4.2)
+
+    payload = auth_client.get("/api/v1/matches", params={"season_id": season_id}).json()
+    assert payload["items"][0]["odds_1x2"] == {
+        "home": 1.85,
+        "draw": 3.4,
+        "away": 4.2,
+    }
+
+    home_selection = next(item for item in market["selections"] if item["code"] == "1")
+    response = auth_client.post(
+        f"/api/v1/markets/{market['id']}/selections/{home_selection['id']}/odds",
+        json={"decimal_odds": 1.95},
+    )
+    assert response.status_code == 201, response.text
+
+    payload = auth_client.get("/api/v1/matches", params={"season_id": season_id}).json()
+    assert payload["items"][0]["odds_1x2"]["home"] == 1.95
+    assert payload["items"][0]["odds_1x2"]["draw"] == 3.4
+
+
+def test_list_matches_without_odds(
+    auth_client: TestClient, season_id: str, teams: tuple[str, str]
+) -> None:
+    _create_match(auth_client, season_id, *teams)
+
+    payload = auth_client.get("/api/v1/matches", params={"season_id": season_id}).json()
+    assert payload["items"][0]["odds_1x2"] is None
+
+
 def test_stats_upsert(
     auth_client: TestClient, season_id: str, teams: tuple[str, str]
 ) -> None:

@@ -28,6 +28,7 @@ Application web personnelle d'analyse statistique sportive.
 | 10 — Marché « les deux équipes marquent » | ✅ Terminée |
 | 11 — Fenêtre de calendrier des connecteurs | ✅ Terminée |
 | 12 — Combinaisons limitées au jour | ✅ Terminée |
+| 13 — Cotes 1X2 dans la liste des rencontres | ✅ Terminée |
 
 ---
 
@@ -239,6 +240,7 @@ Les tests s'exécutent sur une base SQLite en mémoire : la CI ne se connecte ni
 | Phase 10 : marché « les deux équipes marquent » | `docs/phases/phase-10-btts.md` |
 | Phase 11 : fenêtre de calendrier | `docs/phases/phase-11-fenetre-calendrier.md` |
 | Phase 12 : combinaisons du jour | `docs/phases/phase-12-combinaisons-du-jour.md` |
+| Phase 13 : cotes 1X2 dans la liste | `docs/phases/phase-13-cotes-liste-rencontres.md` |
 
 Commandes utiles :
 

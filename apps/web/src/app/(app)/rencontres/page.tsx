@@ -54,6 +54,59 @@ const tonsStatut: Record<StatutRencontre, "accent" | "succes" | "neutre" | "aler
   annule: "danger",
 };
 
+function coteOuTiret(valeur: number | null): string {
+  if (valeur === null) return "—";
+  return valeur.toLocaleString("fr-FR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function Cote1x2({
+  libelle,
+  titre,
+  valeur,
+}: {
+  libelle: string;
+  titre: string;
+  valeur: number | null;
+}) {
+  return (
+    <span
+      title={`${titre} : ${coteOuTiret(valeur)}`}
+      className="flex min-w-11 flex-col items-center rounded-md border border-bordure px-1.5 py-0.5"
+    >
+      <span className="text-[9px] font-medium uppercase leading-none text-texte-faible">
+        {libelle}
+      </span>
+      <span className="mt-0.5 font-mono text-[11px] leading-none text-texte">
+        {coteOuTiret(valeur)}
+      </span>
+    </span>
+  );
+}
+
+function ApercuCotes1x2({
+  cotes,
+  equipeDomicile,
+  equipeExterieur,
+}: {
+  cotes: Rencontre["odds_1x2"];
+  equipeDomicile: string;
+  equipeExterieur: string;
+}) {
+  if (!cotes || (cotes.home === null && cotes.draw === null && cotes.away === null)) {
+    return <span className="text-[10px] text-texte-faible">Aucune cote 1X2</span>;
+  }
+  return (
+    <div className="flex items-center gap-1" aria-label="Dernières cotes 1X2">
+      <Cote1x2 libelle="1" titre={equipeDomicile} valeur={cotes.home} />
+      <Cote1x2 libelle="X" titre="Match nul" valeur={cotes.draw} />
+      <Cote1x2 libelle="2" titre={equipeExterieur} valeur={cotes.away} />
+    </div>
+  );
+}
+
 export default function PageRencontres() {
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [equipes, setEquipes] = useState<Equipe[]>([]);
@@ -213,7 +266,8 @@ export default function PageRencontres() {
       <header>
         <h1 className="text-xl font-semibold tracking-tight">Rencontres</h1>
         <p className="mt-1 text-xs text-texte-doux">
-          Saisissez vos rencontres, puis leurs statistiques et résultats.
+          Calendrier, dernières cotes 1X2 et résultats. Ouvrez une rencontre pour
+          saisir ses statistiques et ses marchés.
         </p>
       </header>
 
@@ -400,7 +454,12 @@ export default function PageRencontres() {
                       {formatDateHeure(rencontre.kickoff_at)}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center justify-end gap-3">
+                    <ApercuCotes1x2
+                      cotes={rencontre.odds_1x2}
+                      equipeDomicile={rencontre.home_team_name}
+                      equipeExterieur={rencontre.away_team_name}
+                    />
                     {rencontre.home_score !== null || rencontre.away_score !== null ? (
                       <span className="font-mono text-sm text-texte">
                         {rencontre.home_score ?? "—"} : {rencontre.away_score ?? "—"}

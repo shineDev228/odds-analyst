@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.api.v1._helpers import conflict, not_found
 from app.core import deps
+from app.models.market import Market, MarketSubject, OddsSnapshot, Selection
 from app.models.match import Match, MatchStatus, TeamMatchStats
 from app.models.reference import Competition, Season, Team
 from app.schemas.common import Page
@@ -18,6 +19,7 @@ from app.schemas.match import (
     MatchDetail,
     MatchListItem,
     MatchUpdate,
+    Odds1x2Read,
     StatsRead,
     StatsUpsert,
     TeamRef,
@@ -40,7 +42,7 @@ _LOAD_OPTIONS = (
 )
 
 
-def _to_list_item(match: Match) -> MatchListItem:
+def _to_list_item(match: Match, odds: Odds1x2Read | None = None) -> MatchListItem:
     return MatchListItem(
         id=match.id,
         season_id=match.season_id,
@@ -61,7 +63,60 @@ def _to_list_item(match: Match) -> MatchListItem:
         season_label=match.season.label,
         sport_id=match.season.competition.sport_id,
         sport_code=match.season.competition.sport.code,
+        odds_1x2=odds,
     )
+
+
+def _odds_1x2(db: Session, match_ids: list[UUID]) -> dict[UUID, Odds1x2Read]:
+    """Dernières cotes 1X2 des rencontres demandées, en une seule requête."""
+    if not match_ids:
+        return {}
+    latest = (
+        select(
+            OddsSnapshot.selection_id.label("selection_id"),
+            func.max(OddsSnapshot.captured_at).label("captured_at"),
+        )
+        .join(Selection, Selection.id == OddsSnapshot.selection_id)
+        .join(Market, Market.id == Selection.market_id)
+        .where(
+            Market.match_id.in_(match_ids),
+            Market.family == "resultat",
+            Market.period == "match",
+            Market.subject == MarketSubject.MATCH,
+            Selection.code.in_(("1", "X", "2")),
+        )
+        .group_by(OddsSnapshot.selection_id)
+        .subquery()
+    )
+    rows = db.execute(
+        select(Market.match_id, Selection.code, OddsSnapshot.decimal_odds)
+        .join(Selection, Selection.market_id == Market.id)
+        .join(OddsSnapshot, OddsSnapshot.selection_id == Selection.id)
+        .join(
+            latest,
+            (latest.c.selection_id == OddsSnapshot.selection_id)
+            & (latest.c.captured_at == OddsSnapshot.captured_at),
+        )
+        .where(
+            Market.match_id.in_(match_ids),
+            Market.family == "resultat",
+            Market.period == "match",
+            Market.subject == MarketSubject.MATCH,
+            Selection.code.in_(("1", "X", "2")),
+        )
+    ).all()
+
+    codes: dict[UUID, dict[str, float]] = {}
+    for match_id, code, odds in rows:
+        codes.setdefault(match_id, {})[code] = float(odds)
+    return {
+        match_id: Odds1x2Read(
+            home=values.get("1"),
+            draw=values.get("X"),
+            away=values.get("2"),
+        )
+        for match_id, values in codes.items()
+    }
 
 
 def _to_detail(match: Match) -> MatchDetail:
@@ -127,8 +182,9 @@ def list_matches(
         .limit(page_size)
     ).all()
 
+    odds = _odds_1x2(db, [match.id for match in matches])
     return Page(
-        items=[_to_list_item(m) for m in matches],
+        items=[_to_list_item(m, odds.get(m.id)) for m in matches],
         total=total,
         page=page,
         page_size=page_size,

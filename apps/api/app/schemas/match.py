@@ -90,6 +90,14 @@ class MatchRead(ORMModel):
         return value
 
 
+class Odds1x2Read(BaseModel):
+    """Dernières cotes du marché 1X2, si elles existent."""
+
+    home: float | None = None
+    draw: float | None = None
+    away: float | None = None
+
+
 class MatchListItem(MatchRead):
     home_team_name: str
     away_team_name: str
@@ -97,6 +105,7 @@ class MatchListItem(MatchRead):
     season_label: str
     sport_id: UUID
     sport_code: str
+    odds_1x2: Odds1x2Read | None = None
 
 
 class StatsUpsert(BaseModel):

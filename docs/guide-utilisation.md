@@ -211,6 +211,11 @@ Répétez l'opération pour toutes les rencontres à venir que vous voulez pouvo
 combiner. Le générateur examine au maximum les **50 prochaines rencontres**
 programmées.
 
+> **Aperçu des cotes.** La liste des rencontres affiche, sur chaque ligne, les
+> trois dernières cotes 1X2 (« 1 », « X », « 2 »). Survolez une cote pour voir
+> l'équipe concernée. La mention « Aucune cote 1X2 » signifie qu'aucun marché de
+> résultat n'a encore été saisi pour cette rencontre.
+
 ---
 
 ## 7. Étape 4 — Construire l'historique (résultats passés)
@@ -335,6 +340,9 @@ Deux méthodes.
 
 Une cote peut rester vide à la création du marché : elle sera simplement
 ignorée par le générateur tant qu'aucun relevé n'existe.
+
+Les cotes 1X2 apparaissent aussi dans la liste des rencontres, ce qui permet de
+repérer d'un coup d'œil celles qui n'ont pas encore de cote.
 
 Messages attendus :
 
@@ -664,4 +672,5 @@ Pour aller plus loin :
 - marché « les deux équipes marquent » : `docs/phases/phase-10-btts.md` ;
 - fenêtre de calendrier des connecteurs : `docs/phases/phase-11-fenetre-calendrier.md` ;
 - combinaisons limitées au jour : `docs/phases/phase-12-combinaisons-du-jour.md` ;
+- cotes 1X2 dans la liste des rencontres : `docs/phases/phase-13-cotes-liste-rencontres.md` ;
 - sauvegarde et dépannage : `docs/exploitation/`.
