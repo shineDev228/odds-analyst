@@ -234,6 +234,7 @@ Les tests s'exécutent sur une base SQLite en mémoire : la CI ne se connecte ni
 | Routes et erreurs de l'API | `docs/exploitation/api.md` |
 | Phase 8 : décisions et tests | `docs/phases/phase-8-durcissement.md` |
 | Phase 9 : appariement et performance | `docs/phases/phase-9-appariement-performance.md` |
+| Phase 10 : marché « les deux équipes marquent » | `docs/phases/phase-10-btts.md` |
 
 Commandes utiles :
 

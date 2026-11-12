@@ -639,4 +639,5 @@ Pour aller plus loin :
 - décisions et tests des imports : `docs/phases/phase-7-connecteurs-donnees.md` ;
 - modèle statistique : `docs/phases/phase-6-moteur-statistique-v2.md` ;
 - performances et appariement : `docs/phases/phase-9-appariement-performance.md` ;
+- marché « les deux équipes marquent » : `docs/phases/phase-10-btts.md` ;
 - sauvegarde et dépannage : `docs/exploitation/`.
