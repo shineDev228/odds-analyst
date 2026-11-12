@@ -330,6 +330,8 @@ export interface ReponseCombinaisons {
   recherche_tronquee: boolean;
   message: string;
   avertissement: string;
+  jour_cible: string | null;
+  repli_jour: boolean;
 }
 
 export type StatutReglement =

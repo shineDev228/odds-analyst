@@ -1,12 +1,23 @@
 """Tests de l'API du générateur de combinaisons."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
+from app.core.config import settings
+from app.services import combinations as combination_service
 from fastapi.testclient import TestClient
 
-NOW = datetime.now(UTC).replace(microsecond=0)
-TARGET_KICKOFF = NOW + timedelta(days=30)
+TZ = ZoneInfo(settings.app_timezone)
+TODAY = datetime.now(TZ).date()
+TARGET_NOW = datetime.combine(TODAY, time(8, 0), tzinfo=TZ).astimezone(UTC)
+TARGET_KICKOFF = datetime.combine(TODAY, time(20, 0), tzinfo=TZ).astimezone(UTC)
+
+
+@pytest.fixture(autouse=True)
+def _fixed_clock(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fige l'horloge du générateur pour que « aujourd'hui » soit stable."""
+    monkeypatch.setattr(combination_service, "_now", lambda: TARGET_NOW)
 
 
 def _create_match(
@@ -137,6 +148,121 @@ def test_combinations_return_explicit_empty_response(auth_client: TestClient) ->
     assert data["matchs_examines"] == 0
     assert "Aucune rencontre à venir" in data["message"]
     assert data["avertissement"]
+    assert data["jour_cible"] is None
+    assert data["repli_jour"] is False
+
+
+def test_combinations_only_use_today_matches(
+    auth_client: TestClient, season_id: str, teams: tuple[str, str]
+) -> None:
+    _seed_history(auth_client, season_id, teams)
+    today_match = _create_match(
+        auth_client, season_id, teams[0], teams[1], TARGET_KICKOFF
+    )
+    _create_result_market(auth_client, today_match)
+    tomorrow_match = _create_match(
+        auth_client,
+        season_id,
+        teams[0],
+        teams[1],
+        TARGET_KICKOFF + timedelta(days=1),
+    )
+    _create_result_market(auth_client, tomorrow_match)
+
+    data = auth_client.post(
+        "/api/v1/combinations/generate",
+        json={"nombre_selections": 2, "cote_min": 50, "cote_max": 100},
+    ).json()
+
+    assert data["jour_cible"] == TODAY.isoformat()
+    assert data["repli_jour"] is False
+    assert data["matchs_examines"] == 1
+    assert data["combinaisons"] == []
+
+
+def test_combinations_fall_back_to_next_match_day(
+    auth_client: TestClient, season_id: str, teams: tuple[str, str]
+) -> None:
+    _seed_history(auth_client, season_id, teams)
+    tomorrow = TARGET_KICKOFF + timedelta(days=1)
+    for index in range(2):
+        match_id = _create_match(
+            auth_client, season_id, teams[0], teams[1], tomorrow + timedelta(hours=index)
+        )
+        _create_result_market(auth_client, match_id)
+
+    data = auth_client.post(
+        "/api/v1/combinations/generate",
+        json={"nombre_selections": 2, "cote_min": 50, "cote_max": 100},
+    ).json()
+
+    assert data["jour_cible"] == tomorrow.astimezone(TZ).date().isoformat()
+    assert data["repli_jour"] is True
+    assert "prochain jour de match" in data["message"]
+    assert data["matchs_examines"] == 2
+    assert data["matchs_disponibles"] == 2
+    assert data["combinaisons"]
+
+
+def test_combinations_skip_fallback_day_without_odds(
+    auth_client: TestClient, season_id: str, teams: tuple[str, str]
+) -> None:
+    """Le repli saute un jour sans cotes pour trouver le premier jour exploitable."""
+    _seed_history(auth_client, season_id, teams)
+    _create_match(
+        auth_client,
+        season_id,
+        teams[0],
+        teams[1],
+        TARGET_KICKOFF + timedelta(days=1),
+    )
+    for index in range(2):
+        match_id = _create_match(
+            auth_client,
+            season_id,
+            teams[0],
+            teams[1],
+            TARGET_KICKOFF + timedelta(days=2, hours=index),
+        )
+        _create_result_market(auth_client, match_id)
+
+    data = auth_client.post(
+        "/api/v1/combinations/generate",
+        json={"nombre_selections": 2, "cote_min": 50, "cote_max": 100},
+    ).json()
+
+    expected = (TARGET_KICKOFF + timedelta(days=2)).astimezone(TZ).date().isoformat()
+    assert data["jour_cible"] == expected
+    assert data["repli_jour"] is True
+    assert "prochain jour de match avec des cotes" in data["message"]
+    assert data["combinaisons"]
+
+
+def test_combinations_report_day_without_any_odds(
+    auth_client: TestClient, season_id: str, teams: tuple[str, str]
+) -> None:
+    """Sans aucune cote, le message explique le jour retenu et l'absence de cotes."""
+    _seed_history(auth_client, season_id, teams)
+    _create_match(
+        auth_client,
+        season_id,
+        teams[0],
+        teams[1],
+        TARGET_KICKOFF + timedelta(days=1),
+    )
+
+    data = auth_client.post(
+        "/api/v1/combinations/generate",
+        json={"nombre_selections": 2, "cote_min": 50, "cote_max": 100},
+    ).json()
+
+    expected = (TARGET_KICKOFF + timedelta(days=1)).astimezone(TZ).date().isoformat()
+    assert data["jour_cible"] == expected
+    assert data["repli_jour"] is True
+    assert "prochain jour de match" in data["message"]
+    assert "Aucune rencontre du" in data["message"]
+    assert data["matchs_examines"] == 1
+    assert data["combinaisons"] == []
 
 
 def test_combinations_are_coherent(
@@ -219,7 +345,7 @@ def test_matches_without_history_are_ignored(
         season_id,
         extra_teams[0],
         extra_teams[1],
-        TARGET_KICKOFF + timedelta(days=1),
+        TARGET_KICKOFF + timedelta(hours=1),
     )
     _create_result_market(auth_client, ignored_match)
 

@@ -1,6 +1,6 @@
 """Schémas du générateur de combinaisons."""
 
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -91,3 +91,5 @@ class CombinationResponse(BaseModel):
     recherche_tronquee: bool
     message: str
     avertissement: str
+    jour_cible: date | None = None
+    repli_jour: bool = False

@@ -5,8 +5,9 @@ et transmet des candidats au moteur pur. Aucune combinaison n'est persistée.
 """
 
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from engine.combos.generator import (
     CombinationCandidate,
@@ -16,6 +17,7 @@ from engine.combos.generator import (
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.config import settings
 from app.core.deps import as_utc
 from app.models.market import Market, MarketSubject, Selection
 from app.models.match import Match, MatchStatus
@@ -121,7 +123,32 @@ def model_selection(
     return None
 
 
+def _now() -> datetime:
+    """Horloge du service, remplaçable dans les tests."""
+    return datetime.now(UTC)
+
+
+def _timezone() -> ZoneInfo:
+    return ZoneInfo(settings.app_timezone)
+
+
+def _local_day(moment: datetime) -> date:
+    """Jour calendaire d'un instant, dans le fuseau de l'application."""
+    return as_utc(moment).astimezone(_timezone()).date()
+
+
+def _has_recent_odds(match: Match, families: set[str]) -> bool:
+    """Vrai si la rencontre possède au moins une cote exploitable."""
+    return any(
+        latest_snapshot(selection) is not None
+        for market in match.markets
+        if _market_is_eligible(market, families)
+        for selection in market.selections
+    )
+
+
 def _upcoming_matches(db: Session, now: datetime) -> list[Match]:
+    """Rencontres programmées à venir, dans l'ordre chronologique."""
     return list(
         db.scalars(
             select(Match)
@@ -139,6 +166,33 @@ def _upcoming_matches(db: Session, now: datetime) -> list[Match]:
             .execution_options(populate_existing=True)
         ).all()
     )
+
+
+def _select_day(
+    matches: list[Match], now: datetime, families: set[str]
+) -> tuple[date | None, bool, list[Match], bool]:
+    """Choisit le jour à analyser.
+
+    Priorité au jour courant s'il contient une rencontre avec une cote récente.
+    Sinon, premier jour suivant avec cotes ; à défaut, premier jour avec des
+    rencontres, pour que le message explique l'absence de cotes.
+    """
+    today = _local_day(now)
+    grouped: dict[date, list[Match]] = {}
+    for match in matches:
+        grouped.setdefault(_local_day(match.kickoff_at), []).append(match)
+
+    days = sorted(grouped)
+    with_odds = [
+        day for day in days if any(_has_recent_odds(item, families) for item in grouped[day])
+    ]
+    if with_odds:
+        day = with_odds[0]
+        return day, day != today, grouped[day], True
+    if days:
+        day = days[0]
+        return day, day != today, grouped[day], False
+    return None, False, [], False
 
 
 def _candidates_for_match(
@@ -194,6 +248,8 @@ def _empty_response(
     matchs_examines: int = 0,
     matchs_disponibles: int = 0,
     selections_disponibles: int = 0,
+    jour_cible: date | None = None,
+    repli_jour: bool = False,
 ) -> CombinationResponse:
     return CombinationResponse(
         combinaisons=[],
@@ -205,6 +261,8 @@ def _empty_response(
         recherche_tronquee=False,
         message=message,
         avertissement=COMBINATION_WARNING,
+        jour_cible=jour_cible,
+        repli_jour=repli_jour,
     )
 
 
@@ -241,20 +299,14 @@ def build_combinations(
         )
 
     families = _allowed_families(marches)
-    matches = _upcoming_matches(db, datetime.now(UTC))
+    now = _now()
+    upcoming = _upcoming_matches(db, now)
+    target_day, fallback, matches, jour_avec_cotes = _select_day(upcoming, now, families)
 
     # Les rencontres sans cote récente sont écartées avant tout calcul : elles ne
     # produiraient aucun candidat. Les pronostics restants partagent ensuite un
     # seul chargement d'historique.
-    with_odds: list[Match] = []
-    for match in matches:
-        eligible = [market for market in match.markets if _market_is_eligible(market, families)]
-        if any(
-            latest_snapshot(selection) is not None
-            for market in eligible
-            for selection in market.selections
-        ):
-            with_odds.append(match)
+    with_odds = [match for match in matches if _has_recent_odds(match, families)]
 
     predictions = build_predictions(db, with_odds, preferences)
     groups: list[list[CombinationCandidate]] = []
@@ -280,12 +332,12 @@ def build_combinations(
         limit=payload.limite,
     )
 
-    if not matches:
+    if target_day is None:
         message = "Aucune rencontre à venir n'est enregistrée."
     elif not groups:
         message = (
-            "Aucune rencontre à venir ne réunit une cote récente et un historique "
-            "suffisant pour le modèle statistique."
+            f"Aucune rencontre du {target_day.strftime('%d/%m/%Y')} ne réunit une "
+            "cote récente et un historique suffisant pour le modèle statistique."
         )
     elif len(groups) < nombre:
         message = (
@@ -300,6 +352,21 @@ def build_combinations(
         )
     else:
         message = f"{len(search.combinations)} combinaison(s) trouvée(s)."
+
+    if fallback and target_day is not None:
+        if jour_avec_cotes:
+            prefix = (
+                "Aucune rencontre exploitable aujourd'hui : le générateur "
+                "utilise le prochain jour de match avec des cotes, le "
+                f"{target_day.strftime('%d/%m/%Y')}."
+            )
+        else:
+            prefix = (
+                "Aucune rencontre n'est programmée aujourd'hui : le générateur "
+                "utilise le prochain jour de match, le "
+                f"{target_day.strftime('%d/%m/%Y')}."
+            )
+        message = f"{prefix} {message}"
 
     combinaisons = [
         CombinationRead(
@@ -339,6 +406,8 @@ def build_combinations(
         recherche_tronquee=search.truncated,
         message=message,
         avertissement=f"{COMBINATION_WARNING} {PREDICTION_WARNING}",
+        jour_cible=target_day,
+        repli_jour=fallback,
     )
 
 

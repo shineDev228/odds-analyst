@@ -464,11 +464,17 @@ requis (3). Ajoutez des résultats passés, puis cliquez sur « Actualiser ».
 
 Page « Combinaisons ».
 
+Le générateur ne travaille que sur les rencontres **du jour** (jour calendaire,
+heure de Paris). Les matchs déjà commencés sont exclus. S'il ne reste aucune
+rencontre exploitable aujourd'hui, il utilise automatiquement le **prochain
+jour de match avec des cotes récentes** et l'indique dans le bandeau de
+résultat.
+
 ### 10.1 Vérifications avant de lancer
 
 | Point | Ce qu'il faut |
 |---|---|
-| Rencontres | Au moins autant de rencontres exploitables que de sélections demandées (2 minimum), **programmées**, à venir, en football |
+| Rencontres | Au moins autant de rencontres exploitables que de sélections demandées (2 minimum), **programmées**, à venir, en football, **le jour même** ; à défaut, le générateur bascule sur le prochain jour de match avec des cotes |
 | Historique | Au moins 3 matchs terminés par équipe, avant chaque coup d'envoi |
 | Cotes | Une cote récente sur les sélections voulues (1X2, double chance, total 1,5/2,5/3,5, « les deux équipes marquent ») |
 | Marchés | Au moins un marché coché dans le formulaire |
@@ -497,6 +503,8 @@ pendant le calcul).
 Le bandeau « Résultat de la recherche » affiche :
 
 - le message de synthèse ;
+- le **jour retenu** (« Rencontres du … ») ou le repli (« prochain jour de
+  match avec des cotes ») ;
 - le nombre de rencontres **examinées**, **exploitables**, **ignorées** ;
 - le nombre de **sélections disponibles** ;
 - un avertissement si la recherche a été tronquée.
@@ -533,7 +541,9 @@ résultat net, ROI en unités de mise), pas à recommander une mise.
 | Message | Cause probable | Action |
 |---|---|---|
 | « Aucune rencontre à venir n'est enregistrée. » | Aucune rencontre future au statut « Programmé » | Créez ou importez des rencontres à venir |
-| « Aucune rencontre à venir ne réunit une cote récente et un historique suffisant… » | Cotes manquantes ou historique trop court | Saisissez les cotes et les résultats passés |
+| « Aucune rencontre n'est programmée aujourd'hui… prochain jour de match… » | Aucune rencontre aujourd'hui : le générateur a pris le prochain jour disponible | Vérifiez le jour indiqué, ou importez le calendrier |
+| « Aucune rencontre exploitable aujourd'hui… prochain jour de match avec des cotes… » | Aucun match du jour n'a de cote récente ; le générateur a sauté au premier jour coté | Rien à faire si ce jour vous convient ; sinon saisissez les cotes du jour |
+| « Aucune rencontre du JJ/MM/AAAA ne réunit une cote récente et un historique suffisant… » | Cotes manquantes ou historique trop court pour ce jour | Saisissez les cotes et les résultats passés, ou choisissez un autre jour en important son calendrier |
 | « N rencontre(s) exploitable(s) pour M sélections demandées… » | Pas assez de rencontres avec cote **et** historique suffisant | Réduisez « Sélections » ou complétez cotes et résultats |
 | « Aucune combinaison de M sélections ne tombe entre X et Y… » | Fourchette trop étroite ou nombre de sélections inadapté | Élargissez « Cote minimale » / « Cote maximale » ou changez « Sélections » |
 | « La recherche a atteint sa limite d'exploration… » | Trop de combinaisons possibles | Réduisez le nombre de sélections ou resserrez les critères |
@@ -546,6 +556,9 @@ la fiche concernée pour voir laquelle s'applique.
 
 - Seul le **football** est traité.
 - Seules les rencontres au statut « Programmé » et à venir sont examinées.
+- Le générateur se limite au **jour calendaire courant** (heure de Paris). À
+  défaut de rencontre exploitable, il bascule sur le prochain jour de match
+  avec des cotes récentes.
 - Au plus **50 rencontres** sont examinées, les plus proches d'abord.
 - Le générateur utilise les marchés du **match** (pas mi-temps, pas joueur).
 - Une seule sélection par rencontre dans une combinaison.
@@ -631,7 +644,8 @@ avec une forte incertitude et un risque élevé de perte totale.
 ```
 [ ] Compétition + saison créées
 [ ] Au moins 2 équipes de football
-[ ] Au moins 2 rencontres à venir, statut « Programmé », date future
+[ ] Au moins 2 rencontres programmées le jour même (sinon le prochain jour de
+    match avec cotes est utilisé automatiquement)
 [ ] Au moins 3 matchs terminés par équipe, avec scores
 [ ] Statistiques xG ou tirs cadrés saisies si disponibles
 [ ] Cotes récentes sur les marchés voulus (1X2, double chance, total 1,5/2,5/3,5,
@@ -649,4 +663,5 @@ Pour aller plus loin :
 - performances et appariement : `docs/phases/phase-9-appariement-performance.md` ;
 - marché « les deux équipes marquent » : `docs/phases/phase-10-btts.md` ;
 - fenêtre de calendrier des connecteurs : `docs/phases/phase-11-fenetre-calendrier.md` ;
+- combinaisons limitées au jour : `docs/phases/phase-12-combinaisons-du-jour.md` ;
 - sauvegarde et dépannage : `docs/exploitation/`.

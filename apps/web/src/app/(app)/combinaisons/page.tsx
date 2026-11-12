@@ -15,7 +15,7 @@ import {
   Selection,
 } from "@/components/ui";
 import { apiFetch, messageErreur } from "@/lib/api";
-import { formatDateHeure } from "@/lib/format";
+import { formatDate, formatDateHeure } from "@/lib/format";
 import type {
   Combinaison,
   CombinaisonEnregistree,
@@ -329,7 +329,7 @@ export default function PageCombinaisons() {
       <form onSubmit={generer} className="flex flex-col gap-6">
         <Panneau
           titre="Critères de recherche"
-          description="Valeurs préremplies depuis les paramètres. Les modifier ici ne change pas les préférences enregistrées."
+          description="Valeurs préremplies depuis les paramètres. Les modifier ici ne change pas les préférences enregistrées. Le générateur ne travaille que sur les rencontres du jour ; sans rencontre aujourd'hui, il utilise le prochain jour de match."
         >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <Champ label="Sélections" aide="Entre 2 et 15">
@@ -436,6 +436,14 @@ export default function PageCombinaisons() {
                   {reponse.matchs_ignores} ignorée(s) ·{" "}
                   {reponse.selections_disponibles} sélection(s) disponible(s).
                 </p>
+                {reponse.jour_cible ? (
+                  <p className="mt-1">
+                    {reponse.repli_jour
+                      ? "Aucune rencontre aujourd'hui : prochain jour de match, le "
+                      : "Rencontres du "}
+                    {formatDate(reponse.jour_cible)}.
+                  </p>
+                ) : null}
               </Alerte>
 
               {reponse.recherche_tronquee ? (
@@ -448,9 +456,9 @@ export default function PageCombinaisons() {
 
               {reponse.combinaisons.length === 0 ? (
                 <EtatVide>
-                  Aucune combinaison affichable. Ajoutez des rencontres à venir,
-                  des cotes récentes et suffisamment de résultats passés, puis
-                  élargissez la fourchette si nécessaire.
+                  Aucune combinaison affichable pour ce jour. Ajoutez des cotes
+                  récentes et suffisamment de résultats passés, ou élargissez la
+                  fourchette.
                 </EtatVide>
               ) : (
                 <div className="flex flex-col gap-3">

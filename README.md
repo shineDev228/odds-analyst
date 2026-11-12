@@ -27,6 +27,7 @@ Application web personnelle d'analyse statistique sportive.
 | 9 — Appariement des noms et performance | ✅ Terminée |
 | 10 — Marché « les deux équipes marquent » | ✅ Terminée |
 | 11 — Fenêtre de calendrier des connecteurs | ✅ Terminée |
+| 12 — Combinaisons limitées au jour | ✅ Terminée |
 
 ---
 
@@ -237,6 +238,7 @@ Les tests s'exécutent sur une base SQLite en mémoire : la CI ne se connecte ni
 | Phase 9 : appariement et performance | `docs/phases/phase-9-appariement-performance.md` |
 | Phase 10 : marché « les deux équipes marquent » | `docs/phases/phase-10-btts.md` |
 | Phase 11 : fenêtre de calendrier | `docs/phases/phase-11-fenetre-calendrier.md` |
+| Phase 12 : combinaisons du jour | `docs/phases/phase-12-combinaisons-du-jour.md` |
 
 Commandes utiles :
 
