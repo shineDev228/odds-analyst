@@ -48,6 +48,15 @@ htmlcov/
 coverage.xml
 
 # ---------------------------------------------------------------------------
+# Études personnelles et backtests — travail local, non publié
+# ---------------------------------------------------------------------------
+# Les études de faisabilité et les scripts de backtest restent sur le poste :
+# ils manipulent des fichiers volumineux et des résultats provisoires, et ne
+# font pas partie de l'application livrée.
+backtest/
+docs/etudes/
+
+# ---------------------------------------------------------------------------
 # Données locales et sauvegardes
 # ---------------------------------------------------------------------------
 infra/backups/

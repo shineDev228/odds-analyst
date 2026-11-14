@@ -59,16 +59,6 @@ function New-RandomToken {
     return [Convert]::ToBase64String($bytes).Replace('+', '-').Replace('/', '_').TrimEnd('=')
 }
 
-function New-FernetKey {
-    # Clé Fernet : 32 octets encodés en base64 urlsafe, padding conservé.
-    param([int]$ByteCount = 32)
-
-    $bytes = New-Object byte[] $ByteCount
-    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-    try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
-    return [Convert]::ToBase64String($bytes).Replace('+', '-').Replace('/', '_')
-}
-
 function New-AppPassword { return New-RandomToken -ByteCount 24 }
 
 $dbName = 'odds_analyst'
@@ -140,7 +130,6 @@ $content = Get-Content $envFile -Raw
 $content = $content -replace 'POSTGRES_PASSWORD=.*', "POSTGRES_PASSWORD=$appPassword"
 $content = $content -replace 'DATABASE_URL=.*', "DATABASE_URL=postgresql+psycopg://$dbUser`:$appPassword@localhost:5432/$dbName"
 $content = $content -replace 'SECRET_KEY=.*', ("SECRET_KEY=" + (New-RandomToken -ByteCount 48))
-$content = $content -replace 'ENCRYPTION_KEY=.*', ("ENCRYPTION_KEY=" + (New-FernetKey))
 Set-Content -Path $envFile -Value $content -Encoding UTF8 -NoNewline
 
 Write-Host ""

@@ -166,6 +166,11 @@ génération des combinaisons est décrit dans
 [`docs/guide-utilisation.md`](docs/guide-utilisation.md) : prérequis, saisie des
 cotes, lecture des fourchettes, critères du générateur, dépannage et check-list.
 
+Le fonctionnement interne — formules du moteur V2, construction de la matrice de
+scores, fourchettes d'incertitude et recherche des combinaisons — est expliqué
+dans
+[`docs/fonctionnement-moteur-v2-et-generateur.md`](docs/fonctionnement-moteur-v2-et-generateur.md).
+
 ---
 
 ## Structure du dépôt
@@ -196,7 +201,7 @@ Cette contrainte garantit la fiabilité et la reproductibilité des calculs.
 ## Tests et qualité
 
 ```powershell
-# API et moteur (241 tests)
+# API et moteur (269 tests)
 uv run pytest
 
 # Analyse statique du code Python
@@ -241,6 +246,7 @@ Les tests s'exécutent sur une base SQLite en mémoire : la CI ne se connecte ni
 | Phase 11 : fenêtre de calendrier | `docs/phases/phase-11-fenetre-calendrier.md` |
 | Phase 12 : combinaisons du jour | `docs/phases/phase-12-combinaisons-du-jour.md` |
 | Phase 13 : cotes 1X2 dans la liste | `docs/phases/phase-13-cotes-liste-rencontres.md` |
+| Fonctionnement du moteur V2 et du générateur | `docs/fonctionnement-moteur-v2-et-generateur.md` |
 
 Commandes utiles :
 

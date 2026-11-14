@@ -6,7 +6,11 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-NOW = datetime.now(UTC).replace(microsecond=0)
+# Heure de référence figée à midi UTC : les rencontres créées à `TARGET_KICKOFF`
+# et `TARGET_KICKOFF + 1 h` tombent alors le même jour calendaire à Paris. Sans
+# cela, une exécution entre 22 h et 23 h UTC faisait basculer la seconde rencontre
+# au lendemain, et le générateur ne retenait qu'un match pour deux sélections.
+NOW = datetime.now(UTC).replace(hour=12, minute=0, second=0, microsecond=0)
 TARGET_KICKOFF = NOW + timedelta(days=30)
 
 
