@@ -1,6 +1,6 @@
 # Phase 14A — Snapshots quotidiens BigBallsData
 
-> **Statut : plan proposé, non validé. Aucun code écrit.**
+> **Statut : plan validé. 14A.1 et 14A.2 livrés le 14/11/2026 ; 14A.3 à 14A.6 à faire.**
 >
 > Objectif de la phase : **arrêter de dépendre de la mémoire du fournisseur** et
 > constituer nous-mêmes l'historique dont le moteur a besoin pour être jugé.
@@ -29,6 +29,12 @@ Deux constats en découlent :
    `/v1/matches?season=2025` répond **403** sur le plan Free, et `/v1/games` ne
    donne les cotes **que des rencontres à venir**. Une journée non capturée est
    une journée perdue définitivement.
+
+   Vérifié le 14/11/2026 sur l'API réelle : sans filtre, `/v1/matches?season=2026`
+   ne renvoie **que les rencontres à venir** (216 en Ligue 1, toutes
+   `scheduled`). En revanche `&status=finished` renvoie **toutes** les rencontres
+   terminées de la saison : 90 en Ligue 1, 119 en Liga. La récupération des
+   résultats est donc possible — à condition de demander explicitement ce filtre.
 
 **Donc : collecter d'abord, conclure ensuite.** C'est l'inverse de ce qui a été
 fait jusqu'ici, et c'est ce que la mesure impose.
@@ -187,15 +193,17 @@ La colonne absente reste `NULL` — **jamais zéro**, jamais extrapolée.
 
 | Étape | Endpoint | Fréquence | Requêtes/passe |
 |---|---|---|---|
-| Résultats de la saison | `/v1/matches?sport=football&league=&season=2026&limit=200&offset=` | 1×/jour | 4 à 6 (2 ligues paginées) |
+| Résultats de la saison | `/v1/matches?sport=football&league=&season=2026&status=finished&limit=200&offset=` | 1×/jour | 2 (une page par ligue) |
 | Snapshots équipes | `/v1/teams/{id}/elo`, `/stats`, `/season` | 1×/jour | 38 équipes × 3 = **114** |
 | Classements | `/v1/standings?league=&season=2026` | 1×/jour | 2 |
 | Board marché | `/v1/games?league=&date=` | **2×/jour**, J et J+1 | 8 |
 | Vérification | `/v1/usage` | fin de passe | 1 |
-| | | **Total** | **≈ 131 / jour** |
+| | | **Total** | **≈ 129 / jour** |
 
-**Budget** : 131 sur 2 000, soit **6,5 %**. Marge suffisante pour les imports
-manuels de l'application et pour une seconde passe de rattrapage.
+**Budget** : 129 sur 2 000, soit **6,5 %**. Marge suffisante pour les imports
+manuels de l'application et pour une seconde passe de rattrapage. Une saison
+complète dépassant 200 rencontres terminées, la pagination s'ajoute en fin de
+saison : au pire 2 pages par ligue, soit 133 requêtes.
 
 **Croissance des tables** : 38 équipes × 365 = ~13 900 lignes/an
 (`team_snapshots`), ~27 800 (`standings_snapshots`, 2 compétitions), ~14 000
@@ -210,9 +218,13 @@ terminées sortent de la fenêtre et sont **perdues** — le plan Free ne permet
 de les redemander plus tard.
 
 Parade : une passe **« résultats de la saison »** qui demande toute la saison en
-cours, page par page, et insère uniquement les rencontres terminées absentes.
-Elle coûte 4 à 6 requêtes et rend le dispositif **auto-réparant** après une
-coupure de quelques jours.
+cours **filtrée sur `status=finished`**, page par page, et insère uniquement les
+rencontres terminées absentes. Elle coûte 2 requêtes (une par ligue) et rend le
+dispositif **auto-réparant** après une coupure de quelques jours.
+
+Le filtre est indispensable : sans lui, l'endpoint ne renvoie que les rencontres
+à venir. C'est la vérification du 14/11/2026 qui l'a établi, et c'est elle qui
+rend la promesse « aucun résultat perdu » tenable sur le plan gratuit.
 
 ---
 
@@ -223,7 +235,7 @@ cotes, pour se rapprocher de la clôture.
 
 ```
 06:30  PASSE COMPLÈTE
-       ├─ 1. résultats de la saison          (4-6 req)  → matches
+       ├─ 1. résultats de la saison          (2-4 req)  → matches
        ├─ 2. snapshots des 38 équipes        (114 req)  → team_snapshots
        ├─ 3. classements des 2 ligues        (2 req)    → standings_snapshots
        ├─ 4. board marché J et J+1, matin    (4 req)    → market_board_snapshots (morning)
@@ -283,7 +295,9 @@ Règles communes :
 | Quota | budget dépassé → arrêt propre, `status = "partial"`, aucune exception non gérée |
 | Panne | 429 × 3 → arrêt ; 403 → entité sautée, passe poursuivie |
 | Sécurité | aucun journal ne contient la clé d'API (test dédié) |
-| Fenêtre | un résultat sorti de la fenêtre de 10 jours est **quand même** récupéré |
+| Fenêtre | un résultat ancien (hors des 10 jours) est **quand même** récupéré |
+| Filtre | une rencontre non terminée renvoyée par erreur est **écartée**, jamais écrite |
+| Pagination | une saison de plus de 200 résultats est lue sur plusieurs pages, sans doublon |
 | Migration | `upgrade` puis `downgrade` sur base de test, sans perte |
 
 Vérification finale sur la base réelle : une passe complète doit produire
@@ -322,6 +336,7 @@ La phase 14A est considérée comme livrée si, et seulement si :
 | `team_id` nul dans `/statistics` | observée | jointure cassée | non concerné ici : snapshots par identifiant d'équipe, pas par nom |
 | Changement de saison (rollover août) | certaine, une fois par an | `season=2026` devient vide | détecter le passage via `/v1/standings` et basculer sur la nouvelle saison |
 | Le fournisseur change un champ | moyenne | colonne vide | `NULL` autorisé partout, aucune exception levée sur un champ manquant |
+| Les noms d'équipes diffèrent de ceux déjà en base | **élevée** | équipes dupliquées, rencontres en double | vérifié le 14/11/2026 : sur 18 clubs de Ligue 1, **5 ne s'apparient pas** en égalité stricte (`Brest`/`Stade Brestois 29`, `Lyon`/`Olympique Lyonnais`, `Marseille`/`Olympique de Marseille`, `Stade Rennais`/`Stade Rennais FC 1901`, `Strasbourg`/`RC Strasbourg Alsace`) ; **créer les liens BigBallsData après appariement manuel** de ces cinq équipes, jamais avant |
 | Croissance des tables | faible | ralentissement | volume négligeable ; index sur `(captured_on)` et `(team_id, captured_on)` |
 | Faux sentiment de progrès | **élevée** | on croit mesurer | aucun calcul de gain dans 14A : elle stocke, elle ne conclut pas |
 

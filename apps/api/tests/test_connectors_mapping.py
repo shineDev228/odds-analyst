@@ -230,32 +230,6 @@ def test_bigballsdata_statistics_mapping_without_invention() -> None:
     assert lines[0].red_cards is None
 
 
-def test_football_data_mapping() -> None:
-    from app.connectors.football_data.mapping import map_match as fd_map
-
-    match = fd_map(
-        {
-            "id": 42,
-            "utcDate": "2026-11-15T16:00:00Z",
-            "status": "FINISHED",
-            "competition": {"code": "FL1", "name": "Ligue 1"},
-            "season": {"startDate": "2026-08-01"},
-            "homeTeam": {"id": 1, "name": "Paris Saint-Germain", "shortName": "PSG"},
-            "awayTeam": {"id": 2, "name": "RC Lens", "tla": "RCL"},
-            "score": {
-                "fullTime": {"home": 2, "away": 1},
-                "halfTime": {"home": 1, "away": 0},
-            },
-        }
-    )
-    assert match.external_id == "42"
-    assert match.competition_external_id == "FL1"
-    assert match.season_label == "2026"
-    assert match.status == "termine"
-    assert match.home_score == 2
-    assert match.half_time_away_score == 0
-
-
 def test_name_normalization_and_suggestions() -> None:
     assert normalize_name("Paris Saint-Germain FC") == "paris saint germain"
     assert normalize_name("Équipe Alpha") == "equipe alpha"

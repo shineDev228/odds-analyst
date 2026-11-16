@@ -1,0 +1,208 @@
+{
+  "data": [
+    {
+      "id": "epl",
+      "name": "English Premier League",
+      "sport": "football",
+      "country": "england"
+    },
+    {
+      "id": "laliga",
+      "name": "La Liga",
+      "sport": "football",
+      "country": "spain"
+    },
+    {
+      "id": "seriea",
+      "name": "Serie A",
+      "sport": "football",
+      "country": "italy"
+    },
+    {
+      "id": "bundesliga",
+      "name": "Bundesliga",
+      "sport": "football",
+      "country": "germany"
+    },
+    {
+      "id": "ligue1",
+      "name": "Ligue 1",
+      "sport": "football",
+      "country": "france"
+    },
+    {
+      "id": "ucl",
+      "name": "UEFA Champions League",
+      "sport": "football",
+      "country": "international"
+    },
+    {
+      "id": "mls",
+      "name": "Major League Soccer",
+      "sport": "football",
+      "country": "usa"
+    },
+    {
+      "id": "wc2026",
+      "name": "FIFA World Cup 2026",
+      "sport": "football",
+      "country": "international"
+    },
+    {
+      "id": "nba",
+      "name": "National Basketball Association",
+      "sport": "basketball",
+      "country": "usa"
+    },
+    {
+      "id": "ncaab",
+      "name": "NCAA Men's Basketball",
+      "sport": "basketball",
+      "country": "usa"
+    },
+    {
+      "id": "wnba",
+      "name": "Women's National Basketball Association",
+      "sport": "basketball",
+      "country": "usa"
+    },
+    {
+      "id": "nfl",
+      "name": "National Football League",
+      "sport": "american_football",
+      "country": "usa"
+    },
+    {
+      "id": "ncaaf",
+      "name": "NCAA Football",
+      "sport": "american_football",
+      "country": "usa"
+    },
+    {
+      "id": "ncaaf-fcs",
+      "name": "NCAA FCS Football",
+      "sport": "american_football",
+      "country": "usa"
+    },
+    {
+      "id": "mlb",
+      "name": "Major League Baseball",
+      "sport": "baseball",
+      "country": "usa"
+    },
+    {
+      "id": "nhl",
+      "name": "National Hockey League",
+      "sport": "ice_hockey",
+      "country": "usa"
+    },
+    {
+      "id": "ipl",
+      "name": "Indian Premier League",
+      "sport": "cricket",
+      "country": "india"
+    },
+    {
+      "id": "t20i",
+      "name": "T20 Internationals",
+      "sport": "cricket",
+      "country": "international"
+    },
+    {
+      "id": "odi",
+      "name": "One Day Internationals",
+      "sport": "cricket",
+      "country": "international"
+    },
+    {
+      "id": "test",
+      "name": "Test Cricket",
+      "sport": "cricket",
+      "country": "international"
+    },
+    {
+      "id": "bbl",
+      "name": "Big Bash League",
+      "sport": "cricket",
+      "country": "australia"
+    },
+    {
+      "id": "wbbl",
+      "name": "Women's Big Bash League",
+      "sport": "cricket",
+      "country": "australia"
+    },
+    {
+      "id": "bpl",
+      "name": "Bangladesh Premier League",
+      "sport": "cricket",
+      "country": "bangladesh"
+    },
+    {
+      "id": "cpl",
+      "name": "Caribbean Premier League",
+      "sport": "cricket",
+      "country": "west_indies"
+    },
+    {
+      "id": "psl",
+      "name": "Pakistan Super League",
+      "sport": "cricket",
+      "country": "pakistan"
+    },
+    {
+      "id": "hundred-men",
+      "name": "The Hundred (Men's)",
+      "sport": "cricket",
+      "country": "england"
+    },
+    {
+      "id": "hundred-women",
+      "name": "The Hundred (Women's)",
+      "sport": "cricket",
+      "country": "england"
+    },
+    {
+      "id": "sa20",
+      "name": "SA20",
+      "sport": "cricket",
+      "country": "south_africa"
+    },
+    {
+      "id": "womens-super-smash",
+      "name": "Women's Super Smash",
+      "sport": "cricket",
+      "country": "new_zealand"
+    },
+    {
+      "id": "ufc",
+      "name": "Ultimate Fighting Championship",
+      "sport": "mma",
+      "country": "usa"
+    },
+    {
+      "id": "bellator",
+      "name": "Bellator MMA",
+      "sport": "mma",
+      "country": "usa"
+    },
+    {
+      "id": "wbc",
+      "name": "Professional Boxing",
+      "sport": "boxing",
+      "country": "international"
+    },
+    {
+      "id": "f1",
+      "name": "FIA Formula One World Championship",
+      "sport": "formula1",
+      "country": "international"
+    }
+  ],
+  "meta": {
+    "source": "catalogue",
+    "cached": false,
+    "request_id": "73bd4b35-c9dc-4788-b54c-9621cd4f8923"
+  },
+  "error": null
+}

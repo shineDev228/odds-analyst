@@ -1,0 +1,36 @@
+{
+  "data": [
+    {
+      "id": "0d6a3aab-1800-45fe-83fc-cfc7ae741cf7",
+      "sport": "football",
+      "league": "Ligue 1",
+      "home": {
+        "id": "a47d5b90-9fec-4410-be8c-28e399727eee",
+        "name": "Troyes",
+        "short_name": "TRY",
+        "logo_url": "https://api.bigballsdata.com/v1/assets/hXaa_DUM0RU-BcbS_6YX22j-wtIObS_KTxBz0qT0KJaU3oMeDF9LCoyE8zmFg1rvNw5kbTCljigT9KQaJLn_QfCdjZ0"
+      },
+      "away": {
+        "id": "44251f3c-ffa1-48e8-ac10-c65cdc598ba5",
+        "name": "Le Havre AC",
+        "short_name": "HAC",
+        "logo_url": "https://api.bigballsdata.com/v1/assets/OaPiT3CVcJfI3DDpsaLNp3H6e4Ee71IOzDrnCf_9pJns15dKNMeO3HquFlt0eGtuOd1a9QhgupWk_Kdv496tzUN2ock"
+      },
+      "kickoff_utc": "2026-11-20T19:45:00.000Z",
+      "status": "scheduled",
+      "score": null,
+      "linescore": null,
+      "attendance": null,
+      "broadcast": null,
+      "round": null,
+      "has_odds": false
+    }
+  ],
+  "meta": {
+    "source": "stored",
+    "cached": false,
+    "request_id": "359aac8a-079b-446a-bbfb-4b18de27c713",
+    "note": "Stored matches matching your ?date=/?status= filter. This response reflects only that filter and makes no claim about what is upcoming — drop the filter to see what is next."
+  },
+  "error": null
+}

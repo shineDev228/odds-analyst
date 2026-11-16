@@ -170,7 +170,7 @@ def test_csrf_required_on_all_mutations(auth_client: TestClient) -> None:
         ("PATCH", f"/api/v1/matches/{identifiant}", {}),
         ("DELETE", f"/api/v1/matches/{identifiant}", None),
         ("PUT", "/api/v1/settings", {}),
-        ("POST", "/api/v1/connectors/links", {}),
+        ("POST", "/api/v1/sync/run", {}),
         ("POST", "/api/v1/auth/logout", None),
     ]
 

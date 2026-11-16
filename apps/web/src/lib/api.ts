@@ -12,9 +12,10 @@ const CSRF_COOKIE = "odds_analyst_csrf";
 /**
  * Délai maximal d'une requête.
  *
- * Les imports de connecteurs font des appels réseau chez le fournisseur ;
+ * Les imports de données font des appels réseau chez le fournisseur ;
  * au-delà de cette limite, l'interface affiche une erreur explicite plutôt
- * que de rester bloquée indéfiniment.
+ * que de rester bloquée indéfiniment. Une passe de synchronisation complète
+ * peut demander un délai plus long, fourni par l'appelant.
  */
 const DELAI_MAX_MS = 60_000;
 
@@ -52,6 +53,8 @@ interface OptionsRequete {
   corps?: unknown;
   /** Désactive la redirection automatique vers /connexion en cas de 401. */
   anonyme?: boolean;
+  /** Délai maximal propre à cet appel, en millisecondes. */
+  delaiMs?: number;
 }
 
 export async function apiFetch<T>(chemin: string, options: OptionsRequete = {}): Promise<T> {
@@ -74,7 +77,7 @@ export async function apiFetch<T>(chemin: string, options: OptionsRequete = {}):
       headers: entetes,
       credentials: "include",
       cache: "no-store",
-      signal: AbortSignal.timeout(DELAI_MAX_MS),
+      signal: AbortSignal.timeout(options.delaiMs ?? DELAI_MAX_MS),
       body: options.corps === undefined ? undefined : JSON.stringify(options.corps),
     });
   } catch (erreur) {

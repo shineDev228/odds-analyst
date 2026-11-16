@@ -2,15 +2,12 @@
 
 from app.models.combination import SavedCombination, SavedCombinationLeg
 from app.models.connector import (
-    PROVIDERS,
-    ConnectorLink,
-    ProviderRef,
     ProviderUsage,
-    RefEntity,
     SyncOperation,
     SyncRun,
     SyncStatus,
 )
+from app.models.link import CsvLink, OddsEventLink
 from app.models.market import (
     Market,
     MarketSubject,
@@ -25,21 +22,19 @@ from app.models.snapshot import MarketBoardSnapshot, StandingsSnapshot, TeamSnap
 from app.models.user import AuditLog, User, UserSession
 
 __all__ = [
-    "PROVIDERS",
     "AppSetting",
     "AuditLog",
     "Competition",
-    "ConnectorLink",
+    "CsvLink",
     "Market",
     "MarketBoardSnapshot",
     "MarketSubject",
     "MarketTemplate",
     "Match",
     "MatchStatus",
+    "OddsEventLink",
     "OddsSnapshot",
-    "ProviderRef",
     "ProviderUsage",
-    "RefEntity",
     "SavedCombination",
     "SavedCombinationLeg",
     "Season",

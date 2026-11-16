@@ -281,7 +281,7 @@ def test_save_rejects_started_match(
 
     response = auth_client.patch(
         f"/api/v1/matches/{match_id}",
-        json={"kickoff_at": (NOW - timedelta(hours=1)).isoformat()},
+        json={"kickoff_at": (datetime.now(UTC) - timedelta(hours=1)).isoformat()},
     )
     assert response.status_code == 200, response.text
 

@@ -39,6 +39,9 @@ class Match(Base, TimestampMixin):
     __tablename__ = "matches"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    # UUID de la rencontre chez le fournisseur de faits. Nul pour une saisie
+    # manuelle, unique pour une rencontre importée.
+    external_id: Mapped[str | None] = mapped_column(String(200))
     season_id: Mapped[UUID] = mapped_column(
         Uuid, ForeignKey("seasons.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -69,6 +72,10 @@ class Match(Base, TimestampMixin):
     half_time_away_score: Mapped[int | None] = mapped_column(Integer)
     venue: Mapped[str | None] = mapped_column(String(120))
     referee: Mapped[str | None] = mapped_column(String(120))
+    round_name: Mapped[str | None] = mapped_column(String(80))
+    broadcast: Mapped[str | None] = mapped_column(String(160))
+    attendance: Mapped[int | None] = mapped_column(Integer)
+    has_odds: Mapped[bool | None] = mapped_column(Boolean)
     notes: Mapped[str | None] = mapped_column(String(2000))
     data_source: Mapped[str] = mapped_column(
         String(40), default="manual", server_default="manual", nullable=False, index=True
@@ -91,6 +98,11 @@ class Match(Base, TimestampMixin):
             "(home_score IS NULL AND away_score IS NULL) OR (home_score >= 0 AND away_score >= 0)",
             name="ck_match_scores_positive",
         ),
+        CheckConstraint(
+            "attendance IS NULL OR attendance >= 0",
+            name="ck_match_attendance_positive",
+        ),
+        UniqueConstraint("external_id", name="uq_match_external_id"),
         # Listing d'une saison trié par date : évite un tri complet.
         Index("ix_matches_season_kickoff", "season_id", "kickoff_at"),
     )
@@ -112,10 +124,20 @@ class TeamMatchStats(Base, TimestampMixin):
     goals_against: Mapped[int | None] = mapped_column(Integer)
     shots: Mapped[int | None] = mapped_column(Integer)
     shots_on_target: Mapped[int | None] = mapped_column(Integer)
+    shots_off_target: Mapped[int | None] = mapped_column(Integer)
+    blocked_shots: Mapped[int | None] = mapped_column(Integer)
+    shots_inside_box: Mapped[int | None] = mapped_column(Integer)
+    shots_outside_box: Mapped[int | None] = mapped_column(Integer)
     possession: Mapped[float | None] = mapped_column(Float)
     corners: Mapped[int | None] = mapped_column(Integer)
+    fouls: Mapped[int | None] = mapped_column(Integer)
+    offsides: Mapped[int | None] = mapped_column(Integer)
     yellow_cards: Mapped[int | None] = mapped_column(Integer)
     red_cards: Mapped[int | None] = mapped_column(Integer)
+    goalkeeper_saves: Mapped[int | None] = mapped_column(Integer)
+    passes: Mapped[int | None] = mapped_column(Integer)
+    accurate_passes: Mapped[int | None] = mapped_column(Integer)
+    pass_percentage: Mapped[float | None] = mapped_column(Float)
     expected_goals: Mapped[float | None] = mapped_column(Float)
     extra: Mapped[dict | None] = mapped_column(JSONType)
     data_source: Mapped[str] = mapped_column(
@@ -130,5 +152,26 @@ class TeamMatchStats(Base, TimestampMixin):
         CheckConstraint(
             "possession IS NULL OR (possession >= 0 AND possession <= 100)",
             name="ck_stats_possession",
+        ),
+        CheckConstraint(
+            "pass_percentage IS NULL OR (pass_percentage >= 0 AND pass_percentage <= 100)",
+            name="ck_stats_pass_percentage",
+        ),
+        CheckConstraint(
+            "(shots IS NULL OR shots >= 0)"
+            " AND (shots_on_target IS NULL OR shots_on_target >= 0)"
+            " AND (shots_off_target IS NULL OR shots_off_target >= 0)"
+            " AND (blocked_shots IS NULL OR blocked_shots >= 0)"
+            " AND (shots_inside_box IS NULL OR shots_inside_box >= 0)"
+            " AND (shots_outside_box IS NULL OR shots_outside_box >= 0)"
+            " AND (corners IS NULL OR corners >= 0)"
+            " AND (fouls IS NULL OR fouls >= 0)"
+            " AND (offsides IS NULL OR offsides >= 0)"
+            " AND (yellow_cards IS NULL OR yellow_cards >= 0)"
+            " AND (red_cards IS NULL OR red_cards >= 0)"
+            " AND (goalkeeper_saves IS NULL OR goalkeeper_saves >= 0)"
+            " AND (passes IS NULL OR passes >= 0)"
+            " AND (accurate_passes IS NULL OR accurate_passes >= 0)",
+            name="ck_stats_counts_positive",
         ),
     )

@@ -48,23 +48,43 @@ class BigBallsDataClient:
         return [item for item in data if isinstance(item, dict)]
 
     def list_matches(
-        self, *, league: str, season: str, limit: int = 100, offset: int = 0
+        self,
+        *,
+        league: str,
+        season: str,
+        limit: int = 100,
+        offset: int = 0,
+        status: str | None = None,
     ) -> list[dict[str, Any]]:
-        data = self._get(
-            "/v1/matches",
-            {
-                "sport": "football",
-                "league": league,
-                "season": season,
-                "limit": limit,
-                "offset": offset,
-            },
-        )
+        params: dict[str, Any] = {
+            "sport": "football",
+            "league": league,
+            "season": season,
+            "limit": limit,
+            "offset": offset,
+        }
+        if status:
+            params["status"] = status
+        data = self._get("/v1/matches", params)
         return [item for item in data if isinstance(item, dict)]
 
     def get_statistics(self, match_id: str) -> dict[str, Any]:
         data = self._get(f"/v1/matches/{match_id}/statistics")
         return data if isinstance(data, dict) else {}
+
+    def list_teams(self, *, league: str) -> list[dict[str, Any]]:
+        data = self._get("/v1/teams", {"sport": "football", "league": league})
+        return [item for item in data if isinstance(item, dict)]
+
+    def get_standings(self, *, league: str, season: str) -> list[dict[str, Any]]:
+        """Renvoie les lignes de classement de la première compétition servie."""
+        data = self._get("/v1/standings", {"league": league, "season": season})
+        standings = data.get("standings") if isinstance(data, dict) else None
+        if not isinstance(standings, list) or not standings:
+            return []
+        first = standings[0]
+        rows = first.get("rows") if isinstance(first, dict) else None
+        return [row for row in rows or [] if isinstance(row, dict)]
 
 
 def _header_int(headers: Any, name: str) -> int | None:

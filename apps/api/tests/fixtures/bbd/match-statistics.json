@@ -1,0 +1,49 @@
+{
+  "data": {
+    "home": {
+      "team_id": "466359e7-b471-4166-ae1b-9808edc8cf5d",
+      "team_name": "Lens",
+      "shots_on_target": 6,
+      "shots_off_target": 5,
+      "total_shots": 13,
+      "blocked_shots": 2,
+      "shots_inside_box": 8,
+      "shots_outside_box": 5,
+      "fouls": 15,
+      "corner_kicks": 4,
+      "offsides": 1,
+      "ball_possession": 41,
+      "yellow_cards": 1,
+      "red_cards": 0,
+      "goalkeeper_saves": 2,
+      "total_passes": 446,
+      "accurate_passes": 350,
+      "pass_percentage": null
+    },
+    "away": {
+      "team_id": "2a8fb58a-598f-403b-9f83-8f67cb15d0b1",
+      "team_name": "Marseille",
+      "shots_on_target": 5,
+      "shots_off_target": 8,
+      "total_shots": 16,
+      "blocked_shots": 3,
+      "shots_inside_box": 10,
+      "shots_outside_box": 6,
+      "fouls": 8,
+      "corner_kicks": 6,
+      "offsides": 0,
+      "ball_possession": 59,
+      "yellow_cards": 2,
+      "red_cards": 0,
+      "goalkeeper_saves": 5,
+      "total_passes": 644,
+      "accurate_passes": 553,
+      "pass_percentage": null
+    }
+  },
+  "meta": {
+    "source": "aggregator-paid",
+    "available": true,
+    "fetched_at": "2026-11-08T22:01:00.297Z"
+  }
+}

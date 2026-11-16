@@ -62,9 +62,11 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "json"
 
-    # Connecteurs de données — les clés vivent uniquement dans `.env`.
+    # Sources de données — les clés vivent uniquement dans `.env`.
     bigballsdata_key: str = ""
     bigballsdata_base_url: str = "https://api.bigballsdata.com"
+    # Saison demandée au fournisseur : « 2026 » désigne 2026-2027.
+    bigballsdata_season: str = "2026"
     the_odds_api_key: str = ""
     the_odds_api_base_url: str = "https://api.the-odds-api.com/v4"
     football_data_key: str = ""
@@ -73,7 +75,9 @@ class Settings(BaseSettings):
     football_data_uk_base_url: str = "https://football-data.co.uk"
 
     # Budgets locaux (réserves déjà déduites).
-    bigballsdata_daily_budget: int = 200
+    # BigBallsData autorise 2 000 requêtes par jour ; le plafond local garde
+    # 10 % de marge pour les reprises et les erreurs.
+    bigballsdata_daily_budget: int = 1800
     the_odds_api_monthly_budget: int = 400
     football_data_minute_budget: int = 8
 

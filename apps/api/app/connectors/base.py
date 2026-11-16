@@ -69,6 +69,7 @@ class NormalizedTeam:
     external_id: str
     name: str
     short_name: str | None = None
+    logo_url: str | None = None
 
 
 @dataclass(slots=True)
@@ -85,6 +86,10 @@ class NormalizedMatch:
     half_time_home_score: int | None = None
     half_time_away_score: int | None = None
     venue: str | None = None
+    round_name: str | None = None
+    broadcast: str | None = None
+    attendance: int | None = None
+    has_odds: bool | None = None
     raw_status: str | None = None
 
 
@@ -97,12 +102,37 @@ class NormalizedTeamStats:
     goals_against: int | None = None
     shots: int | None = None
     shots_on_target: int | None = None
+    shots_off_target: int | None = None
+    blocked_shots: int | None = None
+    shots_inside_box: int | None = None
+    shots_outside_box: int | None = None
     possession: float | None = None
     corners: int | None = None
+    fouls: int | None = None
+    offsides: int | None = None
     yellow_cards: int | None = None
     red_cards: int | None = None
+    goalkeeper_saves: int | None = None
+    passes: int | None = None
+    accurate_passes: int | None = None
+    pass_percentage: float | None = None
     expected_goals: float | None = None
     extra: dict[str, object] | None = None
+
+
+@dataclass(slots=True)
+class NormalizedStanding:
+    """Une ligne de classement, telle que publiée par le fournisseur."""
+
+    team_external_id: str
+    rank: int | None = None
+    played: int | None = None
+    wins: int | None = None
+    draws: int | None = None
+    losses: int | None = None
+    goals_for: int | None = None
+    goals_against: int | None = None
+    form_string: str | None = None
 
 
 @dataclass(slots=True)
@@ -126,23 +156,3 @@ class NormalizedEventOdds:
     captured_at: datetime
     markets: list[NormalizedMarket] = field(default_factory=list)
     ignored: int = 0
-
-
-@dataclass(slots=True)
-class PreviewCounts:
-    received: int = 0
-    created: int = 0
-    updated: int = 0
-    unchanged: int = 0
-    conflicts: int = 0
-    ignored: int = 0
-
-    def as_dict(self) -> dict[str, int]:
-        return {
-            "received": self.received,
-            "created": self.created,
-            "updated": self.updated,
-            "unchanged": self.unchanged,
-            "conflicts": self.conflicts,
-            "ignored": self.ignored,
-        }

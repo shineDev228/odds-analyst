@@ -1,4 +1,4 @@
-"""Connecteurs de données externes (calendrier, résultats, statistiques, cotes).
+﻿"""Connecteurs de données externes (calendrier, résultats, statistiques, cotes).
 
 Le noyau (`base`, `http`, `quota`, `matching`) ne dépend ni de FastAPI ni des
 modèles métier. Chaque adaptateur expose un client, un mapping pur et un
@@ -14,7 +14,6 @@ from app.connectors.base import (
     NormalizedMatch,
     NormalizedTeam,
     NormalizedTeamStats,
-    PreviewCounts,
     ProviderAuthError,
     ProviderNotCoveredError,
     ProviderPayloadError,
@@ -31,7 +30,6 @@ __all__ = [
     "NormalizedMatch",
     "NormalizedTeam",
     "NormalizedTeamStats",
-    "PreviewCounts",
     "ProviderAuthError",
     "ProviderNotCoveredError",
     "ProviderPayloadError",

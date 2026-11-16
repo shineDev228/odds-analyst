@@ -1,0 +1,48 @@
+{
+  "data": [
+    {
+      "id": "ed2ec8f9-71d2-4b58-bc2f-95c61f922336",
+      "sport": "football",
+      "league": "Ligue 1",
+      "home": {
+        "id": "466359e7-b471-4166-ae1b-9808edc8cf5d",
+        "name": "Lens",
+        "short_name": "RCL",
+        "logo_url": "https://api.bigballsdata.com/v1/assets/lVHa5OHBM52-Eb6PF_61R3I6Znwf_Q4prSW-L90jF_nRAORM_ioUv5GlGqhaMvXVaNfnRUIfKdm25bE6u9lxuN7y7LxqyJNsAY_7mKRKYS2E7qDZZS_PTMvavOKz3dFCv37u"
+      },
+      "away": {
+        "id": "2a8fb58a-598f-403b-9f83-8f67cb15d0b1",
+        "name": "Marseille",
+        "short_name": "OLM",
+        "logo_url": "https://api.bigballsdata.com/v1/assets/AcX4Njm0NCG9C1sN1OMWOLB7T0wUd2ZXzZqo8Du1y8_MuudVFs1QtaYja3rRN4XL5nlKHfTye08r4D0cISZAKQvVfcS35FNuJlbYHFKFqGc9YBZUL40zoluefX7nouUiP4XW"
+      },
+      "kickoff_utc": "2026-11-08T19:45:00.000Z",
+      "status": "finished",
+      "score": {
+        "home": 1,
+        "away": 2
+      },
+      "linescore": {
+        "away": [
+          1,
+          1
+        ],
+        "home": [
+          1,
+          0
+        ]
+      },
+      "attendance": null,
+      "broadcast": "beIn Sports",
+      "round": "Regular Season - 10",
+      "has_odds": true
+    }
+  ],
+  "meta": {
+    "source": "stored",
+    "cached": false,
+    "request_id": "129298be-a91a-4ad9-8d3b-bdf47fb40487",
+    "note": "Stored matches matching your ?date=/?status= filter. This response reflects only that filter and makes no claim about what is upcoming — drop the filter to see what is next."
+  },
+  "error": null
+}

@@ -201,7 +201,7 @@ Cette contrainte garantit la fiabilité et la reproductibilité des calculs.
 ## Tests et qualité
 
 ```powershell
-# API et moteur (269 tests)
+# API et moteur (280 tests)
 uv run pytest
 
 # Analyse statique du code Python
