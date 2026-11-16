@@ -74,10 +74,15 @@ function CarteRapport({ rapport }: { rapport: LigueRapport }) {
           jour · {rapport.unchanged} inchangée(s) · {rapport.ignored} ignorée(s)
         </p>
       </div>
-      {rapport.stats_written > 0 || rapport.standings_written > 0 ? (
+      {rapport.stats_written > 0 ||
+      rapport.standings_written > 0 ||
+      rapport.stats_missing > 0 ||
+      rapport.duplicates > 0 ? (
         <p className="mt-1 text-[11px] text-texte-faible">
-          Statistiques écrites : {rapport.stats_written} · lignes de classement :{" "}
-          {rapport.standings_written}
+          Statistiques écrites : {rapport.stats_written}
+          {rapport.stats_missing > 0 ? ` · sans statistiques : ${rapport.stats_missing}` : ""}
+          {rapport.duplicates > 0 ? ` · fiches en double ignorées : ${rapport.duplicates}` : ""} · lignes
+          de classement : {rapport.standings_written}
         </p>
       ) : null}
       {rapport.warnings.map((warning) => (

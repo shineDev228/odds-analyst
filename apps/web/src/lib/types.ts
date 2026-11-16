@@ -478,6 +478,8 @@ export interface LigueRapport {
   teams_created: number;
   stats_requested: number;
   stats_written: number;
+  stats_missing: number;
+  duplicates: number;
   standings_written: number;
   warnings: string[];
   error: string | null;

@@ -79,6 +79,10 @@ class LeagueReportRead(BaseModel):
     teams_created: int
     stats_requested: int
     stats_written: int
+    # Rencontres terminées pour lesquelles le fournisseur n'a rien renvoyé.
+    stats_missing: int = 0
+    # Fiches en double renvoyées par le fournisseur, ignorées à l'import.
+    duplicates: int = 0
     standings_written: int
     warnings: list[str]
     error: str | None
