@@ -321,8 +321,8 @@ export default function PageSynchronisation() {
             </Bouton>
             {enCours ? (
               <p className="text-[11px] text-texte-faible">
-                La passe respecte un rythme d&apos;environ une requête par seconde. Laissez la page
-                ouverte.
+                La passe respecte un appel toutes les 0,8 seconde, soit 75 par minute : la limite
+                du fournisseur est de 100 par minute. Laissez la page ouverte.
               </p>
             ) : null}
           </fieldset>

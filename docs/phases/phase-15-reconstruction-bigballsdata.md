@@ -1,6 +1,6 @@
 # Phase 15 — Reconstruction sur BigBallsData
 
-> **Statut : étape 1 livrée le 15/11/2026. Étape 2 à venir.**
+> **Statut : étapes 1 et 2 livrées. Étape 3 en cours (16/11/2026).**
 >
 > Objectif : **repartir d'une base propre, construite autour d'une source
 > unique de faits** (BigBallsData), en supprimant l'appariement d'équipes qui a
@@ -223,7 +223,7 @@ Elle n'a lieu qu'après la reconstruction des données, jamais avant.
 |---|---|---|
 | **1** | Schéma v2 : colonnes ajoutées, `csv_links`, `odds_event_links`, migration réversible, modèles, tests de schéma | **livrée** — migration validée en upgrade/downgrade sur base temporaire |
 | **2** | Importeur BigBallsData unique (`/matches`, `/statistics`, `/standings`, `/teams`), suppression de `provider_refs` et `connector_links` | tests sur charges réelles enregistrées |
-| **3** | Reconstruction réelle : 7 compétitions, ≈ 1 000 requêtes | 972 résultats, 0 doublon, 0 équipe hors BigBallsData |
+| **3** | Reconstruction réelle : 7 compétitions, ≈ 1 000 requêtes | **réalisée le 16/11** — 971 résultats, 0 doublon, 0 équipe hors BigBallsData ; 113 statistiques à rejouer |
 | **4** | Appariement des cotes par clé composite | les 38 cas mesurés rejoués en test |
 | **5** | Enrichissement CSV : xG et cotes de clôture | 209 lignes traitées, 208 automatiques, 1 décision |
 | **6** | Page Synchronisation (remplace Connecteurs) + CLI | passe manuelle rejouable |
@@ -369,3 +369,127 @@ Décisions prises pendant l'étape :
 La base réelle reste à la révision `a4f1c8d2e965`. Les deux migrations seront
 appliquées au début de l'étape 3, juste avant la reconstruction : la sauvegarde
 `odds_analyst-20261114-232149.dump` couvre ce point de retour.
+
+Étape 2 commitée sous `27ba363`.
+
+### Étape 3 — reconstruction réelle (16/11/2026)
+
+Les deux migrations `c3f6a9b2e5d8` puis `e7b2d4c81f60` ont été appliquées à la
+base réelle : tête Alembic `e7b2d4c81f60`, `alembic check` sans opération
+manquante, comptes inchangés avant purge (221 rencontres, 180 statistiques,
+38 équipes). Une sauvegarde fraîche de cet état a été prise :
+`infra/backups/odds_analyst-20261116-221021-avant-reconstruction.dump`.
+
+#### La décision qui manquait au plan
+
+La base contenait **221 rencontres de la saison 2026-2027**, la même que celle
+fournie par BigBallsData : 131 importées de football-data.org et 90 issues du
+CSV de Ligue 1. Ces lignes n'ont pas d'identifiant fournisseur, et la phase
+supprime justement l'appariement par les noms. Les garder aurait produit deux
+fois les mêmes rencontres, donc un moteur qui compte double.
+
+Décision retenue, après validation : **repartir proprement**. Suppression des
+221 rencontres, de leurs 180 lignes de statistiques, des 12 marchés, 30
+sélections et 30 cotes qui en dépendaient, ainsi que des 38 équipes et du
+référentiel de compétitions et de saisons. Ce qui disparaît réellement :
+
+- les 30 cotes anciennes, qui seront reprises à l'étape 4 pour les rencontres
+  à venir ;
+- les 180 lignes de statistiques, dont le xG, rapporté par le CSV à l'étape 5.
+
+Rien d'irremplaçable n'est perdu, et la sauvegarde permet un retour complet.
+Les rencontres vraiment saisies à la main restent possibles : la règle
+« une rencontre sans identifiant n'est jamais touchée par un import » est
+conservée dans l'importeur et ses tests.
+
+#### Passe calendrier et classements
+
+Une passe unique sur les sept compétitions, sans statistiques, avec
+classements : **28 requêtes** pour un quota restant de 1 772.
+
+| Compétition | Rencontres | Terminées | Équipes | Classement |
+|---|---|---|---|---|
+| Ligue 1 | 306 | 90 | 18 | 18 |
+| La Liga | 380 | 120 | 21 | 20 |
+| Premier League | 380 | 100 | 20 | 20 |
+| Serie A | 380 | 110 | 20 | 20 |
+| Bundesliga | 306 | 81 | 18 | 18 |
+| Ligue des champions | 148 | 76 | 16 | 32 |
+| MLS | 414 | 394 | 32 | 30 |
+| **Total** | **2 314** | **971** | **145** | **158** |
+
+Les 971 résultats distincts sont conformes aux 972 mesurés le 15/11 : deux
+rencontres de Ligue des champions se sont jouées entre-temps, et trois des
+fiches importées étaient des copies dégradées de rencontres déjà présentes.
+Contrôles : **0 identifiant de rencontre en doublon**, **0 équipe sans
+identifiant BigBallsData**, 7 compétitions, 7 saisons.
+
+#### Fiches en double chez le fournisseur
+
+Le flux renvoie parfois **deux fiches pour une même affiche** : même saison,
+mêmes équipes, même coup d'envoi, mais deux identifiants. Le contrôle a montré
+que la règle est nette sur les 14 paires observées : **une seule fiche porte la
+journée** (14/14), jamais les deux, jamais aucune. C'est aussi celle qui porte
+le bon score et les statistiques ; la fiche dégradée affiche parfois un score
+faux (`0:0` au lieu de `1:1` pour New York City – Los Angeles FC).
+
+Traitement retenu :
+
+- **à l'import**, si l'affiche existe déjà sous un autre identifiant, la fiche
+  sans journée est ignorée et comptée (`duplicates`), avec un avertissement
+  dans le journal ; si c'est la fiche complète qui arrive en second, elle prend
+  l'identité de la fiche dégradée **sans changer la ligne**, donc sans perdre
+  ses statistiques ;
+- **en base**, les 14 fiches dégradées déjà importées ont été supprimées après
+  vérification qu'elles ne portaient aucune statistique ni aucun lien.
+
+Après nettoyage : **2 314 rencontres, 0 doublon**, dont 1 343 à venir.
+
+#### Rencontres terminées sans score
+
+Quatre rencontres de Ligue des champions (barrages et troisième tour
+préliminaire, août 2026) sont marquées `termine` par le fournisseur **sans
+aucun score** : Union Saint-Gilloise – Bodø/Glimt (aller et retour) et
+Fenerbahçe – Lyon (aller et retour). Aucune autre fiche n'existe pour ces
+affiches. Rien n'est inventé : elles restent sans score et le moteur les écarte,
+puisqu'il ne travaille que sur des résultats connus. Elles sont aussi sans
+statistiques.
+
+#### Statistiques
+
+Collecte ligue par ligue, 200 rencontres au plus par passe, soit **1 008
+requêtes** pour les statistiques (94 + 124 + 104 + 114 + 85 + 79 + 204 + 204).
+Avec les 28 de la passe calendrier, la journée consomme **1 036 requêtes** :
+quota restant 764 sur 1 800.
+
+| Compétition | Terminées | Avec statistiques | Sans statistiques |
+|---|---|---|---|
+| Ligue 1 | 90 | 90 | 0 |
+| La Liga | 120 | 119 | 1 |
+| Premier League | 100 | 100 | 0 |
+| Serie A | 110 | 110 | 0 |
+| Bundesliga | 81 | 81 | 0 |
+| Ligue des champions | 76 | 57 | 19 |
+| MLS | 394 | 301 | 93 |
+| **Total** | **971** | **858** | **113** |
+
+**1 716 lignes de statistiques** écrites : chaque rencontre couverte a ses deux
+lignes, jamais une seule. Aucune valeur n'est inventée ; le xG reste vide
+(0 ligne), il viendra du CSV.
+
+Les 113 rencontres sans statistiques ne viennent pas d'une coupure de quota :
+le compteur local indiquait encore 764 requêtes, et trois échantillons vérifiés
+(une par ligue concernée) renvoient `{"home": null, "away": null}`. Le
+fournisseur n'a donc pas de statistiques pour ces rencontres. La liste précise
+est conservée dans `docs/etudes/phase15-stats-manquantes.json` (hors dépôt) et
+sera rejouée après réinitialisation du quota, pour vérifier si le fournisseur
+les complète.
+
+Le journal d'une passe signale désormais explicitement
+« N rencontre(s) sans statistiques chez le fournisseur : aucune valeur n'est
+inventée », et les compteurs `stats_missing` et `duplicates` sont exposés dans
+le résumé.
+
+Contrôles de sortie : `ruff` et `mypy` verts, **272 tests verts**,
+`npm run build` réussi. Étape commitée sous `5b676e8`.
+

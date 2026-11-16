@@ -1,4 +1,4 @@
-"""Tests de la synchronisation BigBallsData (phase 15, étape 2).
+﻿"""Tests de la synchronisation BigBallsData (phase 15, étape 2).
 
 Les charges viennent de réponses réelles enregistrées dans
 ``tests/fixtures/bbd/`` : une rencontre terminée, une rencontre à venir, les
@@ -183,6 +183,111 @@ def test_sync_writes_statistics_without_expected_goals(
         assert home.expected_goals is None
         assert away.expected_goals is None
         assert home.data_source == "bigballsdata"
+
+
+def test_statistics_absent_at_source_are_reported_not_invented(
+    engine, seeded: None, period: None
+) -> None:
+    class SansStatistiques(FakeClient):
+        def get_statistics(self, match_id: str) -> dict[str, Any]:
+            self.calls.append(f"stats:{match_id}")
+            return {"home": None, "away": None}
+
+    with Session(engine) as db:
+        report = run(db, SansStatistiques(), include_stats=True, stats_limit=10)
+        db.commit()
+
+        assert db.scalar(select(func.count()).select_from(TeamMatchStats)) == 0
+        item = report.leagues[0]
+        assert item.stats_requested == 1
+        assert item.stats_missing == 1
+        assert any("sans statistiques" in avertissement for avertissement in item.warnings)
+
+
+def _fiche(
+    base: dict[str, Any],
+    *,
+    external_id: str,
+    round_name: str | None,
+    score: dict[str, int] | None,
+) -> dict[str, Any]:
+    """Copie une charge réelle en changeant l'identité, la journée et le score."""
+    copie = json.loads(json.dumps(base))
+    copie["id"] = external_id
+    copie["round"] = round_name
+    copie["score"] = score
+    return copie
+
+
+def test_second_sheet_for_the_same_fixture_is_ignored(
+    engine, seeded: None, period: None
+) -> None:
+    complete = payload("matches-finished.json")[0]
+    degradee = _fiche(
+        complete,
+        external_id="fiche-degradee",
+        round_name=None,
+        score={"home": 0, "away": 0},
+    )
+
+    class DeuxFiches(FakeClient):
+        def __init__(self) -> None:
+            super().__init__()
+            self.matches["finished"] = [complete, degradee]
+            self.matches["scheduled"] = []
+
+    with Session(engine) as db:
+        report = run(db, DeuxFiches())
+        db.commit()
+
+        assert db.scalar(select(func.count()).select_from(Match)) == 1
+        gardee = db.scalar(select(Match))
+        assert gardee is not None
+        assert gardee.external_id == MATCH_ID
+        assert gardee.round_name == "Regular Season - 10"
+        assert (gardee.home_score, gardee.away_score) == (1, 2)
+        assert report.leagues[0].duplicates == 1
+        assert any("en double" in avertissement for avertissement in report.leagues[0].warnings)
+
+
+def test_degraded_sheet_is_replaced_in_place(
+    engine, seeded: None, period: None
+) -> None:
+    complete = payload("matches-finished.json")[0]
+    degradee = _fiche(
+        complete,
+        external_id="fiche-degradee",
+        round_name=None,
+        score={"home": 0, "away": 0},
+    )
+
+    class DegradeeSeule(FakeClient):
+        def __init__(self) -> None:
+            super().__init__()
+            self.matches["finished"] = [degradee]
+            self.matches["scheduled"] = []
+
+    class LesDeux(DegradeeSeule):
+        def __init__(self) -> None:
+            super().__init__()
+            self.matches["finished"] = [degradee, complete]
+
+    with Session(engine) as db:
+        run(db, DegradeeSeule())
+        db.commit()
+        ligne = db.scalar(select(Match))
+        assert ligne is not None
+        identifiant = ligne.id
+        assert ligne.external_id == "fiche-degradee"
+
+        run(db, LesDeux())
+        db.commit()
+        assert db.scalar(select(func.count()).select_from(Match)) == 1
+        ligne = db.get(Match, identifiant)
+        assert ligne is not None
+        assert ligne.external_id == MATCH_ID
+        assert ligne.round_name == "Regular Season - 10"
+        assert (ligne.home_score, ligne.away_score) == (1, 2)
 
 
 def test_existing_expected_goals_are_never_overwritten(

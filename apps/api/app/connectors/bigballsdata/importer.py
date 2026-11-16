@@ -186,10 +186,38 @@ def upsert_match(
         "source_updated_at": now,
     }
     if row is None:
-        row = Match(external_id=match.external_id, **values)
-        db.add(row)
-        db.flush()
-        return row, "created"
+        # Le fournisseur renvoie parfois deux fiches pour la même affiche :
+        # une complète (journée, score, statistiques) et une dégradée (sans
+        # journée, score parfois faux). Une affiche réelle est unique par
+        # (saison, équipes, coup d'envoi) : on garde la fiche qui porte la
+        # journée, sans jamais fusionner les valeurs.
+        homonyme = None
+        candidats = db.scalars(
+            select(Match).where(
+                Match.season_id == season.id,
+                Match.home_team_id == home.id,
+                Match.away_team_id == away.id,
+                Match.external_id.is_not(None),
+            )
+        ).all()
+        for candidat in candidats:
+            # SQLite rend les dates sans fuseau : la comparaison se fait en UTC.
+            if _same_value(candidat.kickoff_at, match.kickoff_at):
+                homonyme = candidat
+                break
+        if homonyme is not None:
+            if match.round_name and not homonyme.round_name:
+                # La fiche complète prend l'identité de la fiche dégradée :
+                # la ligne ne change pas, ses statistiques restent liées.
+                homonyme.external_id = match.external_id
+                row = homonyme
+            else:
+                return homonyme, "duplicate"
+        else:
+            row = Match(external_id=match.external_id, **values)
+            db.add(row)
+            db.flush()
+            return row, "created"
 
     changed = False
     for field, value in values.items():

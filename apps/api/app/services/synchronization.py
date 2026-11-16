@@ -74,6 +74,10 @@ class LeagueReport:
     teams_created: int = 0
     stats_requested: int = 0
     stats_written: int = 0
+    # Rencontres pour lesquelles le fournisseur ne renvoie aucune statistique.
+    stats_missing: int = 0
+    # Fiches en double renvoyées par le fournisseur, ignorées à l'import.
+    duplicates: int = 0
     standings_written: int = 0
     warnings: list[str] = field(default_factory=list)
     error: str | None = None
@@ -92,6 +96,8 @@ class LeagueReport:
             "teams_created": self.teams_created,
             "stats_requested": self.stats_requested,
             "stats_written": self.stats_written,
+            "stats_missing": self.stats_missing,
+            "duplicates": self.duplicates,
             "standings_written": self.standings_written,
             "warnings": list(self.warnings),
             "error": self.error,
@@ -343,6 +349,10 @@ def _sync_league(
                 item.created += 1
             elif action == "updated":
                 item.updated += 1
+            elif action == "duplicate":
+                # Deux fiches pour une même affiche : la complète est gardée.
+                item.duplicates += 1
+                continue
             else:
                 item.unchanged += 1
 
@@ -360,6 +370,16 @@ def _sync_league(
     if include_stats and stats_limit > 0 and item.stats_requested >= stats_limit:
         item.warnings.append(
             f"Limite de {stats_limit} rencontres statistiques atteinte : relancez la passe."
+        )
+    if item.stats_missing:
+        item.warnings.append(
+            f"{item.stats_missing} rencontre(s) sans statistiques chez le fournisseur : "
+            "aucune valeur n'est inventée."
+        )
+    if item.duplicates:
+        item.warnings.append(
+            f"{item.duplicates} fiche(s) en double ignorée(s) : une seule rencontre "
+            "conservée par affiche."
         )
 
     if include_standings:
@@ -508,6 +528,11 @@ def _collect_statistics(
             home_id=home_id,
             away_id=away_id,
         )
+        if not lines:
+            # Le fournisseur répond parfois `{"home": null, "away": null}` :
+            # aucune statistique n'existe. On ne fabrique rien, on le compte.
+            item.stats_missing += 1
+            return
         counts = apply_statistics(db, match=match, lines=lines, teams=teams)
         item.stats_written += counts.created + counts.updated
         return
