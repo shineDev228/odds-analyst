@@ -6,8 +6,9 @@
 >
 > **À retenir d'emblée :** le moteur V2 n'est pas de l'intelligence
 > artificielle et n'apprend pas tout seul. C'est un modèle statistique
-> explicable, fondé sur les buts, les tirs cadrés et le xG que vous saisissez.
-> Il produit des **probabilités estimées**, jamais des certitudes.
+> explicable, fondé sur les buts et les tirs cadrés importés de BigBallsData,
+> et sur le xG que vous saisissez (ou qui viendra du fichier CSV). Il produit
+> des **probabilités estimées**, jamais des certitudes.
 
 ---
 
@@ -647,6 +648,7 @@ avec 3 sélections, il faut des cotes beaucoup plus fortes.
 | `apps/api/engine/calibration/__init__.py` | Rétro-test et indicateurs de calibration |
 | `apps/api/engine/odds.py` | Cotes, probabilités implicites, marge |
 | `apps/api/app/services/predictions.py` | Chargement de l'historique et sérialisation |
+| `apps/api/app/services/synchronization.py` | Alimentation de la base depuis BigBallsData (quota, journal) |
 | `apps/api/app/services/combinations.py` | Choix du jour, candidats, appel du générateur |
 | `apps/api/app/services/markets.py` | Dernier relevé de cote (`latest_snapshot`) |
 

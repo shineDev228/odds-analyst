@@ -84,7 +84,7 @@ Saisissez votre adresse et votre mot de passe, puis « Se connecter ».
 |---|---|
 | « Tableau de bord » | Vue d'ensemble et prochaines rencontres |
 | « Compétitions » | Compétitions et saisons |
-| « Connecteurs » | Imports (calendrier, résultats, statistiques, cotes) |
+| « Synchronisation » | Import BigBallsData : calendrier, résultats, statistiques, classements |
 | « Équipes » | Référentiel des équipes |
 | « Rencontres » | Création des rencontres, statistiques et résultats |
 | « Combinaisons » | Génération et enregistrement des combinaisons |
@@ -117,8 +117,8 @@ Enregistrement dans l'historique
 | 1 | Créer une compétition et au moins une saison | Compétitions |
 | 2 | Créer les équipes | Équipes |
 | 3 | Créer les rencontres à venir | Rencontres |
-| 4 | Renseigner les résultats passés (manuel ou import) | Rencontres / Connecteurs |
-| 5 | Saisir les cotes récentes (manuel ou The Odds API) | Fiche rencontre / Connecteurs |
+| 4 | Renseigner les résultats passés (import ou manuel) | Synchronisation / Rencontres |
+| 5 | Saisir les cotes récentes | Fiche rencontre |
 | 6 | Vérifier le pronostic et sa fiabilité | Fiche rencontre |
 | 7 | Générer les combinaisons | Combinaisons |
 | 8 | Enregistrer celles que vous voulez suivre | Combinaisons → Historique |
@@ -176,8 +176,9 @@ Message attendu : « Équipe créée. »
 
 Bonnes pratiques :
 
-- Utilisez **le même nom** que vos sources d'import (CSV, The Odds API) autant
-  que possible.
+- Utilisez **le même nom** que celui de BigBallsData lorsque vous créez une
+  équipe à la main : elle sera reconnue par son identifiant lors d'un import
+  ultérieur, jamais dupliquée.
 - Un nom court aide à la lecture, mais ne sert pas à l'appariement.
 - Un doublon de nom dans le même sport est refusé.
 - Une équipe ne peut pas être supprimée si elle figure dans une rencontre.
@@ -245,65 +246,64 @@ mais elles améliorent le modèle :
 
 Les champs laissés vides sont ignorés ; aucune valeur n'est inventée.
 
-### 7.2 Import du calendrier et des résultats
+### 7.2 Import via la page « Synchronisation »
 
-Page « Connecteurs ». L'ordre conseillé est : **calendrier → résultats et
-statistiques → cotes**.
+BigBallsData est la **seule source des faits** : calendrier, résultats,
+statistiques d'équipe et classements des sept compétitions suivies. Aucune
+équipe n'est reconnue par son nom : l'identifiant du fournisseur est stocké sur
+l'équipe et sur la rencontre, donc **il n'y a plus d'appariement à valider**.
 
-1. Panneau « Assistant de lien » :
-   - « Fournisseur » : football-data.org (calendrier et résultats) ou
-     BigBallsData ;
-   - « Compétition interne » et « Saison interne » : votre compétition ;
-   - « Identifiant externe » : utilisez « Découvrir » pour choisir la
-     compétition chez le fournisseur ;
-   - « Saison externe » : l'année de début, par exemple « 2026 » ;
-   - cliquez sur « Créer le lien ».
-2. Sur le lien créé, cliquez sur « Gérer ».
-3. Lancez l'aperçu proposé (« Aperçu du calendrier » ou équivalent).
-4. Lisez les compteurs et les avertissements.
-5. Cliquez sur « Appliquer l'aperçu » avant expiration (2 heures).
+1. Ouvrez la page « Synchronisation ».
+2. Panneau « Quota du jour » : requêtes utilisées, plafond local (1 800),
+   restantes et heure de réinitialisation.
+3. Panneau « Base actuelle » : nombre de rencontres, d'équipes du fournisseur,
+   de lignes de statistiques et de lignes avec xG.
+4. Panneau « Lancer une passe » :
+   - cochez les compétitions voulues (les sept sont cochées au départ) ;
+   - cochez « Statistiques des rencontres terminées » et « Classements du
+     jour » ;
+   - réglez « Limite de statistiques par compétition » (0 à 200, 20 par
+     défaut) : chaque rencontre coûte une requête ;
+   - cliquez sur « Synchroniser maintenant » et confirmez.
+5. Lisez « Résultat de la dernière passe » : compteurs par compétition,
+   avertissements et erreurs éventuelles.
 
-> Un aperçu **n'écrit rien** : il prépare un plan que vous validez. Un aperçu
-> expiré doit être relancé.
+Ce qu'il faut savoir :
 
-> **Fenêtre de calendrier** : seules les rencontres **programmées dans les
-> 10 prochains jours** sont importées. Les rencontres déjà jouées restent
-> toujours importées, même anciennes, car elles nourrissent le modèle. Les
-> rencontres programmées plus loin sont ignorées et comptées dans les
-> avertissements de l'aperçu. Relancez l'aperçu une semaine plus tard pour
-> charger la suite du calendrier.
+- **Aucun aperçu à appliquer.** La passe écrit directement, et elle est
+  rejouable : relancer une journée déjà importée ne crée aucun doublon.
+- **Une rencontre saisie à la main n'est jamais modifiée** par un import.
+- Le rythme est volontairement limité : **un appel toutes les 0,8 seconde**,
+  soit 75 par minute, sous la limite de 100 du fournisseur. Laissez la page
+  ouverte pendant la passe.
+- Une passe avec statistiques peut durer plusieurs minutes ; l'interface attend
+  jusqu'à 15 minutes.
+- Si le quota du jour est atteint, la passe s'arrête proprement et sera
+  `Partielle` : relancez-la le lendemain, elle reprendra ce qui manque.
+- Les rencontres pour lesquelles le fournisseur ne renvoie **aucune**
+  statistique restent vides et sont comptées (« sans statistiques »). Rien
+  n'est inventé.
+- Le fournisseur renvoie parfois **deux fiches pour une même affiche** : seule
+  celle qui porte la journée est conservée, l'autre est ignorée et comptée
+  (« fiches en double ignorées »).
+- « Journal des passes » conserve une ligne par compétition et par passe : date,
+  état, requêtes, rencontres créées et mises à jour, erreur éventuelle.
 
-### 7.3 Import des statistiques (football-data.co.uk, gratuit)
+> Le calendrier importé couvre **toute la saison** : il n'y a plus de fenêtre de
+> 10 jours à relancer chaque semaine.
 
-Ce connecteur remplit les résultats et les statistiques présentes dans le
-fichier public : tirs, tirs cadrés, corners, cartons et, lorsque la division les
-fournit, les buts attendus (xG). Il ne demande **aucune clé**, ne consomme
-**aucun quota** et **n'importe aucune cote**.
+### 7.3 Compléter le xG et les cotes de clôture
 
-Prérequis : les rencontres doivent déjà exister dans votre calendrier interne.
+BigBallsData ne fournit **ni xG ni cotes**. Ces deux éléments viendront plus
+tard du fichier public football-data.co.uk (gratuit, sans clé), qui les porte sur
+la même ligne que le score. En attendant :
 
-1. « Assistant de lien » :
-   - « Fournisseur » : « football-data.co.uk (CSV) » ;
-   - « Compétition interne » et « Saison interne » ;
-   - « Identifiant externe » : un code de division, par exemple `F1` pour la
-     Ligue 1, `F2` pour la Ligue 2, `E0` pour la Premier League ;
-   - « Saison externe » : l'année de début, par exemple « 2026 » ;
-   - « Créer le lien ».
-2. « Gérer » puis « Aperçu du fichier ».
-3. Si des équipes ne sont pas reconnues, utilisez la liste « Choisir une
-   équipe… » et le bouton « Associer » pour chaque nom signalé. L'association est
-   mémorisée.
-4. Relisez les compteurs : « reçues », « créées », « mises à jour »,
-   « inchangées », « conflits », « ignorées ».
-5. Cliquez sur « Appliquer l'aperçu ».
-
-Points importants :
-
-- Les valeurs saisies à la main ne sont **jamais écrasées** : un désaccord est
-  compté en « conflit » et conservé.
-- Les rencontres du fichier absentes de votre calendrier sont « ignorées » :
-  importez d'abord le calendrier, puis relancez l'aperçu.
-- L'aperçu expire au bout de 2 heures.
+- saisissez le xG à la main sur la fiche de la rencontre, dans les statistiques
+  d'équipe ; il améliore nettement les fourchettes ;
+- à défaut, le moteur utilise les **tirs cadrés** (proxy `0,30 × tirs cadrés`,
+  plafonné à 4,0), que BigBallsData fournit ;
+- sans aucune statistique, il retombe sur les buts réels — jamais sur une valeur
+  inventée.
 
 ### 7.4 Vérifier que l'historique est suffisant
 
@@ -320,7 +320,8 @@ Ajoutez les résultats manquants, puis cliquez sur « Actualiser ».
 ## 8. Étape 5 — Saisir les cotes
 
 Le générateur a besoin d'une cote récente pour chaque sélection qu'il utilise.
-Deux méthodes.
+Aujourd'hui, la **saisie manuelle** est la seule méthode disponible ;
+l'import automatique reviendra à l'étape 4 de la reconstruction.
 
 ### 8.1 Saisie manuelle, rencontre par rencontre
 
@@ -377,41 +378,21 @@ Pour corriger une erreur :
 > Pour « les deux équipes marquent », le marché du catalogue s'appelle
 > exactement « Les deux équipes marquent », avec les issues « Oui » et « Non ».
 
-### 8.2 Import des cotes 1xBet via The Odds API
+### 8.2 Import des cotes via The Odds API (à venir)
 
-Page « Connecteurs ».
+L'import automatique de cotes **n'est pas encore rebranché** : il revient à
+l'étape 4 de la reconstruction, après l'appariement des événements de marché.
+D'ici là, la saisie manuelle décrite en 8.1 est la seule source de cotes : le
+générateur ne peut utiliser que les rencontres que vous avez cotées vous-même.
 
-1. « Assistant de lien » :
-   - « Fournisseur » : « The Odds API (cotes 1xBet) » ;
-   - « Compétition interne » et « Saison interne » ;
-   - « Identifiant externe » : la clé de sport, par exemple
-     `soccer_france_ligue_one` (bouton « Découvrir » pour la trouver) ;
-   - « Saison externe » : par exemple « 2026 » ;
-   - « Créer le lien ».
-2. « Gérer » puis « Apparier (gratuit) » :
-   - les événements déjà associés sont comptés ;
-   - les événements non associés s'affichent : choisissez la rencontre interne
-     dans « Choisir une rencontre… », puis « Associer ».
-3. « Aperçu (2 crédits) » pour les cotes principales (1X2 et totaux).
-4. Relisez les avertissements et les compteurs, puis « Appliquer les cotes ».
-5. Pour la double chance et « les deux équipes marquent » : cochez jusqu'à
-   **20 événements** déjà appariés, puis « Aperçu (N crédits) » et
-   « Appliquer les marchés étendus ».
+Les garde-fous resteront les mêmes :
 
-À savoir :
-
-- L'appariement est **gratuit** ; un aperçu de cotes coûte **2 crédits** ;
-  les marchés étendus coûtent **2 crédits par rencontre**.
-- Le quota est **mensuel** (400 crédits par défaut) et affiché dans « État des
-  fournisseurs » et dans le « Journal des synchronisations ».
-- Seul **1xBet** est utilisé. Si 1xBet est absent, aucune cote n'est importée et
-  aucun autre bookmaker ne le remplace.
-- Un événement est associé automatiquement si une **seule** rencontre
-  correspond, à **±30 minutes** du coup d'envoi, avec les deux mêmes équipes.
-  Sinon, vous associez à la main : l'association est mémorisée.
-- Un aperçu expire au bout de 2 heures.
-- Les cotes importées doivent être strictement supérieures à 1,01 et
-  strictement inférieures à 1000.
+- seul le bookmaker **1xBet** sera utilisé ; s'il est absent, aucune cote ne
+  sera importée et aucun autre bookmaker ne le remplacera ;
+- le quota The Odds API est **mensuel** (400 crédits par défaut) et affiché
+  dans le journal de synchronisation ;
+- une cote absente reste absente : rien n'est inventé, rien n'est extrapolé ;
+- une cote saisie à la main n'est **jamais** écrasée par un import.
 
 ### 8.3 Ce qu'affiche une cote enregistrée
 
@@ -626,11 +607,10 @@ avec une forte incertitude et un risque élevé de perte totale.
 | Un total saisi n'est pas utilisé | Ligne différente de 1,5 / 2,5 / 3,5 | Saisissez l'une de ces lignes |
 | Peu de sélections disponibles | Marchés autorisés trop restrictifs, cotes incomplètes | Cochez plus de marchés, complétez les cotes |
 | Cote affichée comme incohérente | Somme des probabilités implicites < 100 % | Vérifiez que toutes les issues sont saisies |
-| Un import CSV ignore des rencontres | Calendrier interne incomplet ou équipes non associées | Importez le calendrier, associez les équipes, relancez |
-| Le calendrier importé s'arrête à 10 jours | Fenêtre volontaire : seules les rencontres programmées à court terme sont chargées | Relancez l'aperçu une semaine plus tard pour la suite |
-| « Cet aperçu a expiré » | Plus de 2 heures entre l'aperçu et l'application | Relancez l'aperçu |
-| 1xBet absent lors de l'import | Le bookmaker ne couvre pas l'événement | Aucune cote n'est importée : saisissez à la main |
-| Le quota The Odds API baisse vite | Aperçus de cotes (2 crédits) et marchés étendus (2 par rencontre) | Utilisez l'appariement gratuit et limitez les aperçus |
+| Une rencontre importée n'a pas de statistiques | Le fournisseur n'en fournit pas pour cette rencontre (93 MLS, 19 Ligue des champions et 1 Liga constatés) | Rien n'est inventé : la valeur reste vide. Saisissez-la à la main si vous l'avez |
+| La passe s'arrête avant la fin | Quota du jour atteint ou réponse du fournisseur illisible | Relancez plus tard, éventuellement sur une seule compétition : la passe reprend ce qui manque |
+| « La clé BigBallsData est absente » | `BIGBALLSDATA_KEY` vide dans `.env` | Renseignez la clé puis **redémarrez l'API** |
+| Aucune cote dans le générateur | L'import automatique de cotes n'est pas encore rebranché | Saisissez les cotes à la main (section 8.1) |
 | Connexion bloquée | Cinq échecs consécutifs | Attendez environ 15 minutes |
 | Page blanche ou erreur 500 | API arrêtée ou session expirée | Relancez `dev.ps1`, puis reconnectez-vous |
 
@@ -666,7 +646,8 @@ avec une forte incertitude et un risque élevé de perte totale.
 
 Pour aller plus loin :
 
-- décisions et tests des imports : `docs/phases/phase-7-connecteurs-donnees.md` ;
+- décisions et tests des imports : `docs/phases/phase-7-connecteurs-donnees.md` (historique) ;
+- source unique des faits : `docs/phases/phase-15-reconstruction-bigballsdata.md` ;
 - modèle statistique : `docs/phases/phase-6-moteur-statistique-v2.md` ;
 - performances et appariement : `docs/phases/phase-9-appariement-performance.md` ;
 - marché « les deux équipes marquent » : `docs/phases/phase-10-btts.md` ;

@@ -26,7 +26,11 @@ Architecture en **monolithe modulaire** composé de deux processus :
 | API | Python 3.12, FastAPI, Pydantic v2 |
 | Moteur statistique | Paquet Python pur : NumPy, SciPy |
 | Persistance | PostgreSQL 16, SQLAlchemy 2, Alembic |
-| Tests | pytest, Hypothesis, Playwright |
+| Tests | pytest, Hypothesis (tests de propriétés) |
+
+> Mise à jour du 16/11/2026 : Playwright figurait dans la décision initiale et
+> n'a pas été retenu. L'interface est vérifiée par `eslint`, `tsc --noEmit` et
+> `next build` ; l'API par 272 tests pytest.
 
 Le moteur statistique (`apps/api/engine/`) est un paquet **sans aucune
 dépendance d'entrée/sortie** : ni base de données, ni HTTP, ni fichier.

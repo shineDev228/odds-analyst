@@ -29,6 +29,9 @@ Application web personnelle d'analyse statistique sportive.
 | 11 — Fenêtre de calendrier des connecteurs | ✅ Terminée |
 | 12 — Combinaisons limitées au jour | ✅ Terminée |
 | 13 — Cotes 1X2 dans la liste des rencontres | ✅ Terminée |
+| 14A.1 — Snapshots quotidiens | ✅ Terminée |
+| 14A.2 à 14A.6 — Collecte quotidienne | ⏸ Reportées (voir phase 15) |
+| 15 — Reconstruction sur BigBallsData | 🔄 En cours — étapes 1 à 3 livrées |
 
 ---
 
@@ -118,16 +121,18 @@ powershell -ExecutionPolicy Bypass -File infra/scripts/dev.ps1
   rencontre est pronostiquée avec l'historique strictement antérieur à son coup
   d'envoi ; les rencontres non évaluables sont exclues et comptées.
 - **Tableau de bord** : indicateurs et prochaines rencontres.
-- **Connecteurs de données** : import du calendrier et des résultats via
-  football-data.org, des statistiques (xG, tirs cadrés, corners, cartons) via
-  les fichiers CSV publics de football-data.co.uk — sans clé ni quota — et des
-  cotes 1xBet agrégées via The Odds API (1X2, totaux, double chance, « les deux
-  équipes marquent »). Chaque import commence par un aperçu stocké deux heures
-  et ne s'applique qu'après validation. Les quotas gratuits sont suivis
-  localement. Le score exact et le handicap restent manuels ; si 1xBet est
-  absent, aucune cote n'est inventée et aucun autre bookmaker ne le remplace.
-  Une correction manuelle n'est jamais écrasée. Ordre conseillé :
-  **calendrier → résultats et statistiques (CSV) → cotes**.
+- **Synchronisation (BigBallsData)** : une seule source de faits pour les sept
+  compétitions suivies — calendrier, résultats, statistiques d'équipe et
+  classements. Chaque rencontre et chaque équipe importées portent l'identifiant
+  du fournisseur : **aucun appariement par le nom**. La page affiche le quota
+  local, la dernière passe et un journal détaillé ; une passe est rejouable et
+  ne crée jamais de doublon. Une rencontre saisie à la main n'est jamais
+  modifiée. Le rythme est volontairement limité à 75 requêtes par minute, sous
+  la limite de 100 du fournisseur.
+- **Enrichissement à venir** : le xG et les cotes de clôture viendront du fichier
+  public football-data.co.uk (gratuit, sans clé) et les cotes des rencontres à
+  venir de The Odds API, uniquement pour le bookmaker 1xBet. En attendant, la
+  saisie manuelle reste disponible et le moteur utilise le proxy « tirs cadrés ».
 - **Sécurité et exploitation** : en-têtes de sécurité, CSP par nonce en
   production, expiration d'inactivité de 12 h, purge des sessions, journal JSON
   avec identifiant de requête, sauvegarde et restauration vérifiée dans une base
@@ -201,7 +206,7 @@ Cette contrainte garantit la fiabilité et la reproductibilité des calculs.
 ## Tests et qualité
 
 ```powershell
-# API et moteur (280 tests)
+# API et moteur (272 tests)
 uv run pytest
 
 # Analyse statique du code Python
@@ -246,6 +251,8 @@ Les tests s'exécutent sur une base SQLite en mémoire : la CI ne se connecte ni
 | Phase 11 : fenêtre de calendrier | `docs/phases/phase-11-fenetre-calendrier.md` |
 | Phase 12 : combinaisons du jour | `docs/phases/phase-12-combinaisons-du-jour.md` |
 | Phase 13 : cotes 1X2 dans la liste | `docs/phases/phase-13-cotes-liste-rencontres.md` |
+| Phase 14A : snapshots quotidiens | `docs/phases/phase-14a-snapshots-bigballsdata.md` |
+| Phase 15 : reconstruction sur BigBallsData | `docs/phases/phase-15-reconstruction-bigballsdata.md` |
 | Fonctionnement du moteur V2 et du générateur | `docs/fonctionnement-moteur-v2-et-generateur.md` |
 
 Commandes utiles :

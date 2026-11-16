@@ -1,5 +1,9 @@
 # Phase 11 — Fenêtre de calendrier des connecteurs
 
+> **Note du 16/11/2026.** La fenêtre de 10 jours a été supprimée avec les
+> connecteurs : BigBallsData fournit désormais **toute la saison** en une passe
+> (étape 3 de la phase 15). Ce document reste l'historique de la décision.
+
 > **Statut : validée le 12 novembre 2026.**
 >
 > Cette phase limite l'import du calendrier aux rencontres programmées à court

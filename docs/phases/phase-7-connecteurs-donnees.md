@@ -1,5 +1,12 @@
 # Phase 7 — Connecteurs de données
 
+> **Note du 16/11/2026.** Ce document décrit l'état de la phase 7. La phase 15 a
+> depuis remplacé l'assemblage de trois connecteurs par une **source unique**
+> (BigBallsData) : les tables `provider_refs` et `connector_links`, les aperçus
+> stockés et l'assistant de lien ont été supprimés. Les principes restent
+> valables : aucune correction manuelle écrasée, aucune clé journalisée, aucun
+> scraping non autorisé.
+
 > **Statut : implémentée — en attente de validation.** Import automatique du
 > calendrier, des résultats, des statistiques et des **cotes 1xBet** via une
 > combinaison de sources gratuites et autorisées. La saisie manuelle reste

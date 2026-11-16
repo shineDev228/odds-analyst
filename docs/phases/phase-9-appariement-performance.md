@@ -1,5 +1,10 @@
 # Phase 9 — Appariement des noms et vitesse de génération
 
+> **Note du 16/11/2026.** L'appariement par nom décrit ici ne sert plus à
+> l'import : la phase 15 a fait de l'identifiant fournisseur l'identité de
+> l'équipe et de la rencontre. Le gain de performance (historique partagé,
+> simulation Monte-Carlo vectorisée) reste en place.
+
 > **Statut : validée le 11 novembre 2026.**
 >
 > Cette phase corrige deux défauts constatés lors de la vérification de bout en

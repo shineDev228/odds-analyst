@@ -2,6 +2,10 @@
 
 > **Statut : validée le 12 novembre 2026.**
 >
+> **Note du 16/11/2026.** La fenêtre d'import de 10 jours citée plus bas a été
+> supprimée en phase 15 : tout le calendrier de la saison est désormais importé.
+> La règle du générateur — un seul jour par combinaison — reste inchangée.
+>
 > Le générateur ne travaille plus sur toutes les rencontres à venir : il se
 > limite au jour calendaire courant. S'il ne reste aucune rencontre exploitable
 > aujourd'hui, il bascule sur le prochain jour de match avec des cotes récentes.

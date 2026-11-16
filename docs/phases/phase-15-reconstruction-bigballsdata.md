@@ -1,6 +1,6 @@
 # Phase 15 — Reconstruction sur BigBallsData
 
-> **Statut : étapes 1 et 2 livrées. Étape 3 en cours (16/11/2026).**
+> **Statut : étapes 1 à 3 livrées. Étapes 4 à 7 à faire (16/11/2026).**
 >
 > Objectif : **repartir d'une base propre, construite autour d'une source
 > unique de faits** (BigBallsData), en supprimant l'appariement d'équipes qui a
@@ -226,7 +226,7 @@ Elle n'a lieu qu'après la reconstruction des données, jamais avant.
 | **3** | Reconstruction réelle : 7 compétitions, ≈ 1 000 requêtes | **réalisée le 16/11** — 971 résultats, 0 doublon, 0 équipe hors BigBallsData ; 113 statistiques à rejouer |
 | **4** | Appariement des cotes par clé composite | les 38 cas mesurés rejoués en test |
 | **5** | Enrichissement CSV : xG et cotes de clôture | 209 lignes traitées, 208 automatiques, 1 décision |
-| **6** | Page Synchronisation (remplace Connecteurs) + CLI | passe manuelle rejouable |
+| **6** | Page Synchronisation (remplace Connecteurs) + CLI | **page livrée avec l'étape 2** ; CLI à faire |
 | **7** | Vérification et documentation d'exploitation | comptages, intégrité, moteur et interface inchangés |
 
 ### 5.1 Budget de requêtes
@@ -234,11 +234,12 @@ Elle n'a lieu qu'après la reconstruction des données, jamais avant.
 | Passe | Requêtes |
 |---|---|
 | Reconstruction initiale (7 compétitions) | ≈ 1 000 |
-| Statistiques des 972 rencontres | 972 |
+| Statistiques des rencontres terminées | ≈ 970 |
 | Passe quotidienne (résultats + nouveaux matchs) | ≈ 45 |
 
-Quota : 2 000 par jour, 100 par minute. La reconstruction tient en deux
-séances d'une dizaine de minutes.
+Quota : 2 000 par jour chez le fournisseur, plafond local **1 800** (10 % de
+marge) et 100 requêtes par minute, ramenées à 75 par l'attente de 0,8 seconde.
+La reconstruction tient en deux séances d'une dizaine de minutes.
 
 ---
 
@@ -491,5 +492,25 @@ inventée », et les compteurs `stats_missing` et `duplicates` sont exposés dan
 le résumé.
 
 Contrôles de sortie : `ruff` et `mypy` verts, **272 tests verts**,
-`npm run build` réussi. Étape commitée sous `5b676e8`.
+`npm run build` réussi. Étape commitée sous `7b50599`.
+
+#### Reste à faire sur l'étape 3
+
+- **Rejouer les 113 rencontres sans statistiques** (93 MLS, 19 Ligue des
+  champions, 1 Liga) après réinitialisation du quota, pour vérifier si le
+  fournisseur les complète. La liste est prête dans
+  `docs/etudes/phase15-stats-manquantes.json`.
+- Si le fournisseur ne les complète pas, elles resteront vides : le moteur les
+  écarte déjà (`home_score IS NOT NULL` pour les quatre rencontres sans score)
+  et le modèle retombe sur ses autres matchs.
+
+#### Contrôle de lecture après reconstruction
+
+Une prédiction réelle a été calculée sur **Troyes – Le Havre AC** (20/11/2026) :
+buts attendus 1,41 + 1,14, domicile 43,0 % [20,0 ; 70,5], nul 26,7 %
+[15,7 ; 32,1], extérieur 30,3 % [11,6 ; 54,7], BTTS oui 51,4 %
+[32,2 ; 70,9]. Qualité « faible », cohérente avec 10 rencontres par équipe :
+la saison vient de commencer et le moteur utilise le proxy « tirs cadrés » tant
+que le xG n'est pas fourni par le CSV. Les fourchettes larges sont donc
+attendues à ce stade.
 
