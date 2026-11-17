@@ -223,7 +223,7 @@ Elle n'a lieu qu'après la reconstruction des données, jamais avant.
 |---|---|---|
 | **1** | Schéma v2 : colonnes ajoutées, `csv_links`, `odds_event_links`, migration réversible, modèles, tests de schéma | **livrée** — migration validée en upgrade/downgrade sur base temporaire |
 | **2** | Importeur BigBallsData unique (`/matches`, `/statistics`, `/standings`, `/teams`), suppression de `provider_refs` et `connector_links` | tests sur charges réelles enregistrées |
-| **3** | Reconstruction réelle : 7 compétitions, ≈ 1 000 requêtes | **réalisée le 16/11** — 971 résultats, 0 doublon, 0 équipe hors BigBallsData ; 113 statistiques à rejouer |
+| **3** | Reconstruction réelle : 7 compétitions, ≈ 1 000 requêtes | **réalisée le 16/11** — 971 résultats, 0 doublon, 0 équipe hors BigBallsData ; **113 statistiques relancées le 17/11 : le fournisseur n'en a aucune**, dossier clos |
 | **4** | Appariement des cotes par clé composite | les 38 cas mesurés rejoués en test |
 | **5** | Enrichissement CSV : xG et cotes de clôture | 209 lignes traitées, 208 automatiques, 1 décision |
 | **6** | Page Synchronisation (remplace Connecteurs) + CLI | **page livrée avec l'étape 2** ; CLI à faire |
@@ -482,9 +482,7 @@ Les 113 rencontres sans statistiques ne viennent pas d'une coupure de quota :
 le compteur local indiquait encore 764 requêtes, et trois échantillons vérifiés
 (une par ligue concernée) renvoient `{"home": null, "away": null}`. Le
 fournisseur n'a donc pas de statistiques pour ces rencontres. La liste précise
-est conservée dans `docs/etudes/phase15-stats-manquantes.json` (hors dépôt) et
-sera rejouée après réinitialisation du quota, pour vérifier si le fournisseur
-les complète.
+est conservée dans `docs/etudes/phase15-stats-manquantes.json` (hors dépôt).
 
 Le journal d'une passe signale désormais explicitement
 « N rencontre(s) sans statistiques chez le fournisseur : aucune valeur n'est
@@ -494,15 +492,39 @@ le résumé.
 Contrôles de sortie : `ruff` et `mypy` verts, **272 tests verts**,
 `npm run build` réussi. Étape commitée sous `7b50599`.
 
+#### Deuxième essai des 113 rencontres (17/11/2026)
+
+Le quota étant réinitialisé (1 800 requêtes disponibles), les trois
+compétitions concernées ont été relancées avec `stats_limit = 200` :
+
+| Compétition | Rencontres demandées | Statistiques écrites | Requêtes | Quota restant |
+|---|---|---|---|---|
+| La Liga | 1 | 0 | 5 | 1 795 |
+| MLS | 93 | 0 | 97 | 1 698 |
+| Ligue des champions | 19 | 0 | 22 | 1 676 |
+| **Total** | **113** | **0** | **124** | **1 676** |
+
+**Le verdict est définitif : le fournisseur ne renvoie aucune statistique pour
+ces 113 rencontres**, même quota neuf et une par une. La base est inchangée
+(2 314 rencontres, 1 716 lignes de statistiques, 0 doublon, 0 xG). Les 113
+restent donc vides et le resteront : rien n'est inventé.
+
+La passe MLS a également signalé **14 fiches en double** : le fournisseur
+renvoie toujours plusieurs fiches pour une même affiche, et la garde anti-doublon
+les écarte comme prévu.
+
+Conséquence pour le moteur : ces rencontres sont écartées du calcul (aucune
+statistique à lire) et ne pénalisent pas les autres. Le moteur retombe sur le
+proxy « tirs cadrés » puis sur les buts réels pour les rencontres couvertes.
+
 #### Reste à faire sur l'étape 3
 
-- **Rejouer les 113 rencontres sans statistiques** (93 MLS, 19 Ligue des
-  champions, 1 Liga) après réinitialisation du quota, pour vérifier si le
-  fournisseur les complète. La liste est prête dans
-  `docs/etudes/phase15-stats-manquantes.json`.
-- Si le fournisseur ne les complète pas, elles resteront vides : le moteur les
-  écarte déjà (`home_score IS NOT NULL` pour les quatre rencontres sans score)
-  et le modèle retombe sur ses autres matchs.
+- **Rien de bloquant.** La relance des 113 rencontres est faite et close : le
+  fournisseur ne les complétera pas. Aucune nouvelle tentative n'est utile.
+- Les quatre rencontres de Ligue des champions terminées sans score (barrages
+  d'août, Union SG – Bodø/Glimt et Fenerbahçe – Lyon, aller et retour) sont
+  écartées par le moteur via `home_score IS NOT NULL`.
+- Le xG reste à zéro ligne : il arrivera avec l'étape 5 (fichier CSV public).
 
 #### Contrôle de lecture après reconstruction
 

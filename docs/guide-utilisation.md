@@ -607,7 +607,7 @@ avec une forte incertitude et un risque élevé de perte totale.
 | Un total saisi n'est pas utilisé | Ligne différente de 1,5 / 2,5 / 3,5 | Saisissez l'une de ces lignes |
 | Peu de sélections disponibles | Marchés autorisés trop restrictifs, cotes incomplètes | Cochez plus de marchés, complétez les cotes |
 | Cote affichée comme incohérente | Somme des probabilités implicites < 100 % | Vérifiez que toutes les issues sont saisies |
-| Une rencontre importée n'a pas de statistiques | Le fournisseur n'en fournit pas pour cette rencontre (93 MLS, 19 Ligue des champions et 1 Liga constatés) | Rien n'est inventé : la valeur reste vide. Saisissez-la à la main si vous l'avez |
+| Une rencontre importée n'a pas de statistiques | Le fournisseur n'en fournit pas pour cette rencontre (93 MLS, 19 Ligue des champions et 1 Liga, relancées le 17/11 : toujours vides) | Rien n'est inventé : la valeur reste vide. Saisissez-la à la main si vous l'avez |
 | La passe s'arrête avant la fin | Quota du jour atteint ou réponse du fournisseur illisible | Relancez plus tard, éventuellement sur une seule compétition : la passe reprend ce qui manque |
 | « La clé BigBallsData est absente » | `BIGBALLSDATA_KEY` vide dans `.env` | Renseignez la clé puis **redémarrez l'API** |
 | Aucune cote dans le générateur | L'import automatique de cotes n'est pas encore rebranché | Saisissez les cotes à la main (section 8.1) |
