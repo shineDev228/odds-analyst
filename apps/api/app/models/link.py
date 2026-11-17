@@ -53,7 +53,9 @@ class CsvLink(Base, TimestampMixin):
     season_id: Mapped[UUID] = mapped_column(
         Uuid, ForeignKey("seasons.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    # Empreinte de la ligne : division, date, score final, score à la mi-temps.
+    # Empreinte de la ligne : division, date, score final, mi-temps et noms
+    # normalisés. Le résultat seul ne suffit pas : deux rencontres peuvent se
+    # terminer sur le même score le même jour.
     row_key: Mapped[str] = mapped_column(String(200), nullable=False)
     row_date: Mapped[date] = mapped_column(Date, nullable=False)
     home_team_name: Mapped[str] = mapped_column(String(120), nullable=False)

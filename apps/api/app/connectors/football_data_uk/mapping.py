@@ -17,6 +17,7 @@ from app.connectors.football_data_uk.csvar import (
     parse_int,
     read_dicts,
 )
+from app.connectors.matching import normalize_name
 
 BASE_URL = "https://football-data.co.uk"
 ALLOWED_HOSTS = {"football-data.co.uk", "www.football-data.co.uk"}
@@ -115,6 +116,32 @@ class CsvTeamStats:
 
 
 @dataclass(slots=True)
+class ClosingOdds:
+    """Cotes de clôture moyennes du marché, telles que publiées dans le fichier.
+
+    Le fichier contient plusieurs bookmakers ; on ne retient que la **moyenne**
+    (`AvgCH`, `AvgCD`, `AvgCA`, `AvgC>2.5`, `AvgC<2.5`). Aucune cote n'est
+    reconstruite : si une valeur manque, la cote correspondante est absente.
+    """
+
+    home: float
+    draw: float
+    away: float
+    over_2_5: float | None = None
+    under_2_5: float | None = None
+
+    @property
+    def result_1x2(self) -> dict[str, float]:
+        return {"1": self.home, "X": self.draw, "2": self.away}
+
+    @property
+    def total_2_5(self) -> dict[str, float] | None:
+        if self.over_2_5 is None or self.under_2_5 is None:
+            return None
+        return {"plus": self.over_2_5, "moins": self.under_2_5}
+
+
+@dataclass(slots=True)
 class CsvRow:
     """Une rencontre terminée, prête à être rapprochée du calendrier interne."""
 
@@ -129,10 +156,56 @@ class CsvRow:
     half_time_away: int | None
     home_stats: CsvTeamStats
     away_stats: CsvTeamStats
+    closing: ClosingOdds | None = None
 
     @property
     def label(self) -> str:
         return f"{self.home_name} — {self.away_name}"
+
+    @property
+    def row_key(self) -> str:
+        """Identité de la ligne : résultat, puis noms normalisés.
+
+        Le résultat seul ne suffit pas : deux rencontres distinctes peuvent se
+        terminer sur le même score le même jour (16 cas mesurés sur les 500
+        lignes de la saison). Les noms départagent donc la **ligne** ; la
+        décision de rattachement, elle, reste fondée sur le résultat, les noms
+        ne servant qu'à confirmer le sens domicile/extérieur.
+        """
+        mi_temps = (
+            f"{self.half_time_home}-{self.half_time_away}"
+            if self.half_time_home is not None and self.half_time_away is not None
+            else "?"
+        )
+        return (
+            f"{self.division}|{self.played_on.isoformat()}|"
+            f"{self.home_score}-{self.away_score}|{mi_temps}|"
+            f"{normalize_name(self.home_name)}|{normalize_name(self.away_name)}"
+        )
+
+
+def _price(value: Any) -> float | None:
+    """Cote décimale valide : strictement supérieure à 1, jamais inventée."""
+    prix = parse_float(value)
+    if prix is None or prix <= 1.0 or prix > 1000.0:
+        return None
+    return prix
+
+
+def _closing_odds(row: dict[str, str]) -> ClosingOdds | None:
+    """Cotes de clôture moyennes ; `None` si le 1X2 n'est pas complet."""
+    domicile = _price(row.get("AvgCH"))
+    nul = _price(row.get("AvgCD"))
+    exterieur = _price(row.get("AvgCA"))
+    if domicile is None or nul is None or exterieur is None:
+        return None
+    return ClosingOdds(
+        home=domicile,
+        draw=nul,
+        away=exterieur,
+        over_2_5=_price(row.get("AvgC>2.5")),
+        under_2_5=_price(row.get("AvgC<2.5")),
+    )
 
 
 def _team_stats(
@@ -189,6 +262,7 @@ def map_row(row: dict[str, str], *, division: str) -> CsvRow | None:
             goals_for=buts_exterieur,
             goals_against=buts_domicile,
         ),
+        closing=_closing_odds(row),
     )
 
 
@@ -221,6 +295,7 @@ __all__ = [
     "ALLOWED_HOSTS",
     "BASE_URL",
     "DIVISIONS",
+    "ClosingOdds",
     "CsvRow",
     "CsvTeamStats",
     "build_url",

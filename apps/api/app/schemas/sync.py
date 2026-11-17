@@ -1,6 +1,6 @@
 """Schémas de la page Synchronisation (une seule source : BigBallsData)."""
 
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -199,3 +199,117 @@ class OddsPreviewRead(BaseModel):
     quota_remaining: int | None
     error: str | None
     leagues: list[OddsPreviewLeagueRead]
+
+
+class CsvFileRead(BaseModel):
+    """Un fichier public conservé sur le disque, avec son empreinte."""
+
+    code: str
+    division: str
+    name: str
+    status: str = "applied"
+    season_label: str | None = None
+    stored: bool = False
+    path: str | None = None
+    sha256: str | None = None
+    size_bytes: int = 0
+    rows: int = 0
+    downloaded_at: datetime | None = None
+    reused: bool = False
+    error: str | None = None
+    warnings: list[str] = Field(default_factory=list)
+
+
+class CsvTotalsRead(BaseModel):
+    files: int
+    rows: int
+    matches_covered: int
+    xg_rows: int
+    links_applied: int
+    links_pending: int
+    closing_markets: int
+    closing_rows: int
+
+
+class CsvCoverageRead(BaseModel):
+    code: str
+    division: str
+    name: str
+    season_label: str | None
+    finished: int
+    covered: int
+    links_applied: int
+
+
+class CsvPendingRead(BaseModel):
+    """Ligne non tranchée : elle n'a rien écrit et sera reposée à la passe suivante."""
+
+    row_key: str
+    competition: str
+    played_on: date
+    label: str
+    confidence: float | None
+    margin: float | None
+    note: str | None
+
+
+class CsvOverviewRead(BaseModel):
+    provider: str
+    configured: bool
+    directory: str
+    season: str | None
+    files: list[CsvFileRead]
+    totals: CsvTotalsRead
+    coverage: list[CsvCoverageRead]
+    pending: list[CsvPendingRead]
+    last_run: SyncRunRead | None
+
+
+class CsvRequest(BaseModel):
+    """Compétitions à enrichir ; vide = les cinq compétitions couvertes."""
+
+    leagues: list[str] | None = Field(default=None, max_length=5)
+    # False = relire les fichiers déjà téléchargés, sans réseau.
+    refresh: bool = True
+
+
+class CsvLeagueReportRead(BaseModel):
+    code: str
+    division: str
+    name: str
+    status: str
+    rows: int
+    matched: int
+    ambiguous: int
+    unmatched: int
+    links_created: int
+    links_reused: int
+    ignored: int
+    xg_written: int
+    xg_kept: int
+    stats_created: int
+    odds_missing: int
+    markets_written: int
+    snapshots_written: int
+    manual_kept: int
+    warnings: list[str]
+    error: str | None
+
+
+class CsvReportRead(BaseModel):
+    provider: str
+    status: str
+    directory: str
+    error: str | None
+    files: list[CsvFileRead]
+    totals: dict[str, int]
+    leagues: list[CsvLeagueReportRead]
+
+
+class CsvDownloadRead(BaseModel):
+    provider: str
+    status: str
+    directory: str
+    error: str | None
+    totals: dict[str, int]
+    files: list[CsvFileRead]

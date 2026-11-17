@@ -1,6 +1,6 @@
 # Phase 15 — Reconstruction sur BigBallsData
 
-> **Statut : étapes 1 à 3 livrées. Étapes 4 à 7 à faire (16/11/2026).**
+> **Statut : étapes 1 à 5 livrées. Étapes 6 et 7 à faire (17/11/2026).**
 >
 > Objectif : **repartir d'une base propre, construite autour d'une source
 > unique de faits** (BigBallsData), en supprimant l'appariement d'équipes qui a
@@ -98,31 +98,70 @@ Il n'y a plus deux populations à réconcilier, donc plus de conflit
 `Brest` / `Stade Brestois 29`. Le problème n'est pas résolu : **il n'existe
 plus.**
 
-### 3.2 CSV → rencontre : appariement par le score
+### 3.2 CSV → rencontre : appariement par le résultat
 
-La rencontre est identifiée par **(ligue, date exacte, score final, score à la
-mi-temps)**. Le nom ne sert qu'à confirmer le sens domicile/extérieur.
+Une ligne CSV décrit une rencontre terminée. Elle est rapprochée par une **clé
+de résultat** : **(compétition, date exacte, score final, score à la mi-temps)**.
+Le nom ne sert jamais à *trouver* la rencontre : il confirme seulement le **sens
+domicile/extérieur**, et départage les rares rencontres qui partagent le même
+résultat le même jour.
 
-Mesuré sur les fichiers 2026-27 :
+Trois règles, dans l'ordre :
 
-| | Ligue 1 | La Liga | Total |
-|---|---|---|---|
-| Lignes CSV | 90 | 119 | 209 |
-| Rattachées automatiquement | 90 | 118 | **208 (99,5 %)** |
-| À confirmer une fois | 0 | 1 | 1 |
-| Échecs | 0 | 0 | 0 |
+| Candidats sur le résultat | Décision |
+|---|---|
+| **aucun** | rien n'est écrit ; la ligne est enregistrée **en attente** |
+| **exactement un** | **retenu**, même si le nom est un exonyme sous le seuil (`Paris SG` / `Paris Saint-Germain`, mesuré à 0,55) : le résultat désigne déjà la rencontre. Seul un sens manifestement inversé est refusé |
+| **deux ou plus** | le nom doit départager : seuil **0,60** **et** marge **0,25** ; sinon rien n'est écrit |
 
-Le seul doute (`Rennes - Lille`, 08/11) vient de deux matchs terminés 1-2 le
-même jour, avec `Rennes` côté CSV et `Stade Rennais` côté BigBallsData. Le
-système choisit le bon mais sa marge est de 0,18 : il demande au lieu de
-deviner. La décision est enregistrée et n'est plus jamais reposée.
+La règle du candidat unique a été ajoutée **après mesure** : avec le seuil de
+nom appliqué partout, 83 lignes légitimes restaient bloquées alors que le
+résultat ne laissait aucune ambiguïté (`Hull` / `Hull City`, `Man United` /
+`Manchester United`, `Brighton` / `Brighton & Hove Albion`).
+
+Mesuré sur les **cinq fichiers 2026-27** (MLS et Ligue des champions exclus :
+ces fichiers ne publient pas de xG) :
+
+| Compétition | Fichier | Lignes | Rattachées | En attente |
+|---|---|---|---|---|
+| Ligue 1 | `F1` | 90 | 90 | 0 |
+| La Liga | `SP1` | 119 | 118 | 1 |
+| Premier League | `E0` | 100 | 100 | 0 |
+| Serie A | `I1` | 110 | 110 | 0 |
+| Bundesliga | `D1` | 81 | 78 | 3 |
+| **Total** | | **500** | **496 (99,2 %)** | **4** |
+
+Les quatre lignes en attente, toutes explicables :
+
+- `Schalke 04 — RB Leipzig` : **aucune** rencontre terminée sur ce score à cette
+  date dans la base ;
+- `Dortmund — Ein Frankfurt`, `Valencia — Ath Bilbao`, `FC Koln — M'gladbach` :
+  plusieurs candidats au même résultat et un exonyme sous le seuil (0,60), donc
+  la marge ne départage pas. Rien n'est écrit.
 
 Une rencontre BigBallsData n'a pas de ligne CSV (match de coupe dans le flux
-`laliga`) : elle n'aura simplement pas de xG.
+`laliga`, ou rencontre manuelle) : elle n'aura simplement pas de xG.
 
 **Règle dure** : en cas de doute — deux candidats à moins de 0,25 d'écart — on
 n'écrit **rien**. Un xG manquant ne coûte rien ; un xG faux coûterait la
 crédibilité du moteur.
+
+#### L'identité d'une ligne n'est pas son résultat
+
+La clé naturelle de `csv_links` (`source` + `row_key`) doit distinguer deux
+lignes. Le résultat seul **ne suffit pas** : sur les 500 lignes réelles,
+**16 rencontres distinctes** se terminaient le même jour sur le même score avec
+la même mi-temps, et étaient donc comptées à tort comme des doublons.
+
+La clé de ligne est donc :
+
+```
+division | date | score final | mi-temps | nom domicile normalisé | nom extérieur normalisé
+```
+
+Les noms n'entrent **que** dans l'identité de la ligne. La décision de
+rattachement, elle, reste fondée sur le résultat : le nom ne peut ni faire
+échouer un candidat unique, ni valider un sens inversé.
 
 ### 3.3 The Odds API → rencontre : appariement par le coup d'envoi
 
@@ -238,7 +277,7 @@ Elle n'a lieu qu'après la reconstruction des données, jamais avant.
 | **2** | Importeur BigBallsData unique (`/matches`, `/statistics`, `/standings`, `/teams`), suppression de `provider_refs` et `connector_links` | tests sur charges réelles enregistrées |
 | **3** | Reconstruction réelle : 7 compétitions, ≈ 1 000 requêtes | **réalisée le 16/11** — 971 résultats, 0 doublon, 0 équipe hors BigBallsData ; **113 statistiques relancées le 17/11 : le fournisseur n'en a aucune**, dossier clos |
 | **4** | Appariement des cotes par clé composite, import 1xBet borné, panneau de synchronisation | **réalisée le 17/11** — 118/122 événements rattachés, 26 liens, 56 marchés, 230 relevés, 10 crédits consommés |
-| **5** | Enrichissement CSV : xG et cotes de clôture | 209 lignes traitées, 208 automatiques, 1 décision |
+| **5** | Enrichissement CSV : xG et cotes de clôture | **réalisée le 17/11** — 500 lignes lues, 496 rattachées (99,2 %), 4 en attente, 992 lignes de xG, 992 marchés, 2 480 relevés |
 | **6** | Page Synchronisation (remplace Connecteurs) + CLI | **page livrée avec l'étape 2** ; CLI à faire |
 | **7** | Vérification et documentation d'exploitation | comptages, intégrité, moteur et interface inchangés |
 
@@ -266,7 +305,7 @@ local de **400 crédits par mois** protège le compte ; l'aperçu ne consomme ri
 | Risque | Probabilité | Effet | Parade |
 |---|---|---|---|
 | Perte des xG pour les ligues sans CSV | moyenne | moteur au niveau « tirs cadrés » | assumé et affiché ; le moteur bascule automatiquement |
-| Deux matchs même jour, même score | moyenne | xG sur le mauvais match | marge de 0,25, sinon aucune écriture |
+| Deux matchs même jour, même score | **certaine** (16 cas sur 500 lignes) | xG sur le mauvais match | clé de ligne incluant les noms ; candidat unique retenu, sinon seuil 0,60 et marge de 0,25, sinon aucune écriture |
 | Match de coupe dans un flux de championnat | certaine | une rencontre sans xG | toléré, compté dans le rapport de passe |
 | Relevé The Odds API indisponible | moyenne | combinaisons sans cote | passe marquée `partial`, jamais de cote inventée |
 | Exonyme non reconnu (`FC Cologne`, `Sporting Lisbon`) | certaine | événement sans cote | aucune devinette : l'événement reste listé « sans rencontre », rattachable à la main |
@@ -291,7 +330,16 @@ local de **400 crédits par mois** protège le compte ; l'aperçu ne consomme ri
 | Appariement | les 16 décisions réelles du 17/11 sont figées en fixture et rejouées à l'identique (12 rattachements, 4 refus) |
 | Appariement | `Brighton & Hove Albion` et `Brighton and Hove Albion` donnent le même nom normalisé |
 | Appariement | `Manchester City` / `Manchester United` restent sous le seuil (0,55) |
-| Appariement | les 209 lignes CSV mesurées : 208 automatiques, 1 en attente |
+| Appariement | une ligne dont le résultat ne correspond pas (score ou date) n'est jamais rattachée |
+| Appariement | deux rencontres au même score, noms également proches → aucune écriture (`ambiguous`) |
+| Appariement | exonyme sous le seuil mais **candidat unique** → rattaché, note explicite dans le journal |
+| Appariement | candidat unique dont les noms vont mieux **à l'envers** → refusé |
+| Appariement | exonyme sous le seuil avec **deux** candidats → aucune écriture |
+| Appariement | deux lignes réelles au même score le même jour → deux `row_key` distinctes |
+| Appariement | les 500 lignes réelles 2026-27 : 496 rattachées, 4 en attente, 0 ambiguë |
+| Import | xG existant jamais remplacé ; provenance `extra.xg_source = "csv"` |
+| Import | marché saisi à la main conservé (`manual_kept`), aucun doublon de marché |
+| Import | fichier local réutilisé si le réseau échoue ; `refresh=False` ne fait aucun appel |
 | Appariement | deux candidats à moins de 0,25 d'écart → aucune écriture, ligne journalisée |
 | Import | rejeu immédiat d'une passe → aucune ligne créée, aucun doublon |
 | Import | une cote réactualisée crée un relevé de plus, jamais un second marché |
@@ -643,4 +691,131 @@ matcher pur, les 16 décisions réelles figées, le service avec client factice
 - **Rien de bloquant.** Les six autres compétitions seront importées à la
   demande depuis l'interface, dans le même budget.
 - Les alias d'exonymes restent une décision d'utilisateur, pas une heuristique.
+
+### Étape 5 — enrichissement CSV : xG et cotes de clôture (17/11/2026)
+
+#### Périmètre
+
+Cinq fichiers publics 2026-27 de football-data.co.uk, sans clé et sans quota :
+
+| Code | Compétition | Division | Lignes | Taille |
+|---|---|---|---|---|
+| `ligue1` | Ligue 1 | `F1` | 90 | 43 048 o |
+| `laliga` | La Liga | `SP1` | 119 | 56 854 o |
+| `epl` | Premier League | `E0` | 100 | 49 046 o |
+| `seriea` | Serie A | `I1` | 110 | 52 274 o |
+| `bundesliga` | Bundesliga | `D1` | 81 | 39 030 o |
+| **Total** | | | **500** | |
+
+**MLS et Ligue des champions sont exclus** : leurs fichiers n'ont pas de colonnes
+`HxG` / `AxG`. Ce n'est pas un choix de confort, c'est une absence structurelle
+du fournisseur ; le panneau le dit.
+
+#### Ce que la passe écrit, et ce qu'elle ne touche jamais
+
+| Élément | Écriture | Garde-fou |
+|---|---|---|
+| xG | `team_match_stats.expected_goals` des deux équipes | un xG déjà présent n'est **jamais** remplacé (`xg_kept`) ; la provenance est tracée dans `extra.xg_source = "csv"`, fusionnée et non écrasée |
+| Cotes de clôture | deux marchés : `football.resultat_1x2` et `football.total_buts` ligne 2,5 | seule la **moyenne du marché** (`AvgCH`, `AvgCD`, `AvgCA`, `AvgC>2.5`, `AvgC<2.5`) ; aucune cote reconstruite |
+| Relevés | `odds_snapshots` horodatés au **coup d'envoi** | `bookmaker = "Clôture (moyenne)"`, `source = "csv"` ; c'est bien une clôture, pas une cote du jour |
+| Marché manuel | rien | un marché `is_custom` n'est ni complété ni écrasé (`manual_kept`) |
+| Rencontre / équipe | rien | aucune entité n'est créée : le CSV enrichit, il ne crée jamais |
+
+Le fichier brut est conservé dans `data/local/csv/` (gitignoré) avec un sidecar
+JSON (`sha256`, taille, lignes, date). Un échec réseau réutilise le dernier
+fichier connu et laisse un avertissement visible ; `refresh=False` relit les
+fichiers locaux sans aucun appel réseau.
+
+#### Mesures réelles
+
+Téléchargement : 5 fichiers, 500 lignes, 0 échec. Import :
+
+| Compteur | Valeur |
+|---|---|
+| Lignes lues | 500 |
+| Rattachées | **496 (99,2 %)** |
+| Ambigües | 0 |
+| En attente | 4 |
+| Lignes de xG écrites ou conservées | **992** (496 × 2) |
+| Marchés de clôture | **992** (496 × 1X2 + 496 × total 2,5) |
+| Relevés de clôture | **2 480** (496 × 5) |
+| Marchés manuels conservés | 0 (aucun n'existait) |
+
+Couverture obtenue, rencontres terminées en base :
+
+| Compétition | Terminées | Avec xG |
+|---|---|---|
+| Ligue 1 | 90 | **90** |
+| La Liga | 120 | 118 |
+| Premier League | 100 | **100** |
+| Serie A | 110 | **110** |
+| Bundesliga | 81 | 78 |
+| **Total** | **501** | **496** |
+
+Les 5 rencontres sans xG : le match de coupe présent dans le flux `laliga`
+(120 rencontres terminées en base contre 119 lignes CSV) et les 4 lignes en
+attente décrites au 3.2.
+
+Contrôles en base : 496 liens `applied` pour 496 rencontres distinctes, **0
+doublon de `row_key`**, 992 lignes de xG toutes tracées
+`extra->>'xg_source' = 'csv'`, 0 doublon `(rencontre, équipe)`, 992 marchés
+`notes = 'csv'` dont **0 personnalisé**, 2 480 relevés tous
+`source = 'csv'`, un seul libellé de bookmaker, **0 cote ≤ 1**, 0 doublon
+`(sélection, horodatage)`.
+
+#### Effet mesuré sur une prédiction réelle
+
+`Troyes — Le Havre AC` (20/11/2026), même rencontre, même code :
+
+| | Avant | Après |
+|---|---|---|
+| Buts attendus | 1,406 / 1,136 | **1,567 / 1,218** |
+| 1X2 | 43,03 / 26,65 / 30,32 % | **45,35 / 25,11 / 29,54 %** |
+| Matchs avec xG | 0 | **10** |
+| Méthode | proxy tirs cadrés | **xG** |
+
+Les fourchettes restent larges : la qualité est toujours « faible » avec 10
+matchs par équipe. Le xG change la valeur centrale, pas la prudence.
+
+#### Quatre corrections nées de la mesure
+
+1. **La clé de ligne inclut les noms.** Le résultat seul comptait 16 lignes
+   réelles comme des doublons (même date, même score, même mi-temps).
+2. **Un candidat unique est retenu**, même sous le seuil de nom : 83 lignes
+   légitimes étaient bloquées par des exonymes (`Man United`,
+   `Brighton`, `Paris SG`). Le sens inversé reste refusé.
+3. **`fetch_file` attend le libellé de saison** (`2026-2027`) et non le code
+   d'URL (`2627`) : la conversion était faite deux fois.
+4. **Le journal sérialise les dates en ISO** : le rapport contient des dates de
+   fichier, que le JSON de `sync_runs` refusait.
+
+#### Un historique d'import assumé
+
+Le journal `sync_runs` conserve **trois passes d'import** (399, 413 puis 496
+lignes rattachées) et un téléchargement : les deux premières ont servi à
+mesurer les deux premiers défauts, puis les données écrites par ces passes ont
+été retirées avant la passe finale. Seuls les chiffres finaux figurent dans ce
+document ; aucune ligne de journal n'a été effacée.
+
+#### Contrôles de sortie
+
+`pytest` **327 tests verts** (dont 26 nouveaux dans `test_csv_sync.py`),
+`ruff check app tests` vert, `mypy app engine` vert (97 fichiers), `eslint` et
+`tsc --noEmit` verts.
+
+Les 26 tests couvrent : la lecture des deux extraits **réels** (F1 et SP1) avec
+xG et `AvgC*`, `fetch_file` via un transport simulé, le matcher pur (résultat,
+sens inversé, ambiguïté, exonyme unique, exonymes à deux candidats, deux clés
+distinctes pour un même score), le service (écriture xG + cotes, journal,
+idempotence, xG existant conservé, marché manuel conservé, ligne en attente qui
+n'écrit rien, réseau en échec → fichier local, `refresh=False` sans réseau,
+téléchargement et sidecar, vue d'ensemble) et les routes (401, 403, overview,
+run).
+
+#### Reste à faire sur l'étape 5
+
+- **Rien de bloquant.** Les 4 lignes en attente ne bloquent ni le moteur ni
+  l'interface : elles restent visibles avec leur motif.
+- La Liga (118/120) et la Bundesliga (78/81) ne seront complètes qu'après une
+  prochaine passe, quand les rencontres manquantes auront une ligne CSV.
 

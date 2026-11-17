@@ -84,7 +84,7 @@ Saisissez votre adresse et votre mot de passe, puis « Se connecter ».
 |---|---|
 | « Tableau de bord » | Vue d'ensemble et prochaines rencontres |
 | « Compétitions » | Compétitions et saisons |
-| « Synchronisation » | Import BigBallsData : calendrier, résultats, statistiques, classements |
+| « Synchronisation » | Import : BigBallsData (faits), CSV (xG et clôture), The Odds API (cotes 1xBet) |
 | « Équipes » | Référentiel des équipes |
 | « Rencontres » | Création des rencontres, statistiques et résultats |
 | « Combinaisons » | Génération et enregistrement des combinaisons |
@@ -292,18 +292,55 @@ Ce qu'il faut savoir :
 > Le calendrier importé couvre **toute la saison** : il n'y a plus de fenêtre de
 > 10 jours à relancer chaque semaine.
 
-### 7.3 Compléter le xG et les cotes de clôture
+### 7.3 Compléter le xG et les cotes de clôture (fichier CSV)
 
-BigBallsData ne fournit **ni xG ni cotes**. Ces deux éléments viendront plus
-tard du fichier public football-data.co.uk (gratuit, sans clé), qui les porte sur
-la même ligne que le score. En attendant :
+BigBallsData ne fournit **ni xG ni cotes**. Ces deux éléments viennent du fichier
+public **football-data.co.uk** (gratuit, sans clé, aucun quota), qui les porte
+sur la même ligne que le score.
 
-- saisissez le xG à la main sur la fiche de la rencontre, dans les statistiques
-  d'équipe ; il améliore nettement les fourchettes ;
-- à défaut, le moteur utilise les **tirs cadrés** (proxy `0,30 × tirs cadrés`,
-  plafonné à 4,0), que BigBallsData fournit ;
-- sans aucune statistique, il retombe sur les buts réels — jamais sur une valeur
-  inventée.
+Dans **Synchronisation**, panneau « Enrichissement CSV (xG et cotes de
+clôture) » :
+
+1. Cochez les compétitions dans la liste du haut (la même sélection sert à tous
+   les imports). **Cinq compétitions sont couvertes** : Ligue 1, La Liga,
+   Premier League, Serie A et Bundesliga. La Ligue des champions et la MLS ne
+   publient pas de xG dans ces fichiers : elles restent hors périmètre.
+2. « Télécharger les fichiers » : récupère les cinq fichiers et les conserve sur
+   votre machine. **Aucune donnée n'est écrite en base** à cette étape.
+3. « Enrichir xG et clôture » : écrit le xG et les cotes de clôture des
+   rencontres **terminées**. Confirmez la question posée.
+4. Pour rejouer sans réseau, cochez « Relire les fichiers déjà téléchargés, sans
+   réseau » avant d'enrichir. Si un téléchargement échoue, le dernier fichier
+   connu est réutilisé et un avertissement l'indique.
+
+**Comment la rencontre est retrouvée.** Par son **résultat** : date exacte,
+score final et score à la mi-temps. Le nom ne sert qu'à confirmer le sens
+domicile/extérieur. Trois cas :
+
+- un seul candidat sur ce résultat : il est retenu, même si le nom du club est
+  écrit différemment (`Paris SG` / `Paris Saint-Germain`) ;
+- plusieurs candidats : le nom doit les départager nettement, sinon **rien
+  n'est écrit** ;
+- aucun candidat : la ligne reste « en attente », avec son motif affiché.
+
+**Ce qui est écrit :**
+
+- le xG de chaque équipe, dans les statistiques de la rencontre ;
+- deux marchés de **clôture moyenne du marché** : « Résultat » et « Total de
+  buts » à la ligne 2,5, sous le libellé « Clôture (moyenne) ».
+
+**Ce qui n'est jamais touché :**
+
+- un xG déjà présent (saisi à la main ou importé avant) n'est **pas remplacé** ;
+- un marché saisi à la main n'est ni complété ni écrasé ;
+- aucune équipe, aucune rencontre n'est créée par le CSV.
+
+**Comment lire le rapport :** lignes rattachées, lignes en attente, lignes
+ambigües, xG écrits, xG déjà présents conservés, marchés et relevés écrits,
+saisies manuelles conservées. Les rencontres sans xG restent visibles dans le
+tableau de couverture : le moteur utilise alors les **tirs cadrés** (proxy
+`0,30 × tirs cadrés`, plafonné à 4,0), puis les buts réels — jamais une valeur
+inventée.
 
 ### 7.4 Vérifier que l'historique est suffisant
 
@@ -320,8 +357,8 @@ Ajoutez les résultats manquants, puis cliquez sur « Actualiser ».
 ## 8. Étape 5 — Saisir les cotes
 
 Le générateur a besoin d'une cote récente pour chaque sélection qu'il utilise.
-Aujourd'hui, la **saisie manuelle** est la seule méthode disponible ;
-l'import automatique reviendra à l'étape 4 de la reconstruction.
+Deux méthodes se complètent : la **saisie manuelle** (secours et correction) et
+l'**import des cotes 1xBet** pour les rencontres à venir (section 8.2).
 
 ### 8.1 Saisie manuelle, rencontre par rencontre
 
@@ -646,7 +683,9 @@ avec une forte incertitude et un risque élevé de perte totale.
 | Une rencontre importée n'a pas de statistiques | Le fournisseur n'en fournit pas pour cette rencontre (93 MLS, 19 Ligue des champions et 1 Liga, relancées le 17/11 : toujours vides) | Rien n'est inventé : la valeur reste vide. Saisissez-la à la main si vous l'avez |
 | La passe s'arrête avant la fin | Quota du jour atteint ou réponse du fournisseur illisible | Relancez plus tard, éventuellement sur une seule compétition : la passe reprend ce qui manque |
 | « La clé BigBallsData est absente » | `BIGBALLSDATA_KEY` vide dans `.env` | Renseignez la clé puis **redémarrez l'API** |
-| Aucune cote dans le générateur | L'import automatique de cotes n'est pas encore rebranché | Saisissez les cotes à la main (section 8.1) |
+| Aucune cote dans le générateur | L'import 1xBet n'a pas été lancé, ou l'événement n'a pas été rattaché | Lancez l'aperçu puis l'import (8.2), ou saisissez la cote à la main (8.1) |
+| Des rencontres n'ont pas de xG | Fichier CSV non téléchargé, ligne en attente, ou compétition hors périmètre (Ligue des champions, MLS) | Lancez « Télécharger les fichiers » puis « Enrichir » ; lisez les lignes en attente et le tableau de couverture (7.3) |
+| Une ligne CSV reste « en attente » | Aucune rencontre sur ce score à cette date, ou deux candidats trop proches | Vérifiez le score et la date de la rencontre ; le xG manquant ne bloque rien |
 | Connexion bloquée | Cinq échecs consécutifs | Attendez environ 15 minutes |
 | Page blanche ou erreur 500 | API arrêtée ou session expirée | Relancez `dev.ps1`, puis reconnectez-vous |
 
@@ -671,7 +710,7 @@ avec une forte incertitude et un risque élevé de perte totale.
 [ ] Au moins 2 rencontres programmées le jour même (sinon le prochain jour de
     match avec cotes est utilisé automatiquement)
 [ ] Au moins 3 matchs terminés par équipe, avec scores
-[ ] Statistiques xG ou tirs cadrés saisies si disponibles
+[ ] xG importé du CSV (ou tirs cadrés), sinon le moteur retombe sur les buts
 [ ] Cotes récentes sur les marchés voulus (1X2, double chance, total 1,5/2,5/3,5,
     « les deux équipes marquent »)
 [ ] Paramètres : cote min < cote max, marchés cochés

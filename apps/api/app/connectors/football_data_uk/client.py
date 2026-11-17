@@ -26,15 +26,24 @@ class FootballDataUkClient:
     def close(self) -> None:
         self._http.close()
 
-    def fetch_rows(self, *, division: str, season: str) -> list[CsvRow]:
-        """Télécharge le fichier de la division et renvoie les rencontres jouées."""
+    def fetch_file(self, *, division: str, season: str) -> tuple[bytes, list[CsvRow]]:
+        """Télécharge le fichier et renvoie son contenu brut et ses rencontres.
+
+        Le contenu brut est conservé pour l'empreinte sha256 : deux passes sur
+        un fichier inchangé sont visibles dans le journal.
+        """
         url = build_url(self._base_url, division, season)
         contenu, _ = self._http.get_bytes(
             url,
             headers={"accept": "text/csv,*/*"},
             provider=self.provider,
         )
-        return parse_rows(decode_bytes(contenu), division=division)
+        return contenu, parse_rows(decode_bytes(contenu), division=division)
+
+    def fetch_rows(self, *, division: str, season: str) -> list[CsvRow]:
+        """Télécharge le fichier de la division et renvoie les rencontres jouées."""
+        _, rows = self.fetch_file(division=division, season=season)
+        return rows
 
 
 __all__ = ["FootballDataUkClient"]

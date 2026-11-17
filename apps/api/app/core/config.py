@@ -73,6 +73,8 @@ class Settings(BaseSettings):
     football_data_base_url: str = "https://api.football-data.org/v4"
     # Fichiers CSV publics : aucune clé, aucun quota.
     football_data_uk_base_url: str = "https://football-data.co.uk"
+    # Dossier des fichiers CSV conservés ; vide = `data/local/csv`.
+    csv_storage_dir: str = ""
 
     # Budgets locaux (réserves déjà déduites).
     # BigBallsData autorise 2 000 requêtes par jour ; le plafond local garde

@@ -31,7 +31,7 @@ Application web personnelle d'analyse statistique sportive.
 | 13 — Cotes 1X2 dans la liste des rencontres | ✅ Terminée |
 | 14A.1 — Snapshots quotidiens | ✅ Terminée |
 | 14A.2 à 14A.6 — Collecte quotidienne | ⏸ Reportées (voir phase 15) |
-| 15 — Reconstruction sur BigBallsData | 🔄 En cours — étapes 1 à 3 livrées |
+| 15 — Reconstruction sur BigBallsData | 🔄 En cours — étapes 1 à 5 livrées |
 
 ---
 
@@ -135,9 +135,15 @@ powershell -ExecutionPolicy Bypass -File infra/scripts/dev.ps1
   « les deux équipes marquent » (2 crédits par événement, dans les 72 heures).
   Plafond local 400 crédits par mois, aucun bookmaker autre que 1xBet, aucune
   cote inventée, aucune saisie manuelle écrasée, historique append-only.
-- **Enrichissement à venir** : le xG et les cotes de clôture viendront du fichier
-  public football-data.co.uk (gratuit, sans clé). En attendant, la saisie
-  manuelle reste disponible et le moteur utilise le proxy « tirs cadrés ».
+- **Enrichissement CSV (xG et cotes de clôture)** : cinq fichiers publics
+  football-data.co.uk (Ligue 1, La Liga, Premier League, Serie A, Bundesliga),
+  sans clé et sans quota. La rencontre est retrouvée par son **résultat** (date,
+  score final, mi-temps) ; le nom ne confirme que le sens domicile/extérieur.
+  Le xG de chaque équipe et la **moyenne du marché** de clôture (1X2 et total
+  2,5) sont écrits sous le libellé « Clôture (moyenne) ». Un xG existant n'est
+  jamais remplacé, un marché saisi à la main n'est jamais écrasé, une ligne
+  douteuse n'écrit rien et reste en attente. Le dernier fichier local est
+  réutilisé si le réseau échoue.
 - **Sécurité et exploitation** : en-têtes de sécurité, CSP par nonce en
   production, expiration d'inactivité de 12 h, purge des sessions, journal JSON
   avec identifiant de requête, sauvegarde et restauration vérifiée dans une base
@@ -148,11 +154,11 @@ powershell -ExecutionPolicy Bypass -File infra/scripts/dev.ps1
 ### Modèle statistique v2
 
 Le moteur (`apps/api/engine/`) estime des forces d'attaque et de défense à
-partir des buts marqués et encaissés, complétés par le **xG saisi** ou, à
-défaut, par un **proxy fondé sur les tirs cadrés** (`0,30 × tirs cadrés`,
-plafonné à 4,0). Sans statistique, la rencontre utilise les buts réels : aucune
-valeur n'est inventée. La couverture statistique est affichée par équipe et un
-avertissement apparaît sous 50 %.
+partir des buts marqués et encaissés, complétés par le **xG** (importé du CSV
+ou saisi) ou, à défaut, par un **proxy fondé sur les tirs cadrés**
+(`0,30 × tirs cadrés`, plafonné à 4,0). Sans statistique, la rencontre utilise
+les buts réels : aucune valeur n'est inventée. La couverture statistique est
+affichée par équipe et un avertissement apparaît sous 50 %.
 
 Les scores suivent une loi de Poisson bivariée corrigée par Dixon-Coles, dont
 le paramètre `rho` est désormais **estimé puis rétréci vers un prior** pour
@@ -211,7 +217,7 @@ Cette contrainte garantit la fiabilité et la reproductibilité des calculs.
 ## Tests et qualité
 
 ```powershell
-# API et moteur (272 tests)
+# API et moteur (327 tests)
 uv run pytest
 
 # Analyse statique du code Python

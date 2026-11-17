@@ -39,6 +39,8 @@ class SyncOperation(enum.StrEnum):
     FIXTURES = "fixtures"
     # Marchés des rencontres à venir (The Odds API, phase 15 étape 4).
     ODDS = "odds"
+    # xG et cotes de clôture des rencontres terminées (CSV public, étape 5).
+    CSV = "csv"
 
 
 class SyncRun(Base, TimestampMixin):

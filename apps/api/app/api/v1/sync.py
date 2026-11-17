@@ -1,4 +1,4 @@
-"""Routes de synchronisation : faits BigBallsData, cotes The Odds API."""
+"""Routes de synchronisation : faits BigBallsData, cotes The Odds API, CSV."""
 
 from typing import Annotated
 
@@ -7,6 +7,10 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from app.core import deps
 from app.core.config import settings
 from app.schemas.sync import (
+    CsvDownloadRead,
+    CsvOverviewRead,
+    CsvReportRead,
+    CsvRequest,
     OddsOverviewRead,
     OddsPreviewRead,
     OddsReportRead,
@@ -16,7 +20,7 @@ from app.schemas.sync import (
     SyncRequest,
     SyncRunRead,
 )
-from app.services import odds_sync
+from app.services import csv_sync, odds_sync
 from app.services import synchronization as service
 
 router = APIRouter(
@@ -101,3 +105,37 @@ def odds_run(
     )
     db.commit()
     return OddsReportRead.model_validate(report.as_dict())
+
+
+@router.get("/csv/overview", response_model=CsvOverviewRead)
+def csv_overview(db: deps.DbSession) -> CsvOverviewRead:
+    """Fichiers conservés, couverture du xG et lignes en attente de décision."""
+    return CsvOverviewRead.model_validate(csv_sync.overview(db))
+
+
+@router.post("/csv/download", response_model=CsvDownloadRead)
+def csv_download(
+    db: deps.DbSession,
+    payload: Annotated[CsvRequest | None, Body()] = None,
+) -> CsvDownloadRead:
+    """Télécharge les fichiers publics et les conserve, sans écrire en base."""
+    request = payload or CsvRequest()
+    report = csv_sync.download(db, leagues=request.leagues or None)
+    db.commit()
+    return CsvDownloadRead.model_validate(report.as_dict())
+
+
+@router.post("/csv/run", response_model=CsvReportRead)
+def csv_run(
+    db: deps.DbSession,
+    payload: Annotated[CsvRequest | None, Body()] = None,
+) -> CsvReportRead:
+    """Écrit le xG et les cotes de clôture des rencontres terminées."""
+    request = payload or CsvRequest()
+    report = csv_sync.run(
+        db,
+        leagues=request.leagues or None,
+        refresh=request.refresh,
+    )
+    db.commit()
+    return CsvReportRead.model_validate(report.as_dict())

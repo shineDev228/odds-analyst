@@ -586,6 +586,114 @@ export interface RapportCotes {
   leagues: LigueRapportCotes[];
 }
 
+// ---------------------------------------------------------------------------
+// Enrichissement CSV (xG et cotes de clôture)
+// ---------------------------------------------------------------------------
+
+export interface FichierCsv {
+  code: string;
+  division: string;
+  name: string;
+  status: string;
+  season_label: string | null;
+  /** Vrai si le fichier est présent sur le disque du serveur. */
+  stored: boolean;
+  path: string | null;
+  sha256: string | null;
+  size_bytes: number;
+  rows: number;
+  downloaded_at: string | null;
+  /** Vrai quand le dernier fichier local a été réutilisé faute de réseau. */
+  reused: boolean;
+  error: string | null;
+  warnings: string[];
+}
+
+export interface TotauxCsv {
+  files: number;
+  rows: number;
+  matches_covered: number;
+  xg_rows: number;
+  links_applied: number;
+  links_pending: number;
+  closing_markets: number;
+  closing_rows: number;
+}
+
+export interface CouvertureCsv {
+  code: string;
+  division: string;
+  name: string;
+  season_label: string | null;
+  finished: number;
+  covered: number;
+  links_applied: number;
+}
+
+export interface LigneCsvEnAttente {
+  row_key: string;
+  competition: string;
+  played_on: string;
+  label: string;
+  confidence: number | null;
+  margin: number | null;
+  note: string | null;
+}
+
+export interface VueCsv {
+  provider: string;
+  configured: boolean;
+  directory: string;
+  season: string | null;
+  files: FichierCsv[];
+  totals: TotauxCsv;
+  coverage: CouvertureCsv[];
+  pending: LigneCsvEnAttente[];
+  last_run: JournalSynchronisation | null;
+}
+
+export interface LigueRapportCsv {
+  code: string;
+  division: string;
+  name: string;
+  status: string;
+  rows: number;
+  matched: number;
+  ambiguous: number;
+  unmatched: number;
+  links_created: number;
+  links_reused: number;
+  ignored: number;
+  xg_written: number;
+  xg_kept: number;
+  stats_created: number;
+  odds_missing: number;
+  markets_written: number;
+  snapshots_written: number;
+  manual_kept: number;
+  warnings: string[];
+  error: string | null;
+}
+
+export interface RapportCsv {
+  provider: string;
+  status: string;
+  directory: string;
+  error: string | null;
+  files: FichierCsv[];
+  totals: Record<string, number>;
+  leagues: LigueRapportCsv[];
+}
+
+export interface RapportTelechargementCsv {
+  provider: string;
+  status: string;
+  directory: string;
+  error: string | null;
+  totals: Record<string, number>;
+  files: FichierCsv[];
+}
+
 export const statutsRencontre: Record<StatutRencontre, string> = {
   programme: "Programmé",
   en_cours: "En cours",

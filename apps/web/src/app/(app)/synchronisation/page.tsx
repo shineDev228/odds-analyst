@@ -13,15 +13,19 @@ import {
   Saisie,
 } from "@/components/ui";
 import { apiFetch, messageErreur } from "@/lib/api";
-import { formatDateHeure, formatNombre } from "@/lib/format";
+import { formatDate, formatDateHeure, formatNombre } from "@/lib/format";
 import type {
   ApercuCotes,
   JournalSynchronisation,
   LigueRapport,
   LigueRapportCotes,
+  LigueRapportCsv,
   RapportCotes,
+  RapportCsv,
   RapportSynchronisation,
+  RapportTelechargementCsv,
   VueCotes,
+  VueCsv,
   VueSynchronisation,
 } from "@/lib/types";
 
@@ -141,6 +145,35 @@ function CarteRapportCotes({ rapport }: { rapport: LigueRapportCotes }) {
   );
 }
 
+function CarteRapportCsv({ rapport }: { rapport: LigueRapportCsv }) {
+  return (
+    <li className="rounded-lg border border-bordure bg-fond px-3 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-xs font-medium text-texte">{rapport.name}</p>
+          <Badge ton={tonStatut(rapport.status)}>{libelleStatut(rapport.status)}</Badge>
+        </div>
+        <p className="text-[11px] text-texte-faible">
+          {rapport.matched}/{rapport.rows} ligne(s) rattachée(s) · {rapport.xg_written} xG écrit(s) ·{" "}
+          {rapport.snapshots_written} relevé(s) de clôture
+        </p>
+      </div>
+      <p className="mt-1 text-[11px] text-texte-faible">
+        Liens créés : {rapport.links_created} · réutilisés : {rapport.links_reused} · ambigus :{" "}
+        {rapport.ambiguous} · sans rencontre : {rapport.unmatched} · xG déjà présent conservé :{" "}
+        {rapport.xg_kept} · sans cotes complètes : {rapport.odds_missing} · saisies manuelles
+        conservées : {rapport.manual_kept}
+      </p>
+      {rapport.warnings.map((warning) => (
+        <p key={warning} className="mt-1 text-[11px] text-alerte">
+          {warning}
+        </p>
+      ))}
+      {rapport.error ? <p className="mt-1 text-[11px] text-danger">{rapport.error}</p> : null}
+    </li>
+  );
+}
+
 export default function PageSynchronisation() {
   const [vue, setVue] = useState<VueSynchronisation | null>(null);
   const [chargement, setChargement] = useState(true);
@@ -158,14 +191,22 @@ export default function PageSynchronisation() {
   const [cotesEnCours, setCotesEnCours] = useState(false);
   const [avecEtendus, setAvecEtendus] = useState(true);
   const [limiteEtendus, setLimiteEtendus] = useState("30");
+  const [csv, setCsv] = useState<VueCsv | null>(null);
+  const [rapportCsv, setRapportCsv] = useState<RapportCsv | null>(null);
+  const [telechargementCsv, setTelechargementCsv] =
+    useState<RapportTelechargementCsv | null>(null);
+  const [csvEnCours, setCsvEnCours] = useState(false);
+  const [csvSansReseau, setCsvSansReseau] = useState(false);
 
   const charger = useCallback(async () => {
-    const [donnees, etatCotes] = await Promise.all([
+    const [donnees, etatCotes, etatCsv] = await Promise.all([
       apiFetch<VueSynchronisation>("/v1/sync/overview"),
       apiFetch<VueCotes>("/v1/sync/odds/overview"),
+      apiFetch<VueCsv>("/v1/sync/csv/overview"),
     ]);
     setVue(donnees);
     setCotes(etatCotes);
+    setCsv(etatCsv);
   }, []);
 
   useEffect(() => {
@@ -265,6 +306,66 @@ export default function PageSynchronisation() {
       setErreur(messageErreur(error));
     } finally {
       setCotesEnCours(false);
+    }
+  }
+
+  async function telechargerCsv() {
+    setErreur(null);
+    setSucces(null);
+    setCsvEnCours(true);
+    try {
+      const resultat = await apiFetch<RapportTelechargementCsv>("/v1/sync/csv/download", {
+        methode: "POST",
+        corps: { leagues: selection },
+        delaiMs: 180_000,
+      });
+      setTelechargementCsv(resultat);
+      await charger();
+      setSucces(
+        `Téléchargement ${libelleStatut(resultat.status).toLowerCase()} : ` +
+          `${resultat.totals.files ?? 0} fichier(s) conservé(s), ` +
+          `${resultat.totals.rows ?? 0} rencontre(s) lue(s). Aucune donnée n'a été écrite en base.`,
+      );
+    } catch (error) {
+      setErreur(messageErreur(error));
+    } finally {
+      setCsvEnCours(false);
+    }
+  }
+
+  async function importerCsv() {
+    const mode = csvSansReseau ? "les fichiers déjà téléchargés" : "les fichiers publics";
+    if (
+      !window.confirm(
+        `Enrichir les rencontres terminées avec ${mode} ? Le xG ne remplace jamais une valeur ` +
+          `déjà présente, les marchés saisis à la main restent intacts et une ligne douteuse ` +
+          `n'écrit rien.`,
+      )
+    ) {
+      return;
+    }
+    setErreur(null);
+    setSucces(null);
+    setCsvEnCours(true);
+    try {
+      const resultat = await apiFetch<RapportCsv>("/v1/sync/csv/run", {
+        methode: "POST",
+        corps: { leagues: selection, refresh: !csvSansReseau },
+        delaiMs: 600_000,
+      });
+      setRapportCsv(resultat);
+      await charger();
+      const total = resultat.totals;
+      setSucces(
+        `Enrichissement ${libelleStatut(resultat.status).toLowerCase()} : ` +
+          `${total.matched ?? 0} rencontre(s) rattachée(s), ${total.xg_written ?? 0} xG écrit(s), ` +
+          `${total.snapshots_written ?? 0} relevé(s) de clôture, ` +
+          `${total.ambiguous ?? 0} ligne(s) ambiguë(s).`,
+      );
+    } catch (error) {
+      setErreur(messageErreur(error));
+    } finally {
+      setCsvEnCours(false);
     }
   }
 
@@ -644,6 +745,210 @@ export default function PageSynchronisation() {
             <ul className="flex flex-col gap-2">
               {rapportCotes.leagues.map((ligue) => (
                 <CarteRapportCotes key={ligue.code} rapport={ligue} />
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </Panneau>
+
+      <Panneau
+        titre="Enrichissement CSV (xG et cotes de clôture)"
+        description="Fichiers publics football-data.co.uk : cinq compétitions, aucune clé, aucun quota."
+        action={
+          <Badge ton={(csv?.totals.files ?? 0) > 0 ? "succes" : "neutre"}>
+            {csv?.totals.files ?? 0}/5 fichier(s)
+          </Badge>
+        }
+      >
+        <div className="grid gap-4 lg:grid-cols-2">
+          <dl className="flex flex-col gap-2 text-xs">
+            <div className="flex items-center justify-between">
+              <dt className="text-texte-faible">Lignes CSV conservées</dt>
+              <dd className="text-texte">{formatNombre(csv?.totals.rows)}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-texte-faible">Rencontres avec xG</dt>
+              <dd className="text-texte">{formatNombre(csv?.totals.xg_rows)}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-texte-faible">Lignes rattachées</dt>
+              <dd className="text-texte">{formatNombre(csv?.totals.links_applied)}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-texte-faible">Lignes en attente</dt>
+              <dd className="text-texte">{formatNombre(csv?.totals.links_pending)}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-texte-faible">Marchés de clôture</dt>
+              <dd className="text-texte">{formatNombre(csv?.totals.closing_markets)}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-texte-faible">Relevés de clôture</dt>
+              <dd className="text-texte">{formatNombre(csv?.totals.closing_rows)}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-texte-faible">Dernière passe</dt>
+              <dd className="text-texte">{formatDateHeure(csv?.last_run?.created_at)}</dd>
+            </div>
+          </dl>
+
+          <fieldset className="flex flex-col gap-3">
+            <legend className="text-[11px] uppercase tracking-wide text-texte-faible">
+              Options d&apos;enrichissement
+            </legend>
+            <label className="flex items-center gap-2 text-xs text-texte">
+              <input
+                type="checkbox"
+                checked={csvSansReseau}
+                onChange={(event) => setCsvSansReseau(event.target.checked)}
+              />
+              Relire les fichiers déjà téléchargés, sans réseau
+            </label>
+            <p className="text-[11px] text-texte-faible">
+              La rencontre est trouvée par son résultat : date exacte, score final et score à la
+              mi-temps. Le nom ne sert qu&apos;à confirmer le sens domicile/extérieur. Sous une marge
+              de 0,25 entre deux candidats, rien n&apos;est écrit : la ligne reste en attente.
+            </p>
+            <p className="text-[11px] text-texte-faible">
+              Seule la moyenne du marché est enregistrée, sous le libellé « Clôture (moyenne) » et
+              avec la source « csv ». Un xG déjà présent n&apos;est jamais remplacé. La Ligue des
+              champions et la MLS ne publient pas de xG dans ces fichiers : elles restent hors
+              périmètre.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Bouton
+                variante="discret"
+                onClick={() => void telechargerCsv()}
+                disabled={csvEnCours || selection.length === 0}
+              >
+                {csvEnCours ? "Traitement…" : "Télécharger les fichiers"}
+              </Bouton>
+              <Bouton
+                variante="principal"
+                onClick={() => void importerCsv()}
+                disabled={csvEnCours || selection.length === 0}
+              >
+                Enrichir xG et clôture
+              </Bouton>
+            </div>
+            <p className="text-[11px] text-texte-faible">
+              Dossier des fichiers : <code>{csv?.directory ?? "—"}</code>
+            </p>
+          </fieldset>
+        </div>
+
+        {(csv?.files.length ?? 0) > 0 ? (
+          <ul className="mt-4 flex flex-col gap-2">
+            {(csv?.files ?? []).map((fichier) => (
+              <li
+                key={fichier.code}
+                className="rounded-lg border border-bordure bg-fond px-3 py-2"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs font-medium text-texte">{fichier.name}</p>
+                    <Badge ton={fichier.stored ? "succes" : "neutre"}>
+                      {fichier.stored ? `${fichier.rows} ligne(s)` : "Non téléchargé"}
+                    </Badge>
+                    {fichier.reused ? <Badge ton="alerte">Fichier local réutilisé</Badge> : null}
+                  </div>
+                  <p className="text-[11px] text-texte-faible">
+                    {formatDateHeure(fichier.downloaded_at)} ·{" "}
+                    {fichier.sha256 ? `empreinte ${fichier.sha256.slice(0, 12)}…` : "sans empreinte"}
+                  </p>
+                </div>
+                {fichier.warnings.map((warning) => (
+                  <p key={warning} className="mt-1 text-[11px] text-alerte">
+                    {warning}
+                  </p>
+                ))}
+                {fichier.error ? (
+                  <p className="mt-1 text-[11px] text-danger">{fichier.error}</p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {(csv?.coverage.length ?? 0) > 0 ? (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[560px] border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-bordure text-left text-[11px] uppercase tracking-wide text-texte-faible">
+                  <th className="px-2 py-1.5 font-medium">Compétition</th>
+                  <th className="px-2 py-1.5 font-medium">Saison</th>
+                  <th className="px-2 py-1.5 text-right font-medium">Terminées</th>
+                  <th className="px-2 py-1.5 text-right font-medium">Avec xG</th>
+                  <th className="px-2 py-1.5 text-right font-medium">Lignes appliquées</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(csv?.coverage ?? []).map((ligne) => (
+                  <tr key={ligne.code} className="border-b border-bordure/60">
+                    <td className="px-2 py-1.5 text-texte">{ligne.name}</td>
+                    <td className="px-2 py-1.5 text-texte-doux">{ligne.season_label ?? "—"}</td>
+                    <td className="px-2 py-1.5 text-right text-texte">{ligne.finished}</td>
+                    <td className="px-2 py-1.5 text-right text-texte">{ligne.covered}</td>
+                    <td className="px-2 py-1.5 text-right text-texte">{ligne.links_applied}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+
+        {(csv?.pending.length ?? 0) > 0 ? (
+          <div className="mt-4 flex flex-col gap-2">
+            <p className="text-xs font-medium text-texte">Lignes en attente de décision</p>
+            <ul className="flex flex-col gap-2">
+              {(csv?.pending ?? []).map((ligne) => (
+                <li
+                  key={ligne.row_key}
+                  className="rounded-lg border border-bordure bg-fond px-3 py-2"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs text-texte">
+                      {ligne.label} · {ligne.competition}
+                    </p>
+                    <p className="text-[11px] text-texte-faible">
+                      {formatDate(ligne.played_on)} · confiance{" "}
+                      {ligne.confidence !== null ? ligne.confidence.toFixed(2) : "—"} · marge{" "}
+                      {ligne.margin !== null ? ligne.margin.toFixed(2) : "—"}
+                    </p>
+                  </div>
+                  {ligne.note ? (
+                    <p className="mt-1 text-[11px] text-alerte">{ligne.note}</p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {telechargementCsv ? (
+          <p className="mt-4 text-[11px] text-texte-faible">
+            Dernier téléchargement : {telechargementCsv.totals.files ?? 0} fichier(s) ·{" "}
+            {telechargementCsv.totals.rows ?? 0} rencontre(s) lue(s).{" "}
+            {telechargementCsv.error ?? ""}
+          </p>
+        ) : null}
+
+        {rapportCsv ? (
+          <div className="mt-4 flex flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-texte-doux">
+                Dernier enrichissement : {rapportCsv.totals.matched ?? 0} rencontre(s) rattachée(s) ·{" "}
+                {rapportCsv.totals.xg_written ?? 0} xG écrit(s) ·{" "}
+                {rapportCsv.totals.snapshots_written ?? 0} relevé(s)
+              </p>
+              <Badge ton={tonStatut(rapportCsv.status)}>
+                {libelleStatut(rapportCsv.status)}
+              </Badge>
+            </div>
+            {rapportCsv.error ? <Alerte ton="erreur">{rapportCsv.error}</Alerte> : null}
+            <ul className="flex flex-col gap-2">
+              {rapportCsv.leagues.map((ligue) => (
+                <CarteRapportCsv key={ligue.code} rapport={ligue} />
               ))}
             </ul>
           </div>
