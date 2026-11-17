@@ -1,14 +1,22 @@
-"""Routes de synchronisation : une seule source de faits, BigBallsData."""
+"""Routes de synchronisation : faits BigBallsData, cotes The Odds API."""
 
-from fastapi import APIRouter, Depends, Query
+from typing import Annotated
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
 from app.core import deps
+from app.core.config import settings
 from app.schemas.sync import (
+    OddsOverviewRead,
+    OddsPreviewRead,
+    OddsReportRead,
+    OddsRequest,
     SyncOverviewRead,
     SyncReportRead,
     SyncRequest,
     SyncRunRead,
 )
+from app.services import odds_sync
 from app.services import synchronization as service
 
 router = APIRouter(
@@ -44,3 +52,52 @@ def run(payload: SyncRequest, db: deps.DbSession) -> SyncReportRead:
     )
     db.commit()
     return SyncReportRead.model_validate(report.as_dict())
+
+
+@router.get("/odds/overview", response_model=OddsOverviewRead)
+def odds_overview(db: deps.DbSession) -> OddsOverviewRead:
+    """Quota mensuel, coûts, couverture et dernier journal des cotes."""
+    return OddsOverviewRead.model_validate(odds_sync.overview(db))
+
+
+@router.post("/odds/preview", response_model=OddsPreviewRead)
+def odds_preview(
+    db: deps.DbSession,
+    payload: Annotated[OddsRequest | None, Body()] = None,
+) -> OddsPreviewRead:
+    """Appariement à blanc : aucun crédit consommé, aucune écriture."""
+    if not settings.the_odds_api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="Clé The Odds API absente : renseignez THE_ODDS_API_KEY puis redémarrez l'API.",
+        )
+    request = payload or OddsRequest()
+    report = odds_sync.preview(
+        db,
+        leagues=request.leagues or None,
+        include_extended=request.include_extended,
+        extended_limit=request.extended_limit,
+    )
+    return OddsPreviewRead.model_validate(report.as_dict())
+
+
+@router.post("/odds/run", response_model=OddsReportRead)
+def odds_run(
+    db: deps.DbSession,
+    payload: Annotated[OddsRequest | None, Body()] = None,
+) -> OddsReportRead:
+    """Importe les cotes 1xBet des rencontres à venir, dans le budget local."""
+    if not settings.the_odds_api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="Clé The Odds API absente : renseignez THE_ODDS_API_KEY puis redémarrez l'API.",
+        )
+    request = payload or OddsRequest()
+    report = odds_sync.run(
+        db,
+        leagues=request.leagues or None,
+        include_extended=request.include_extended,
+        extended_limit=request.extended_limit,
+    )
+    db.commit()
+    return OddsReportRead.model_validate(report.as_dict())

@@ -496,6 +496,96 @@ export interface RapportSynchronisation {
   leagues: LigueRapport[];
 }
 
+export interface CoutCotes {
+  competition: number;
+  event: number;
+  extended_window_hours: number;
+  extended_max_events: number;
+}
+
+export interface TotauxCotes {
+  markets: number;
+  odds_rows: number;
+  active_links: number;
+}
+
+export interface VueCotes {
+  provider: string;
+  configured: boolean;
+  quota: QuotaFournisseur;
+  costs: CoutCotes;
+  totals: TotauxCotes;
+  upcoming: Record<string, number>;
+  last_run: JournalSynchronisation | null;
+}
+
+export interface EvenementApparie {
+  event_id: string;
+  home_team: string;
+  away_team: string;
+  commence_at: string;
+  decision: string;
+  method: string | null;
+  confidence: number;
+  margin: number;
+  match_id: string | null;
+  match_label: string | null;
+}
+
+export interface LigueApercu {
+  code: string;
+  name: string;
+  status: string;
+  events: number;
+  matched: number;
+  ambiguous: number;
+  unmatched: number;
+  credits: number;
+  items: EvenementApparie[];
+  error: string | null;
+}
+
+export interface ApercuCotes {
+  provider: string;
+  status: string;
+  credits_estimated: number;
+  quota_remaining: number | null;
+  error: string | null;
+  leagues: LigueApercu[];
+}
+
+export interface LigueRapportCotes {
+  code: string;
+  name: string;
+  status: string;
+  events: number;
+  matched: number;
+  ambiguous: number;
+  unmatched: number;
+  links_created: number;
+  links_reused: number;
+  links_deactivated: number;
+  bookmaker_missing: number;
+  markets_written: number;
+  snapshots_written: number;
+  manual_kept: number;
+  extended_events: number;
+  credits: number;
+  warnings: string[];
+  error: string | null;
+}
+
+export interface RapportCotes {
+  provider: string;
+  status: string;
+  credits_used: number;
+  requests: number;
+  quota_remaining: number | null;
+  error: string | null;
+  totals: Record<string, number>;
+  leagues: LigueRapportCotes[];
+}
+
 export const statutsRencontre: Record<StatutRencontre, string> = {
   programme: "Programmé",
   en_cours: "En cours",

@@ -129,10 +129,15 @@ powershell -ExecutionPolicy Bypass -File infra/scripts/dev.ps1
   ne crée jamais de doublon. Une rencontre saisie à la main n'est jamais
   modifiée. Le rythme est volontairement limité à 75 requêtes par minute, sous
   la limite de 100 du fournisseur.
+- **Cotes 1xBet (The Odds API)** : l'aperçu est gratuit et liste les événements
+  rattachés, ambigus ou sans rencontre ; l'import écrit les marchés 1X2 et
+  totaux (2 crédits par compétition) et, sur demande, la double chance et le
+  « les deux équipes marquent » (2 crédits par événement, dans les 72 heures).
+  Plafond local 400 crédits par mois, aucun bookmaker autre que 1xBet, aucune
+  cote inventée, aucune saisie manuelle écrasée, historique append-only.
 - **Enrichissement à venir** : le xG et les cotes de clôture viendront du fichier
-  public football-data.co.uk (gratuit, sans clé) et les cotes des rencontres à
-  venir de The Odds API, uniquement pour le bookmaker 1xBet. En attendant, la
-  saisie manuelle reste disponible et le moteur utilise le proxy « tirs cadrés ».
+  public football-data.co.uk (gratuit, sans clé). En attendant, la saisie
+  manuelle reste disponible et le moteur utilise le proxy « tirs cadrés ».
 - **Sécurité et exploitation** : en-têtes de sécurité, CSP par nonce en
   production, expiration d'inactivité de 12 h, purge des sessions, journal JSON
   avec identifiant de requête, sauvegarde et restauration vérifiée dans une base

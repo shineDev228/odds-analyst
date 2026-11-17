@@ -97,3 +97,105 @@ class SyncReportRead(BaseModel):
     error: str | None
     totals: dict[str, int]
     leagues: list[LeagueReportRead]
+
+
+class OddsCostsRead(BaseModel):
+    """Coût affiché avant chaque appel, en crédits du fournisseur."""
+
+    competition: int
+    event: int
+    extended_window_hours: int
+    extended_max_events: int
+
+
+class OddsTotalsRead(BaseModel):
+    markets: int
+    odds_rows: int
+    active_links: int
+
+
+class OddsOverviewRead(BaseModel):
+    """État de la source de cotes : quota mensuel, coûts, couverture."""
+
+    provider: str
+    configured: bool
+    quota: SyncQuotaRead
+    costs: OddsCostsRead
+    totals: OddsTotalsRead
+    upcoming: dict[str, int]
+    last_run: SyncRunRead | None
+
+
+class OddsRequest(BaseModel):
+    """Compétitions à coter ; vide = les sept compétitions suivies."""
+
+    leagues: list[str] | None = Field(default=None, max_length=7)
+    include_extended: bool = True
+    extended_limit: int = Field(default=30, ge=0, le=30)
+
+
+class OddsLeagueReportRead(BaseModel):
+    code: str
+    name: str
+    status: str
+    events: int
+    matched: int
+    ambiguous: int
+    unmatched: int
+    links_created: int
+    links_reused: int
+    links_deactivated: int
+    bookmaker_missing: int
+    markets_written: int
+    snapshots_written: int
+    manual_kept: int
+    extended_events: int
+    credits: int
+    warnings: list[str]
+    error: str | None
+
+
+class OddsReportRead(BaseModel):
+    provider: str
+    status: str
+    credits_used: int
+    requests: int
+    quota_remaining: int | None
+    error: str | None
+    totals: dict[str, int]
+    leagues: list[OddsLeagueReportRead]
+
+
+class OddsPreviewEventRead(BaseModel):
+    event_id: str
+    home_team: str
+    away_team: str
+    commence_at: datetime
+    decision: str
+    method: str | None
+    confidence: float
+    margin: float
+    match_id: UUID | None
+    match_label: str | None
+
+
+class OddsPreviewLeagueRead(BaseModel):
+    code: str
+    name: str
+    status: str
+    events: int
+    matched: int
+    ambiguous: int
+    unmatched: int
+    credits: int
+    items: list[OddsPreviewEventRead]
+    error: str | None
+
+
+class OddsPreviewRead(BaseModel):
+    provider: str
+    status: str
+    credits_estimated: int
+    quota_remaining: int | None
+    error: str | None
+    leagues: list[OddsPreviewLeagueRead]

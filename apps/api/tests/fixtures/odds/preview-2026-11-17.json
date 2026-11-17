@@ -1,0 +1,825 @@
+{
+  "captured_at": "2026-11-17",
+  "moment": "2026-11-17T08:00:00+00:00",
+  "note": "Décisions réelles de l'aperçu gratuit du 17/11/2026. Les candidats sont les rencontres réelles de la base, même compétition, à ± 3 jours de l'événement (sous-ensemble suffisant de la fenêtre du service : la clé composite ne regarde qu'à ± 15 minutes).",
+  "leagues": {
+    "ligue1": {
+      "candidates": [
+        {
+          "match_id": "1430deec-8cf2-478c-8376-c2ff2bf6a002",
+          "home_name": "Troyes",
+          "away_name": "Le Havre AC",
+          "kickoff_at": "2026-11-20T19:45:00+00:00"
+        },
+        {
+          "match_id": "40bfb531-baaf-4877-9d2a-97d652aedc9d",
+          "home_name": "Marseille",
+          "away_name": "Le Mans",
+          "kickoff_at": "2026-11-22T19:45:00+00:00"
+        },
+        {
+          "match_id": "44c34a18-2e21-498e-b905-1b5011d5c08a",
+          "home_name": "AS Monaco",
+          "away_name": "AJ Auxerre",
+          "kickoff_at": "2026-11-21T19:45:00+00:00"
+        },
+        {
+          "match_id": "7498ca97-30f9-4aad-8efd-1e63246e11df",
+          "home_name": "Paris FC",
+          "away_name": "Angers",
+          "kickoff_at": "2026-11-22T14:00:00+00:00"
+        },
+        {
+          "match_id": "7e3eeb55-a847-420f-a6db-47cb5a80b34e",
+          "home_name": "Lorient",
+          "away_name": "Stade Rennais",
+          "kickoff_at": "2026-11-22T16:15:00+00:00"
+        },
+        {
+          "match_id": "9285d57f-9bc2-4f34-a81b-caa5c35b364b",
+          "home_name": "Lille",
+          "away_name": "Lyon",
+          "kickoff_at": "2026-11-21T19:45:00+00:00"
+        },
+        {
+          "match_id": "a4b79826-7a1c-4b01-bb8a-e88b5f4d6818",
+          "home_name": "Nice",
+          "away_name": "Paris Saint-Germain",
+          "kickoff_at": "2026-11-21T16:15:00+00:00"
+        },
+        {
+          "match_id": "d3566bbe-92f2-4aa1-b131-ccce3726fa19",
+          "home_name": "Strasbourg",
+          "away_name": "Brest",
+          "kickoff_at": "2026-11-21T19:45:00+00:00"
+        },
+        {
+          "match_id": "ecd25c73-e84a-4d56-b229-01333a267695",
+          "home_name": "Lens",
+          "away_name": "Toulouse",
+          "kickoff_at": "2026-11-21T19:45:00+00:00"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "5dcc9d2b0da87770a4f49e924275be39",
+          "home_name": "Troyes",
+          "away_name": "Le Havre",
+          "commence_at": "2026-11-20T19:45:00+00:00",
+          "expected": {
+            "reason": "matched",
+            "method": "kickoff",
+            "confidence": 1.0,
+            "margin": 1.0,
+            "match_id": "1430deec-8cf2-478c-8376-c2ff2bf6a002",
+            "match_label": "Troyes - Le Havre AC"
+          }
+        },
+        {
+          "event_id": "8e6ee05b6ac28dc2357f72b9f5a0643e",
+          "home_name": "Lorient",
+          "away_name": "Rennes",
+          "commence_at": "2026-11-22T16:15:00+00:00",
+          "expected": {
+            "reason": "matched",
+            "method": "kickoff",
+            "confidence": 0.9,
+            "margin": 1.0,
+            "match_id": "7e3eeb55-a847-420f-a6db-47cb5a80b34e",
+            "match_label": "Lorient - Stade Rennais"
+          }
+        }
+      ]
+    },
+    "laliga": {
+      "candidates": [
+        {
+          "match_id": "10ea83da-8fc5-4ea4-99f1-d408d816c689",
+          "home_name": "Osasuna",
+          "away_name": "Málaga",
+          "kickoff_at": "2026-11-22T17:30:00+00:00"
+        },
+        {
+          "match_id": "1f06300b-2deb-4881-8579-0b0b08ed0f82",
+          "home_name": "Sevilla FC",
+          "away_name": "Real Betis",
+          "kickoff_at": "2026-11-21T17:30:00+00:00"
+        },
+        {
+          "match_id": "218d714c-e952-41d8-91e1-a3f670c09066",
+          "home_name": "Barcelona",
+          "away_name": "Villarreal",
+          "kickoff_at": "2026-11-22T13:00:00+00:00"
+        },
+        {
+          "match_id": "480f58b7-beba-453c-950a-133bdeafebfa",
+          "home_name": "Real Madrid",
+          "away_name": "Celta Vigo",
+          "kickoff_at": "2026-11-21T20:00:00+00:00"
+        },
+        {
+          "match_id": "5e30d201-bc78-43f0-8157-c8c0d5bd532a",
+          "home_name": "Alavés",
+          "away_name": "RC Deportivo La Coruña",
+          "kickoff_at": "2026-11-21T13:00:00+00:00"
+        },
+        {
+          "match_id": "7b3ed42e-8b87-4bdf-8fc1-a8c4cea9d92d",
+          "home_name": "Rayo Vallecano",
+          "away_name": "Valencia",
+          "kickoff_at": "2026-11-21T15:15:00+00:00"
+        },
+        {
+          "match_id": "a9439260-c0ce-49fa-a748-5994753127a2",
+          "home_name": "Athletic Club",
+          "away_name": "Espanyol",
+          "kickoff_at": "2026-11-20T20:00:00+00:00"
+        },
+        {
+          "match_id": "bb45c2a4-11c6-4bd4-a44d-a24c1df47646",
+          "home_name": "Getafe",
+          "away_name": "Atlético Madrid",
+          "kickoff_at": "2026-11-22T20:00:00+00:00"
+        },
+        {
+          "match_id": "c11aa32b-4fa9-4c01-9945-b44f6313b653",
+          "home_name": "Levante",
+          "away_name": "Elche",
+          "kickoff_at": "2026-11-23T20:00:00+00:00"
+        },
+        {
+          "match_id": "d53fe4b7-7533-4c88-b1e8-49919fb289bb",
+          "home_name": "Real Racing Club de Santander",
+          "away_name": "Real Sociedad",
+          "kickoff_at": "2026-11-22T15:15:00+00:00"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "dcee36f9b8a9989972b6d4ddde76c4c7",
+          "home_name": "Athletic Bilbao",
+          "away_name": "Espanyol",
+          "commence_at": "2026-11-20T20:00:00+00:00",
+          "expected": {
+            "reason": "matched",
+            "method": "kickoff",
+            "confidence": 0.714,
+            "margin": 1.0,
+            "match_id": "a9439260-c0ce-49fa-a748-5994753127a2",
+            "match_label": "Athletic Club - Espanyol"
+          }
+        },
+        {
+          "event_id": "893268e5503c4e58fbf137e4b5db7e93",
+          "home_name": "CA Osasuna",
+          "away_name": "Málaga",
+          "commence_at": "2026-11-22T17:30:00+00:00",
+          "expected": {
+            "reason": "matched",
+            "method": "kickoff",
+            "confidence": 0.9,
+            "margin": 1.0,
+            "match_id": "10ea83da-8fc5-4ea4-99f1-d408d816c689",
+            "match_label": "Osasuna - Málaga"
+          }
+        }
+      ]
+    },
+    "epl": {
+      "candidates": [
+        {
+          "match_id": "0a8bbff5-87e1-4570-ac35-5247fb16b3fe",
+          "home_name": "Leeds United",
+          "away_name": "Coventry City",
+          "kickoff_at": "2026-11-28T15:00:00+00:00"
+        },
+        {
+          "match_id": "2cec3293-4e57-4966-9e51-3df1b86420bf",
+          "home_name": "Arsenal",
+          "away_name": "Manchester City",
+          "kickoff_at": "2026-11-29T16:30:00+00:00"
+        },
+        {
+          "match_id": "2ed904dc-dbe1-4229-a279-3a246fabfdf6",
+          "home_name": "Manchester City",
+          "away_name": "Fulham",
+          "kickoff_at": "2026-11-21T12:30:00+00:00"
+        },
+        {
+          "match_id": "305fd558-b71f-402a-880a-119e5b6dad7e",
+          "home_name": "Ipswich Town",
+          "away_name": "Aston Villa",
+          "kickoff_at": "2026-11-28T17:30:00+00:00"
+        },
+        {
+          "match_id": "30608d51-48c3-4db6-ad24-c2c2ef05e200",
+          "home_name": "Coventry City",
+          "away_name": "Crystal Palace",
+          "kickoff_at": "2026-11-21T15:00:00+00:00"
+        },
+        {
+          "match_id": "36c40d2d-56bb-4a1c-bfff-910856400615",
+          "home_name": "Brighton & Hove Albion",
+          "away_name": "Newcastle United",
+          "kickoff_at": "2026-11-29T14:05:00+00:00"
+        },
+        {
+          "match_id": "36fd9438-6053-4614-a6e6-15eed9a4049d",
+          "home_name": "Aston Villa",
+          "away_name": "Sunderland",
+          "kickoff_at": "2026-11-21T15:00:00+00:00"
+        },
+        {
+          "match_id": "40bd8aa7-8baf-4208-9dc9-f69d7a5ccca9",
+          "home_name": "Manchester United",
+          "away_name": "Brentford",
+          "kickoff_at": "2026-11-28T15:00:00+00:00"
+        },
+        {
+          "match_id": "44eb2e70-8842-4f71-b3f8-5c8cf76ca99d",
+          "home_name": "Brentford",
+          "away_name": "Everton",
+          "kickoff_at": "2026-11-23T20:00:00+00:00"
+        },
+        {
+          "match_id": "49d5a40a-6c3b-4c94-9691-e825745b2e05",
+          "home_name": "Fulham",
+          "away_name": "AFC Bournemouth",
+          "kickoff_at": "2026-11-29T14:05:00+00:00"
+        },
+        {
+          "match_id": "567995cd-5ffb-4709-8c9e-379f31d0db74",
+          "home_name": "Sunderland",
+          "away_name": "Tottenham Hotspur",
+          "kickoff_at": "2026-11-29T14:05:00+00:00"
+        },
+        {
+          "match_id": "69d4da0f-a31f-49e8-a8b1-d89877302ebf",
+          "home_name": "Everton",
+          "away_name": "Liverpool",
+          "kickoff_at": "2026-11-29T12:00:00+00:00"
+        },
+        {
+          "match_id": "81abc836-1d7d-4029-b376-7ad3f15c1137",
+          "home_name": "Crystal Palace",
+          "away_name": "Hull City",
+          "kickoff_at": "2026-11-29T14:05:00+00:00"
+        },
+        {
+          "match_id": "a2f3fd77-c249-4404-9c85-18b883e80145",
+          "home_name": "AFC Bournemouth",
+          "away_name": "Nottingham Forest",
+          "kickoff_at": "2026-11-21T15:00:00+00:00"
+        },
+        {
+          "match_id": "a88b8aeb-4261-4d86-ae3b-219037783155",
+          "home_name": "Hull City",
+          "away_name": "Brighton & Hove Albion",
+          "kickoff_at": "2026-11-22T14:00:00+00:00"
+        },
+        {
+          "match_id": "c1d5759c-a59c-435a-b585-ab053664f116",
+          "home_name": "Chelsea",
+          "away_name": "Leeds United",
+          "kickoff_at": "2026-11-21T15:00:00+00:00"
+        },
+        {
+          "match_id": "c2b50cf1-70d9-4867-8e72-4070cb1bcd42",
+          "home_name": "Tottenham Hotspur",
+          "away_name": "Ipswich Town",
+          "kickoff_at": "2026-11-21T15:00:00+00:00"
+        },
+        {
+          "match_id": "ccb9c9a6-77fe-4f31-9d5a-7bf9f218deeb",
+          "home_name": "Liverpool",
+          "away_name": "Manchester United",
+          "kickoff_at": "2026-11-22T16:30:00+00:00"
+        },
+        {
+          "match_id": "e4addce2-0c27-4df4-95fa-648a13481463",
+          "home_name": "Nottingham Forest",
+          "away_name": "Chelsea",
+          "kickoff_at": "2026-11-27T20:00:00+00:00"
+        },
+        {
+          "match_id": "ee5fcd9a-6943-4cc0-abd9-8878fd100cfc",
+          "home_name": "Newcastle United",
+          "away_name": "Arsenal",
+          "kickoff_at": "2026-11-21T17:30:00+00:00"
+        },
+        {
+          "match_id": "f8deb630-d86b-44b1-8cf7-9975baff04da",
+          "home_name": "Coventry City",
+          "away_name": "Ipswich Town",
+          "kickoff_at": "2026-12-01T20:00:00+00:00"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "230a356290e1a358e9dd2f7fa23de3b9",
+          "home_name": "Hull City",
+          "away_name": "Brighton and Hove Albion",
+          "commence_at": "2026-11-22T14:00:00+00:00",
+          "expected": {
+            "reason": "matched",
+            "method": "kickoff",
+            "confidence": 1.0,
+            "margin": 1.0,
+            "match_id": "a88b8aeb-4261-4d86-ae3b-219037783155",
+            "match_label": "Hull City - Brighton & Hove Albion"
+          }
+        },
+        {
+          "event_id": "e9c2b74ecaafd494e3b2d8521b52216a",
+          "home_name": "Brighton and Hove Albion",
+          "away_name": "Newcastle United",
+          "commence_at": "2026-11-29T14:05:00+00:00",
+          "expected": {
+            "reason": "matched",
+            "method": "kickoff",
+            "confidence": 1.0,
+            "margin": 0.789,
+            "match_id": "36c40d2d-56bb-4a1c-bfff-910856400615",
+            "match_label": "Brighton & Hove Albion - Newcastle United"
+          }
+        },
+        {
+          "event_id": "71bf9fe98c3e3be39cd1d059f8d71ae8",
+          "home_name": "Newcastle United",
+          "away_name": "Arsenal",
+          "commence_at": "2026-11-21T17:30:00+00:00",
+          "expected": {
+            "reason": "matched",
+            "method": "kickoff",
+            "confidence": 1.0,
+            "margin": 1.0,
+            "match_id": "ee5fcd9a-6943-4cc0-abd9-8878fd100cfc",
+            "match_label": "Newcastle United - Arsenal"
+          }
+        }
+      ]
+    },
+    "seriea": {
+      "candidates": [
+        {
+          "match_id": "04784057-8391-4744-b458-a4cbd56c8030",
+          "home_name": "Como 1907",
+          "away_name": "Cagliari",
+          "kickoff_at": "2026-11-21T14:00:00+00:00"
+        },
+        {
+          "match_id": "15bc857a-5edc-4ac1-96b0-c982ea39e4fc",
+          "home_name": "Monza",
+          "away_name": "Fiorentina",
+          "kickoff_at": "2026-11-23T19:45:00+00:00"
+        },
+        {
+          "match_id": "20e4225a-c32f-4ca4-8f0f-958a973905b1",
+          "home_name": "Bologna",
+          "away_name": "Udinese",
+          "kickoff_at": "2026-11-22T14:00:00+00:00"
+        },
+        {
+          "match_id": "57a54cf9-7342-4c4d-9dc2-b3304cf3bf90",
+          "home_name": "Atalanta",
+          "away_name": "Inter Milan",
+          "kickoff_at": "2026-11-22T19:45:00+00:00"
+        },
+        {
+          "match_id": "931f24a7-d0cc-4b12-a136-db19e56b062d",
+          "home_name": "AC Milan",
+          "away_name": "Frosinone",
+          "kickoff_at": "2026-11-22T17:00:00+00:00"
+        },
+        {
+          "match_id": "a8701e34-3fe1-466b-b2c9-1c6e17cfb51d",
+          "home_name": "Lazio",
+          "away_name": "Lecce",
+          "kickoff_at": "2026-11-21T14:00:00+00:00"
+        },
+        {
+          "match_id": "acfcc736-82a5-4ec3-8609-d4caacd640f3",
+          "home_name": "Parma",
+          "away_name": "AS Roma",
+          "kickoff_at": "2026-11-21T17:00:00+00:00"
+        },
+        {
+          "match_id": "bce44d1e-80f5-4f48-88de-e449539ddd44",
+          "home_name": "Juventus",
+          "away_name": "Venezia FC",
+          "kickoff_at": "2026-11-22T11:30:00+00:00"
+        },
+        {
+          "match_id": "ee1efcd9-202f-4fb0-ba9d-e936b5d656da",
+          "home_name": "Napoli",
+          "away_name": "Torino",
+          "kickoff_at": "2026-11-21T19:45:00+00:00"
+        },
+        {
+          "match_id": "eed5fc95-67cc-4606-b369-0a8c6fe614e5",
+          "home_name": "Sassuolo",
+          "away_name": "Genoa",
+          "kickoff_at": "2026-11-22T14:00:00+00:00"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "9e8d72c6c27c1667be7b88416a36ca80",
+          "home_name": "Como",
+          "away_name": "Cagliari",
+          "commence_at": "2026-11-21T14:00:00+00:00",
+          "expected": {
+            "reason": "matched",
+            "method": "kickoff",
+            "confidence": 0.9,
+            "margin": 0.746,
+            "match_id": "04784057-8391-4744-b458-a4cbd56c8030",
+            "match_label": "Como 1907 - Cagliari"
+          }
+        },
+        {
+          "event_id": "e22f82b10fe71d230248b88fef87e58f",
+          "home_name": "Atalanta BC",
+          "away_name": "Inter Milan",
+          "commence_at": "2026-11-22T19:45:00+00:00",
+          "expected": {
+            "reason": "matched",
+            "method": "kickoff",
+            "confidence": 0.9,
+            "margin": 1.0,
+            "match_id": "57a54cf9-7342-4c4d-9dc2-b3304cf3bf90",
+            "match_label": "Atalanta - Inter Milan"
+          }
+        }
+      ]
+    },
+    "bundesliga": {
+      "candidates": [
+        {
+          "match_id": "0a274341-f57c-48b1-826c-39ead842d45f",
+          "home_name": "Bayer Leverkusen",
+          "away_name": "SC Paderborn 07",
+          "kickoff_at": "2026-11-21T14:30:00+00:00"
+        },
+        {
+          "match_id": "1c870c49-0d07-4d0c-9998-48779508b2e2",
+          "home_name": "SC Paderborn 07",
+          "away_name": "Schalke 04",
+          "kickoff_at": "2026-11-28T14:30:00+00:00"
+        },
+        {
+          "match_id": "1c8cba93-cf48-4014-97b9-071e5b7df4e3",
+          "home_name": "Eintracht Frankfurt",
+          "away_name": "TSG Hoffenheim",
+          "kickoff_at": "2026-11-21T14:30:00+00:00"
+        },
+        {
+          "match_id": "1d4f2b46-2eb1-4797-a0f9-130cfad0c921",
+          "home_name": "SC Freiburg",
+          "away_name": "RB Leipzig",
+          "kickoff_at": "2026-11-29T14:30:00+00:00"
+        },
+        {
+          "match_id": "254fb778-ba8e-41b4-bb7d-c913f1d040cc",
+          "home_name": "Werder Bremen",
+          "away_name": "Borussia Mönchengladbach",
+          "kickoff_at": "2026-11-27T19:30:00+00:00"
+        },
+        {
+          "match_id": "2eadf906-eb5d-4423-b59d-43cd35ec0164",
+          "home_name": "FC Cologne",
+          "away_name": "SV Elversberg",
+          "kickoff_at": "2026-11-28T14:30:00+00:00"
+        },
+        {
+          "match_id": "2f46f95e-42e8-470c-b96a-ed4453de9330",
+          "home_name": "Schalke 04",
+          "away_name": "VfB Stuttgart",
+          "kickoff_at": "2026-11-21T17:30:00+00:00"
+        },
+        {
+          "match_id": "42888879-b4f4-4fc6-9e5a-9f73d9357095",
+          "home_name": "Hamburger SV",
+          "away_name": "Bayern Munich",
+          "kickoff_at": "2026-11-28T14:30:00+00:00"
+        },
+        {
+          "match_id": "470b0211-c8cc-4375-9444-f4d99516339b",
+          "home_name": "Borussia Dortmund",
+          "away_name": "Bayer Leverkusen",
+          "kickoff_at": "2026-11-29T18:30:00+00:00"
+        },
+        {
+          "match_id": "5cb814de-d661-4568-8ee9-f7e7f0c3a0ab",
+          "home_name": "SV Elversberg",
+          "away_name": "SC Freiburg",
+          "kickoff_at": "2026-11-21T14:30:00+00:00"
+        },
+        {
+          "match_id": "93b88353-f67d-4afe-ad7f-9854a263fd5c",
+          "home_name": "Bayern Munich",
+          "away_name": "FC Cologne",
+          "kickoff_at": "2026-11-20T19:30:00+00:00"
+        },
+        {
+          "match_id": "99f1c965-053d-4efd-8c0b-bc792668d2ae",
+          "home_name": "VfB Stuttgart",
+          "away_name": "Eintracht Frankfurt",
+          "kickoff_at": "2026-11-28T17:30:00+00:00"
+        },
+        {
+          "match_id": "a227f5a2-a18e-4619-9c1e-56e5a01a603a",
+          "home_name": "FC Augsburg",
+          "away_name": "Mainz",
+          "kickoff_at": "2026-11-22T14:30:00+00:00"
+        },
+        {
+          "match_id": "c1cfc65e-516c-416f-9611-73b564017ebf",
+          "home_name": "Borussia Mönchengladbach",
+          "away_name": "Borussia Dortmund",
+          "kickoff_at": "2026-11-21T14:30:00+00:00"
+        },
+        {
+          "match_id": "d20203de-3ef0-4ca9-b1d5-7766234dee7a",
+          "home_name": "TSG Hoffenheim",
+          "away_name": "FC Augsburg",
+          "kickoff_at": "2026-11-29T16:30:00+00:00"
+        },
+        {
+          "match_id": "d730bc6d-2391-4f4b-9520-cfca0445a8c3",
+          "home_name": "Werder Bremen",
+          "away_name": "Hamburger SV",
+          "kickoff_at": "2026-11-22T16:30:00+00:00"
+        },
+        {
+          "match_id": "d9a8f79f-3b93-46a5-b289-9477235c9a4a",
+          "home_name": "Mainz",
+          "away_name": "1. FC Union Berlin",
+          "kickoff_at": "2026-11-28T14:30:00+00:00"
+        },
+        {
+          "match_id": "f0dd72ed-4730-46b8-ac6c-0604057e13d9",
+          "home_name": "1. FC Union Berlin",
+          "away_name": "RB Leipzig",
+          "kickoff_at": "2026-11-21T14:30:00+00:00"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "cae480fb1195f0032554a268cb80eb44",
+          "home_name": "Bayern Munich",
+          "away_name": "1. FC Köln",
+          "commence_at": "2026-11-20T19:30:00+00:00",
+          "expected": {
+            "reason": "unmatched",
+            "method": null,
+            "confidence": 0.0,
+            "margin": 0.0,
+            "match_id": null,
+            "match_label": null
+          }
+        },
+        {
+          "event_id": "2c30e2ebaf6c30aaa4e3fb56cffa6a29",
+          "home_name": "1. FC Köln",
+          "away_name": "Elversberg",
+          "commence_at": "2026-11-28T14:30:00+00:00",
+          "expected": {
+            "reason": "unmatched",
+            "method": null,
+            "confidence": 0.0,
+            "margin": 0.0,
+            "match_id": null,
+            "match_label": null
+          }
+        },
+        {
+          "event_id": "ca93df81e976fbe345a6175bb24e3f19",
+          "home_name": "Union Berlin",
+          "away_name": "RB Leipzig",
+          "commence_at": "2026-11-21T14:30:00+00:00",
+          "expected": {
+            "reason": "matched",
+            "method": "kickoff",
+            "confidence": 0.9,
+            "margin": 0.627,
+            "match_id": "f0dd72ed-4730-46b8-ac6c-0604057e13d9",
+            "match_label": "1. FC Union Berlin - RB Leipzig"
+          }
+        }
+      ]
+    },
+    "ucl": {
+      "candidates": [
+        {
+          "match_id": "00746f19-eb35-4614-9911-1c15f26b2cea",
+          "home_name": "Lille",
+          "away_name": "Bayern Munich",
+          "kickoff_at": "2026-11-25T20:00:00+00:00"
+        },
+        {
+          "match_id": "1fdeebed-18ff-4b89-b490-7cd2d80a11f9",
+          "home_name": "Manchester City",
+          "away_name": "Napoli",
+          "kickoff_at": "2026-11-24T20:00:00+00:00"
+        },
+        {
+          "match_id": "2b0a1d1e-9b85-452a-9be5-95f639ad6cca",
+          "home_name": "Real Madrid",
+          "away_name": "PSV",
+          "kickoff_at": "2026-11-24T20:00:00+00:00"
+        },
+        {
+          "match_id": "3b52a768-94ac-4a51-8837-080e05a3d817",
+          "home_name": "FK Bodø/Glimt",
+          "away_name": "LASK Linz",
+          "kickoff_at": "2026-11-24T17:45:00+00:00"
+        },
+        {
+          "match_id": "4897d3aa-56f8-440b-9335-0dadebaf47e6",
+          "home_name": "SK Slavia Praha",
+          "away_name": "Villarreal",
+          "kickoff_at": "2026-11-25T17:45:00+00:00"
+        },
+        {
+          "match_id": "69970ee0-0fdb-43e2-ae59-dffdf0f030d8",
+          "home_name": "Atlético Madrid",
+          "away_name": "Viking FK",
+          "kickoff_at": "2026-11-25T20:00:00+00:00"
+        },
+        {
+          "match_id": "6cdcf67d-5e08-4bbe-aa87-acbc6d585aad",
+          "home_name": "Feyenoord Rotterdam",
+          "away_name": "FC Porto",
+          "kickoff_at": "2026-11-24T20:00:00+00:00"
+        },
+        {
+          "match_id": "90f89b70-5901-473f-a959-f0b1467b547f",
+          "home_name": "FK Shakhtar Donetsk",
+          "away_name": "Fenerbahçe SK",
+          "kickoff_at": "2026-11-25T20:00:00+00:00"
+        },
+        {
+          "match_id": "9a017eb1-685f-4b70-92fb-cbe3d62a6240",
+          "home_name": "Inter Milan",
+          "away_name": "VfB Stuttgart",
+          "kickoff_at": "2026-11-25T20:00:00+00:00"
+        },
+        {
+          "match_id": "a02d6bfd-8815-40d9-83cf-fc44b33405f7",
+          "home_name": "ŠK Slovan Bratislava",
+          "away_name": "Real Betis",
+          "kickoff_at": "2026-11-24T20:00:00+00:00"
+        },
+        {
+          "match_id": "a3002c85-1c64-4612-aff9-ca69964a1035",
+          "home_name": "Sporting Clube de Portugal",
+          "away_name": "Manchester United",
+          "kickoff_at": "2026-11-25T20:00:00+00:00"
+        },
+        {
+          "match_id": "a496325d-8878-4317-b319-e30292a69b3d",
+          "home_name": "Como 1907",
+          "away_name": "PAE AEK",
+          "kickoff_at": "2026-11-24T20:00:00+00:00"
+        },
+        {
+          "match_id": "a51d1da5-fc45-4af1-b935-99224a7fc24c",
+          "home_name": "Arsenal",
+          "away_name": "Borussia Dortmund",
+          "kickoff_at": "2026-11-24T20:00:00+00:00"
+        },
+        {
+          "match_id": "ace742e7-07d5-4fb6-bdd6-6499a04da47b",
+          "home_name": "Sabah FK",
+          "away_name": "Barcelona",
+          "kickoff_at": "2026-11-25T17:45:00+00:00"
+        },
+        {
+          "match_id": "b8d7b4c9-7709-4955-8881-2fbe45324a0f",
+          "home_name": "RB Leipzig",
+          "away_name": "Lens",
+          "kickoff_at": "2026-11-24T20:00:00+00:00"
+        },
+        {
+          "match_id": "c5d05e73-adc2-461d-86a1-55ce43e05bb2",
+          "home_name": "Paris Saint-Germain",
+          "away_name": "AS Roma",
+          "kickoff_at": "2026-11-25T20:00:00+00:00"
+        },
+        {
+          "match_id": "cd7a3c86-3580-4c29-9907-28282ca70f65",
+          "home_name": "Galatasaray SK",
+          "away_name": "Aston Villa",
+          "kickoff_at": "2026-11-24T17:45:00+00:00"
+        },
+        {
+          "match_id": "d186b5d0-751f-49b8-9ce3-ab4c633f7bec",
+          "home_name": "Club Brugge KV",
+          "away_name": "Liverpool",
+          "kickoff_at": "2026-11-25T20:00:00+00:00"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "ba719e378ac366262013bdb51a06aa6f",
+          "home_name": "Como",
+          "away_name": "AEK Athens",
+          "commence_at": "2026-11-24T20:00:00+00:00",
+          "expected": {
+            "reason": "unmatched",
+            "method": null,
+            "confidence": 0.0,
+            "margin": 0.0,
+            "match_id": null,
+            "match_label": null
+          }
+        },
+        {
+          "event_id": "01a61442fe04f8751b62eb251f234079",
+          "home_name": "Sporting Lisbon",
+          "away_name": "Manchester United",
+          "commence_at": "2026-11-25T20:00:00+00:00",
+          "expected": {
+            "reason": "unmatched",
+            "method": null,
+            "confidence": 0.0,
+            "margin": 0.0,
+            "match_id": null,
+            "match_label": null
+          }
+        },
+        {
+          "event_id": "50b80f3ebd38bf63663b11ae0afc575b",
+          "home_name": "Bodø/Glimt",
+          "away_name": "LASK",
+          "commence_at": "2026-11-24T17:45:00+00:00",
+          "expected": {
+            "reason": "matched",
+            "method": "kickoff",
+            "confidence": 0.9,
+            "margin": 0.633,
+            "match_id": "3b52a768-94ac-4a51-8837-080e05a3d817",
+            "match_label": "FK Bodø/Glimt - LASK Linz"
+          }
+        }
+      ]
+    },
+    "mls": {
+      "candidates": [
+        {
+          "match_id": "261e13cb-bc89-42bb-b972-5a37631b27a8",
+          "home_name": "Seattle Sounders",
+          "away_name": "Real Salt Lake",
+          "kickoff_at": "2026-11-20T03:00:00+00:00"
+        },
+        {
+          "match_id": "36c67d77-86e8-4db1-9001-4fb574df2a87",
+          "home_name": "FC Dallas",
+          "away_name": "Portland Timbers",
+          "kickoff_at": "2026-11-21T21:00:00+00:00"
+        },
+        {
+          "match_id": "5c4b2ad2-8dd8-457c-a382-f5f99f5b468b",
+          "home_name": "Inter Miami CF",
+          "away_name": "Columbus Crew",
+          "kickoff_at": "2026-11-21T23:00:00+00:00"
+        },
+        {
+          "match_id": "68a5358f-d9c7-4ab9-9faf-98e66c0c8065",
+          "home_name": "New England Revolution",
+          "away_name": "Philadelphia Union",
+          "kickoff_at": "2026-11-21T19:00:00+00:00"
+        },
+        {
+          "match_id": "6b8b1a5b-8ad7-44c1-a7da-4663778a8417",
+          "home_name": "Orlando City SC",
+          "away_name": "FC Cincinnati",
+          "kickoff_at": "2026-11-20T00:30:00+00:00"
+        },
+        {
+          "match_id": "bdb7e22d-e8a3-4dde-b0ec-d695aad4ed0c",
+          "home_name": "Chicago Fire",
+          "away_name": "Charlotte FC",
+          "kickoff_at": "2026-11-22T23:30:00+00:00"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "d8eca71d848497deda0c022c1c27e3bc",
+          "home_name": "Seattle Sounders FC",
+          "away_name": "Real Salt Lake",
+          "commence_at": "2026-11-20T03:00:00+00:00",
+          "expected": {
+            "reason": "matched",
+            "method": "kickoff",
+            "confidence": 1.0,
+            "margin": 1.0,
+            "match_id": "261e13cb-bc89-42bb-b972-5a37631b27a8",
+            "match_label": "Seattle Sounders - Real Salt Lake"
+          }
+        }
+      ]
+    }
+  }
+}

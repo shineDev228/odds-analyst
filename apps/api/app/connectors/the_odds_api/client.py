@@ -1,5 +1,6 @@
 """Client The Odds API : sports, événements, cotes et crédits."""
 
+from collections.abc import Mapping
 from typing import Any
 
 from app.connectors.base import ProviderPayloadError, QuotaInfo
@@ -16,6 +17,8 @@ class TheOddsApiClient:
         self._base_url = base_url.rstrip("/")
         self._http = http
         self.last_quota: QuotaInfo | None = None
+        # En-têtes du dernier appel réussi : ils recalent le plafond local.
+        self.last_headers: Mapping[str, str] | None = None
 
     @property
     def configured(self) -> bool:
@@ -32,6 +35,7 @@ class TheOddsApiClient:
             params=query,
             provider=self.provider,
         )
+        self.last_headers = headers
         self.last_quota = QuotaInfo(
             used=_header_int(headers, "x-requests-used") or 0,
             remaining=_header_int(headers, "x-requests-remaining"),

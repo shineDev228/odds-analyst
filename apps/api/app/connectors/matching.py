@@ -48,6 +48,7 @@ _SUFFIXES = (
 
 # Mots qui désignent la structure du club, pas son identité.
 _GENERIC = {
+    "and",
     "association",
     "athletic",
     "atletico",
@@ -56,6 +57,7 @@ _GENERIC = {
     "des",
     "du",
     "entente",
+    "et",
     "football",
     "l",
     "la",
@@ -75,7 +77,9 @@ _PUNCTUATION = re.compile(r"[^a-z0-9]+")
 
 def normalize_name(value: str) -> str:
     """Minuscules, accents retirés, ponctuation neutralisée, suffixes ignorés."""
-    text = unicodedata.normalize("NFKD", value)
+    # « & » et « and » désignent le même connecteur : Brighton & Hove Albion
+    # côté base, Brighton and Hove Albion côté marché.
+    text = unicodedata.normalize("NFKD", value.replace("&", " and "))
     ascii_text = "".join(char for char in text if not unicodedata.combining(char))
     tokens = [token for token in _PUNCTUATION.split(ascii_text.lower()) if token]
     while tokens and tokens[-1] in _SUFFIXES:
@@ -191,3 +195,21 @@ def kickoff_close(left: datetime, right: datetime, tolerance_minutes: int = 30) 
     """Deux coups d'envoi sont considérés identiques dans la tolérance."""
     delta = abs((left - right).total_seconds())
     return delta <= tolerance_minutes * 60
+
+
+def identity_tokens(name: str) -> tuple[str, ...]:
+    """Tokens porteurs d'identité, exposés pour l'appariement des cotes."""
+    return _core_tokens(normalize_name(name))
+
+
+def same_identity(left: str, right: str) -> bool:
+    """Deux noms désignent-ils le même club, une fois les mots génériques retirés ?
+
+    Sert de garde-fou : `Manchester City` et `Manchester United` partagent un
+    préfixe mais n'ont pas la même identité.
+    """
+    left_tokens = identity_tokens(left)
+    right_tokens = identity_tokens(right)
+    if not left_tokens or not right_tokens:
+        return False
+    return _same_core(left_tokens, right_tokens)

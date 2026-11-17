@@ -15,9 +15,13 @@ import {
 import { apiFetch, messageErreur } from "@/lib/api";
 import { formatDateHeure, formatNombre } from "@/lib/format";
 import type {
+  ApercuCotes,
   JournalSynchronisation,
   LigueRapport,
+  LigueRapportCotes,
+  RapportCotes,
   RapportSynchronisation,
+  VueCotes,
   VueSynchronisation,
 } from "@/lib/types";
 
@@ -51,6 +55,7 @@ function libelleStatut(statut: string | null): string {
   if (statut === "partial") return "Partielle";
   if (statut === "failed") return "Échec";
   if (statut === "skipped") return "Ignorée";
+  if (statut === "empty") return "Rien à importer";
   return statut ?? "Jamais";
 }
 
@@ -95,6 +100,47 @@ function CarteRapport({ rapport }: { rapport: LigueRapport }) {
   );
 }
 
+const DECISIONS: Record<string, string> = {
+  matched: "Rattaché",
+  ambiguous: "Ambigu",
+  unmatched: "Sans rencontre",
+};
+
+function tonDecision(decision: string): "succes" | "alerte" | "danger" | "neutre" {
+  if (decision === "matched") return "succes";
+  if (decision === "ambiguous") return "alerte";
+  if (decision === "unmatched") return "danger";
+  return "neutre";
+}
+
+function CarteRapportCotes({ rapport }: { rapport: LigueRapportCotes }) {
+  return (
+    <li className="rounded-lg border border-bordure bg-fond px-3 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-xs font-medium text-texte">{rapport.name}</p>
+          <Badge ton={tonStatut(rapport.status)}>{libelleStatut(rapport.status)}</Badge>
+        </div>
+        <p className="text-[11px] text-texte-faible">
+          {rapport.matched}/{rapport.events} rattachée(s) · {rapport.markets_written} marché(s) ·{" "}
+          {rapport.snapshots_written} relevé(s) · {rapport.credits} crédit(s)
+        </p>
+      </div>
+      <p className="mt-1 text-[11px] text-texte-faible">
+        Liens créés : {rapport.links_created} · réutilisés : {rapport.links_reused} · désactivés :{" "}
+        {rapport.links_deactivated} · sans 1xBet : {rapport.bookmaker_missing} · saisies manuelles
+        conservées : {rapport.manual_kept}
+      </p>
+      {rapport.warnings.map((warning) => (
+        <p key={warning} className="mt-1 text-[11px] text-alerte">
+          {warning}
+        </p>
+      ))}
+      {rapport.error ? <p className="mt-1 text-[11px] text-danger">{rapport.error}</p> : null}
+    </li>
+  );
+}
+
 export default function PageSynchronisation() {
   const [vue, setVue] = useState<VueSynchronisation | null>(null);
   const [chargement, setChargement] = useState(true);
@@ -106,10 +152,20 @@ export default function PageSynchronisation() {
   const [avecClassement, setAvecClassement] = useState(true);
   const [limiteStats, setLimiteStats] = useState("20");
   const [rapport, setRapport] = useState<RapportSynchronisation | null>(null);
+  const [cotes, setCotes] = useState<VueCotes | null>(null);
+  const [apercu, setApercu] = useState<ApercuCotes | null>(null);
+  const [rapportCotes, setRapportCotes] = useState<RapportCotes | null>(null);
+  const [cotesEnCours, setCotesEnCours] = useState(false);
+  const [avecEtendus, setAvecEtendus] = useState(true);
+  const [limiteEtendus, setLimiteEtendus] = useState("30");
 
   const charger = useCallback(async () => {
-    const donnees = await apiFetch<VueSynchronisation>("/v1/sync/overview");
+    const [donnees, etatCotes] = await Promise.all([
+      apiFetch<VueSynchronisation>("/v1/sync/overview"),
+      apiFetch<VueCotes>("/v1/sync/odds/overview"),
+    ]);
     setVue(donnees);
+    setCotes(etatCotes);
   }, []);
 
   useEffect(() => {
@@ -132,6 +188,84 @@ export default function PageSynchronisation() {
     setSelection((courant) =>
       courant.includes(code) ? courant.filter((item) => item !== code) : [...courant, code],
     );
+  }
+
+  function corpsCotes() {
+    return {
+      leagues: selection,
+      include_extended: avecEtendus,
+      extended_limit: Math.max(0, Math.min(30, Number(limiteEtendus) || 0)),
+    };
+  }
+
+  async function apercuCotes() {
+    if (selection.length === 0) {
+      setErreur("Choisissez au moins une compétition.");
+      return;
+    }
+    setErreur(null);
+    setSucces(null);
+    setCotesEnCours(true);
+    try {
+      const resultat = await apiFetch<ApercuCotes>("/v1/sync/odds/preview", {
+        methode: "POST",
+        corps: corpsCotes(),
+        delaiMs: 180_000,
+      });
+      setApercu(resultat);
+      const rattachees = resultat.leagues.reduce((total, ligue) => total + ligue.matched, 0);
+      setSucces(
+        `Aperçu terminé, aucun crédit consommé : ${rattachees} rencontre(s) rattachée(s), ` +
+          `coût estimé ${resultat.credits_estimated} crédit(s).`,
+      );
+      await charger();
+    } catch (error) {
+      setErreur(messageErreur(error));
+    } finally {
+      setCotesEnCours(false);
+    }
+  }
+
+  async function importerCotes() {
+    if (selection.length === 0) {
+      setErreur("Choisissez au moins une compétition.");
+      return;
+    }
+    const estimation =
+      apercu?.credits_estimated ??
+      (cotes?.costs.competition ?? 2) * selection.length +
+        (avecEtendus ? (cotes?.costs.event ?? 2) * Math.min(Number(limiteEtendus) || 0, 30) : 0);
+    if (
+      !window.confirm(
+        `Importer les cotes 1xBet ? L'aperçu est gratuit, l'import consomme des crédits : ` +
+          `environ ${estimation} crédit(s) pour cette passe. Les marchés saisis à la main ne ` +
+          `seront pas modifiés.`,
+      )
+    ) {
+      return;
+    }
+    setErreur(null);
+    setSucces(null);
+    setCotesEnCours(true);
+    try {
+      const resultat = await apiFetch<RapportCotes>("/v1/sync/odds/run", {
+        methode: "POST",
+        corps: corpsCotes(),
+        delaiMs: 900_000,
+      });
+      setRapportCotes(resultat);
+      await charger();
+      setSucces(
+        `Import des cotes ${libelleStatut(resultat.status).toLowerCase()} : ` +
+          `${resultat.totals.matched ?? 0} rencontre(s) rattachée(s), ` +
+          `${resultat.totals.markets_written ?? 0} marché(s), ` +
+          `${resultat.credits_used} crédit(s) consommé(s).`,
+      );
+    } catch (error) {
+      setErreur(messageErreur(error));
+    } finally {
+      setCotesEnCours(false);
+    }
   }
 
   async function lancer() {
@@ -350,6 +484,171 @@ export default function PageSynchronisation() {
           </ul>
         </Panneau>
       ) : null}
+
+      <Panneau
+        titre="Cotes des rencontres à venir (1xBet)"
+        description="The Odds API : aperçu gratuit, puis import payant dans le quota mensuel."
+        action={
+          <Badge ton={cotes?.configured ? "succes" : "danger"}>
+            {cotes?.configured ? "Clé présente" : "Clé absente"}
+          </Badge>
+        }
+      >
+        <div className="grid gap-4 lg:grid-cols-2">
+          <dl className="flex flex-col gap-2 text-xs">
+            <div className="flex items-center justify-between">
+              <dt className="text-texte-faible">Crédits restants</dt>
+              <dd className="text-texte">{formatNombre(cotes?.quota.remaining)}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-texte-faible">Crédits utilisés ce mois</dt>
+              <dd className="text-texte">{formatNombre(cotes?.quota.used)}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-texte-faible">Réinitialisation</dt>
+              <dd className="text-texte">{formatDateHeure(cotes?.quota.reset_at)}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-texte-faible">Marchés cotés</dt>
+              <dd className="text-texte">{formatNombre(cotes?.totals.markets)}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-texte-faible">Relevés de cotes</dt>
+              <dd className="text-texte">{formatNombre(cotes?.totals.odds_rows)}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-texte-faible">Événements rattachés</dt>
+              <dd className="text-texte">{formatNombre(cotes?.totals.active_links)}</dd>
+            </div>
+          </dl>
+
+          <fieldset className="flex flex-col gap-3">
+            <legend className="text-[11px] uppercase tracking-wide text-texte-faible">
+              Options d&apos;import
+            </legend>
+            <label className="flex items-center gap-2 text-xs text-texte">
+              <input
+                type="checkbox"
+                checked={avecEtendus}
+                onChange={(event) => setAvecEtendus(event.target.checked)}
+              />
+              Marchés étendus (double chance et les deux équipes marquent)
+            </label>
+            <Champ
+              label="Plafond d'événements étendus"
+              aide="Par passe, toutes compétitions confondues. Les marchés étendus ne sont demandés que pour les rencontres à moins de 72 heures."
+            >
+              <Saisie
+                type="number"
+                min={0}
+                max={30}
+                value={limiteEtendus}
+                onChange={(event) => setLimiteEtendus(event.target.value)}
+              />
+            </Champ>
+            <p className="text-[11px] text-texte-faible">
+              Coût annoncé : {cotes?.costs.competition ?? 2} crédit(s) par compétition pour le 1X2 et
+              les totaux, {cotes?.costs.event ?? 2} crédit(s) par événement étendu. L&apos;aperçu ne
+              consomme rien.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Bouton
+                variante="discret"
+                onClick={() => void apercuCotes()}
+                disabled={cotesEnCours || selection.length === 0}
+              >
+                {cotesEnCours ? "Traitement…" : "Aperçu gratuit"}
+              </Bouton>
+              <Bouton
+                variante="principal"
+                onClick={() => void importerCotes()}
+                disabled={cotesEnCours || !cotes?.configured || selection.length === 0}
+              >
+                Importer les cotes
+              </Bouton>
+            </div>
+          </fieldset>
+        </div>
+
+        {apercu ? (
+          <div className="mt-4 flex flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-texte-doux">
+                Coût estimé : <span className="font-medium text-texte">{apercu.credits_estimated}</span>{" "}
+                crédit(s) · quota restant {apercu.quota_remaining ?? "—"}
+              </p>
+              <Badge ton={tonStatut(apercu.status)}>{libelleStatut(apercu.status)}</Badge>
+            </div>
+            {apercu.error ? <Alerte ton="erreur">{apercu.error}</Alerte> : null}
+            <ul className="flex flex-col gap-2">
+              {apercu.leagues.map((ligue) => (
+                <li
+                  key={ligue.code}
+                  className="rounded-lg border border-bordure bg-fond px-3 py-2"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs font-medium text-texte">{ligue.name}</p>
+                    <p className="text-[11px] text-texte-faible">
+                      {ligue.matched}/{ligue.events} rattachée(s) · {ligue.ambiguous} ambigu(es) ·{" "}
+                      {ligue.unmatched} sans rencontre · {ligue.credits} crédit(s)
+                    </p>
+                  </div>
+                  {ligue.error ? (
+                    <p className="mt-1 text-[11px] text-danger">{ligue.error}</p>
+                  ) : null}
+                  {ligue.items
+                    .filter((item) => item.decision !== "matched")
+                    .map((item) => (
+                      <p key={item.event_id} className="mt-1 text-[11px] text-alerte">
+                        {item.home_team} - {item.away_team} :{" "}
+                        {DECISIONS[item.decision] ?? item.decision}
+                        {item.method ? ` (${item.method})` : ""} — aucune cote ne sera écrite.
+                      </p>
+                    ))}
+                  {ligue.items
+                    .filter((item) => item.decision === "matched")
+                    .slice(0, 5)
+                    .map((item) => (
+                      <p key={item.event_id} className="mt-1 text-[11px] text-texte-faible">
+                        <Badge ton={tonDecision(item.decision)}>
+                          {DECISIONS[item.decision] ?? item.decision}
+                        </Badge>{" "}
+                        {item.home_team} - {item.away_team}
+                        {item.match_label ? ` → ${item.match_label}` : ""}
+                      </p>
+                    ))}
+                  {ligue.matched > 5 ? (
+                    <p className="mt-1 text-[11px] text-texte-faible">
+                      … et {ligue.matched - 5} autre(s) rattachement(s) identique(s), non affiché(s).
+                    </p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {rapportCotes ? (
+          <div className="mt-4 flex flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-texte-doux">
+                Dernier import : {rapportCotes.credits_used} crédit(s) ·{" "}
+                {rapportCotes.requests} requête(s) · quota restant{" "}
+                {rapportCotes.quota_remaining ?? "—"}
+              </p>
+              <Badge ton={tonStatut(rapportCotes.status)}>
+                {libelleStatut(rapportCotes.status)}
+              </Badge>
+            </div>
+            {rapportCotes.error ? <Alerte ton="erreur">{rapportCotes.error}</Alerte> : null}
+            <ul className="flex flex-col gap-2">
+              {rapportCotes.leagues.map((ligue) => (
+                <CarteRapportCotes key={ligue.code} rapport={ligue} />
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </Panneau>
 
       <Panneau
         titre={`Compétitions suivies (${vue?.leagues.length ?? 0})`}

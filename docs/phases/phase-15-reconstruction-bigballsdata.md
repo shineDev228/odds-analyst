@@ -127,19 +127,32 @@ crédibilité du moteur.
 ### 3.3 The Odds API → rencontre : appariement par le coup d'envoi
 
 Clé composite : **(compétition, coup d'envoi ± 15 min)**, puis score de nom
-pour départager les matchs simultanés, puis marge minimale de 0,10.
+pour départager les matchs simultanés, puis marge minimale de 0,10. Un écart de
+nom trop fort, ou deux candidats à moins de 0,10 l'un de l'autre, ne produit
+**aucune** décision : l'événement est listé comme ambigu et rien n'est écrit.
 
-Mesuré le 15/11/2026 sur 38 événements réels (Ligue 1 + Liga) :
+Mesuré le 15/11/2026 sur 38 événements réels (Ligue 1 + Liga), puis vérifié le
+17/11/2026 sur les **122 événements des sept compétitions** :
 
-| Résultat | Nombre |
-|---|---|
-| Rattachés automatiquement | **38 / 38** |
-| Marge minimale observée | 0,60 |
-| Marge médiane | 1,00 |
-| Orientation domicile/extérieur correcte | 38 / 38 |
+| Résultat | 15/11 (38) | 17/11 (122) |
+|---|---|---|
+| Rattachés automatiquement | **38 / 38** | **118 / 122** |
+| Marge minimale observée | 0,60 | 0,60 |
+| Marge médiane | 1,00 | 1,00 |
+| Orientation domicile/extérieur correcte | 38 / 38 | 118 / 118 |
+| Ambigus | 0 | 0 |
 
-Cas les plus difficiles, tous résolus : `Rennes` → `Stade Rennais` (0,76),
-`Athletic Bilbao` → `Athletic Club` (0,86), `CA Osasuna` → `Osasuna` (0,91).
+Cas les plus difficiles, tous résolus : `Rennes` → `Stade Rennais` (0,90),
+`Athletic Bilbao` → `Athletic Club` (0,71), `CA Osasuna` → `Osasuna` (0,90),
+`Brighton & Hove Albion` → `Brighton and Hove Albion` (1,00, après la
+normalisation `&`/`and`).
+
+Les **quatre** événements non rattachés du 17/11 ne sont pas des erreurs
+d'appariement : trois reposent sur un exonyme que la base n'emploie pas
+(`1. FC Köln` = `FC Cologne`, `Sporting Lisbon` = `Sporting Clube de Portugal`,
+`AEK Athens` non présent sous ce libellé), et un n'a **aucun** candidat dans la
+compétition (Como – AEK, alors que Como est en Serie A dans la base). Aucun
+alias n'est codé en dur : ils restent visibles dans l'interface, sans cote.
 
 Une décision enregistrée dans `odds_event_links` n'est **jamais** reposée.
 
@@ -224,7 +237,7 @@ Elle n'a lieu qu'après la reconstruction des données, jamais avant.
 | **1** | Schéma v2 : colonnes ajoutées, `csv_links`, `odds_event_links`, migration réversible, modèles, tests de schéma | **livrée** — migration validée en upgrade/downgrade sur base temporaire |
 | **2** | Importeur BigBallsData unique (`/matches`, `/statistics`, `/standings`, `/teams`), suppression de `provider_refs` et `connector_links` | tests sur charges réelles enregistrées |
 | **3** | Reconstruction réelle : 7 compétitions, ≈ 1 000 requêtes | **réalisée le 16/11** — 971 résultats, 0 doublon, 0 équipe hors BigBallsData ; **113 statistiques relancées le 17/11 : le fournisseur n'en a aucune**, dossier clos |
-| **4** | Appariement des cotes par clé composite | les 38 cas mesurés rejoués en test |
+| **4** | Appariement des cotes par clé composite, import 1xBet borné, panneau de synchronisation | **réalisée le 17/11** — 118/122 événements rattachés, 26 liens, 56 marchés, 230 relevés, 10 crédits consommés |
 | **5** | Enrichissement CSV : xG et cotes de clôture | 209 lignes traitées, 208 automatiques, 1 décision |
 | **6** | Page Synchronisation (remplace Connecteurs) + CLI | **page livrée avec l'étape 2** ; CLI à faire |
 | **7** | Vérification et documentation d'exploitation | comptages, intégrité, moteur et interface inchangés |
@@ -241,6 +254,11 @@ Quota : 2 000 par jour chez le fournisseur, plafond local **1 800** (10 % de
 marge) et 100 requêtes par minute, ramenées à 75 par l'attente de 0,8 seconde.
 La reconstruction tient en deux séances d'une dizaine de minutes.
 
+The Odds API se compte en **crédits**, pas en requêtes : un appel compétition
+(1X2 + totaux) coûte **2 crédits**, un appel événement (double chance + BTTS)
+coûte **2 crédits**, et la liste des événements est **gratuite**. Un plafond
+local de **400 crédits par mois** protège le compte ; l'aperçu ne consomme rien.
+
 ---
 
 ## 6. Risques et parades
@@ -251,6 +269,9 @@ La reconstruction tient en deux séances d'une dizaine de minutes.
 | Deux matchs même jour, même score | moyenne | xG sur le mauvais match | marge de 0,25, sinon aucune écriture |
 | Match de coupe dans un flux de championnat | certaine | une rencontre sans xG | toléré, compté dans le rapport de passe |
 | Relevé The Odds API indisponible | moyenne | combinaisons sans cote | passe marquée `partial`, jamais de cote inventée |
+| Exonyme non reconnu (`FC Cologne`, `Sporting Lisbon`) | certaine | événement sans cote | aucune devinette : l'événement reste listé « sans rencontre », rattachable à la main |
+| Crédits The Odds API épuisés | faible | import partiel | plafond local 400, aperçu gratuit obligatoire avant la passe, arrêt propre |
+| Cote réactualisée entre deux passes | certaine | un relevé de plus | historique append-only : aucune cote passée n'est écrasée |
 | Quota épuisé pendant la reconstruction | faible | import partiel | reprise automatique : la passe ne réécrit que ce qui manque |
 | Report d'un match : l'événement de cotes garde l'ancienne heure | faible | cote non rattachée | repli sur le nom seul dans la compétition, marqué `name_fallback` |
 | Suppression prématurée de `provider_refs` | faible | application cassée | suppression à l'étape 2 seulement, après la reconstruction |
@@ -267,9 +288,14 @@ La reconstruction tient en deux séances d'une dizaine de minutes.
 | Schéma | une ligne CSV ne peut être appliquée qu'une fois (`source` + `row_key`) |
 | Schéma | une rencontre ne reçoit qu'un seul xG ; la seconde écriture est refusée |
 | Appariement | les 38 cas The Odds API mesurés sont rejoués, 38/38 |
+| Appariement | les 16 décisions réelles du 17/11 sont figées en fixture et rejouées à l'identique (12 rattachements, 4 refus) |
+| Appariement | `Brighton & Hove Albion` et `Brighton and Hove Albion` donnent le même nom normalisé |
+| Appariement | `Manchester City` / `Manchester United` restent sous le seuil (0,55) |
 | Appariement | les 209 lignes CSV mesurées : 208 automatiques, 1 en attente |
 | Appariement | deux candidats à moins de 0,25 d'écart → aucune écriture, ligne journalisée |
 | Import | rejeu immédiat d'une passe → aucune ligne créée, aucun doublon |
+| Import | une cote réactualisée crée un relevé de plus, jamais un second marché |
+| Import | une saisie manuelle n'est jamais écrasée par l'import |
 | Import | une rencontre créée porte obligatoirement un `external_id` |
 | Import | quota épuisé → arrêt propre, `status = "partial"` |
 | Sécurité | aucun journal ne contient la clé d'API |
@@ -535,4 +561,86 @@ buts attendus 1,41 + 1,14, domicile 43,0 % [20,0 ; 70,5], nul 26,7 %
 la saison vient de commencer et le moteur utilise le proxy « tirs cadrés » tant
 que le xG n'est pas fourni par le CSV. Les fourchettes larges sont donc
 attendues à ce stade.
+
+### Étape 4 - cotes 1xBet des rencontres à venir (17/11/2026)
+
+#### Ce que fait la passe
+
+1. **Aperçu gratuit** : la liste des événements de chaque compétition est
+   gratuite. L'appariement est calculé à blanc, sans écrire et sans payer.
+2. **Passe payante** : pour chaque compétition retenue, un appel
+   « compétition » (2 crédits) ramène le 1X2 et les totaux de tous ses
+   événements. Les marchés étendus (double chance, « les deux équipes
+   marquent ») coûtent 2 crédits **par événement**, demandés un par un.
+3. **Écriture** : marchés, sélections et relevés horodatés. Une rencontre
+   `1xBet` déjà liée réutilise son lien ; un événement déplacé désactive
+   l'ancien lien puis crée le nouveau, dans cet ordre (index « un seul lien
+   actif par rencontre »).
+
+Bornes choisies, toutes visibles dans l'interface :
+
+| Borne | Valeur | Raison |
+|---|---|---|
+| Fenêtre des marchés étendus | 72 heures | une cote de marché secondaire est utile près du coup d'envoi |
+| Plafond étendu | 30 événements **par passe**, partagé entre les sept compétitions | empêche une passe de vider le quota |
+| Espacement des appels | 0,5 seconde | aucune rafale chez le fournisseur |
+| Budget local | 400 crédits par mois | le compte réel en compte 492 |
+
+Le fournisseur **refuse** quatre marchés en un seul appel (`h2h,totals,
+double_chance,btts` → 422) : d'où la séparation 2 crédits/compétition puis
+2 crédits/événement. Aucune cote n'est dérivée d'une autre.
+
+#### Mesures réelles
+
+Aperçu gratuit du 17/11 sur les sept compétitions : **122 événements,
+118 rattachés (96,7 %), 0 ambigu, 4 sans rencontre, 18 crédits estimés**.
+
+Trois passes payantes bornées ont ensuite été exécutées :
+
+| Passe | Crédits | Résultat |
+|---|---|---|
+| `ligue1` | 2 | 18 liens, 36 marchés, 90 relevés |
+| `mls` (2 événements étendus) | 6 | 8 liens, 20 marchés, 50 relevés |
+| `ligue1` rejouée | 2 | **0 marché écrit**, 18 liens réutilisés, 90 relevés de plus |
+
+Total : **10 crédits**, quota fournisseur 478/492. Contrôles en base :
+56 marchés, 230 relevés, 26 liens actifs, **0 doublon** de `(rencontre,
+signature)`, **0** marché marqué manuel, toutes les cotes `source =
+the_odds_api` et `bookmaker = 1xBet`, prix dans les bornes 1,01–1 000.
+
+Le rejeu ne duplique aucun marché ni aucun lien ; il ajoute en revanche des
+relevés, car la cote du fournisseur a changé entre les deux passes. C'est le
+comportement voulu : l'historique est **append-only**, une cote passée n'est
+jamais réécrite.
+
+#### Deux corrections nées de la mesure
+
+- `&` et `and` désignent le même connecteur : `Brighton & Hove Albion` (base)
+  et `Brighton and Hove Albion` (marché) sont désormais une seule identité.
+  Les deux événements Brighton sont passés de « sans rencontre » à rattachés.
+- Le plafond de 30 événements étendus est **global à la passe** : il est
+  décrémenté par compétition, sinon sept compétitions auraient pu demander
+  210 appels payants en une fois.
+
+#### Ce qui reste volontairement non rattaché
+
+`1. FC Köln` / `FC Cologne`, `Sporting Lisbon` / `Sporting Clube de Portugal`,
+`AEK Athens` : trois exonymes. Les deviner reviendrait à coder des alias en
+dur, ce qui créerait un jour une erreur silencieuse. Ils restent affichés
+« sans rencontre » dans le panneau, sans cote, et rattachables à la main.
+`Como – AEK` n'a aucun candidat : dans la base, Como joue en Serie A.
+
+#### Contrôles de sortie
+
+`pytest` **301 tests verts**, `ruff` vert, `mypy app engine` vert (95
+fichiers), `eslint` et `tsc --noEmit` verts, `next build` réussi après
+suppression du cache `.next`. Les 29 tests de `test_odds_sync.py` couvrent le
+matcher pur, les 16 décisions réelles figées, le service avec client factice
+(aucun appel réseau) et les quatre routes.
+
+#### Reste à faire sur l'étape 4
+
+- **Rien de bloquant.** Les six autres compétitions seront importées à la
+  demande depuis l'interface, dans le même budget.
+- Les alias d'exonymes restent une décision d'utilisateur, pas une heuristique.
 

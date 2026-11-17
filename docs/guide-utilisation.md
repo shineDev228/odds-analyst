@@ -378,21 +378,57 @@ Pour corriger une erreur :
 > Pour « les deux équipes marquent », le marché du catalogue s'appelle
 > exactement « Les deux équipes marquent », avec les issues « Oui » et « Non ».
 
-### 8.2 Import des cotes via The Odds API (à venir)
+### 8.2 Import des cotes 1xBet via The Odds API
 
-L'import automatique de cotes **n'est pas encore rebranché** : il revient à
-l'étape 4 de la reconstruction, après l'appariement des événements de marché.
-D'ici là, la saisie manuelle décrite en 8.1 est la seule source de cotes : le
-générateur ne peut utiliser que les rencontres que vous avez cotées vous-même.
+L'import est disponible dans **Synchronisation** → « Cotes des rencontres à
+venir (1xBet) ». Il ne remplace pas la saisie manuelle : il la complète.
 
-Les garde-fous resteront les mêmes :
+**Le principe** : l'aperçu est gratuit, l'import est payant. Toujours dans cet
+ordre.
 
-- seul le bookmaker **1xBet** sera utilisé ; s'il est absent, aucune cote ne
-  sera importée et aucun autre bookmaker ne le remplacera ;
-- le quota The Odds API est **mensuel** (400 crédits par défaut) et affiché
-  dans le journal de synchronisation ;
+1. Cochez les compétitions dans la liste du haut (la même sélection sert à
+   l'import des faits et à celui des cotes).
+2. Choisissez si vous voulez les **marchés étendus** (double chance et « les
+   deux équipes marquent »). Ils coûtent 2 crédits par événement et ne sont
+   demandés que pour les rencontres à moins de **72 heures**.
+3. Cliquez **Aperçu gratuit**. Rien n'est écrit et rien n'est facturé. Le
+   panneau affiche, par compétition, le nombre d'événements rattachés, ambigus
+   ou sans rencontre.
+4. Lisez les lignes en rouge : ce sont les événements qui **ne recevront aucune
+   cote**. Le plus souvent, c'est un nom de club différent dans la base
+   (`FC Cologne` au lieu de `1. FC Köln`) : aucune devinette n'est faite.
+5. Cliquez **Importer les cotes** : la confirmation annonce le coût exact
+   (2 crédits par compétition, plus les événements étendus).
+
+**Comment lire le rapport** :
+
+| Ligne | Sens |
+|---|---|
+| Rattachés | événements dont les cotes ont été écrites |
+| Ambigus | deux rencontres possibles : rien n'a été écrit, par prudence |
+| Sans rencontre | aucun candidat dans la base : aucune cote inventée |
+| Liens créés / réutilisés | nouvel appariement, ou appariement déjà connu |
+| Liens désactivés | rencontre reportée : l'ancien lien a été remplacé |
+| Sans 1xBet | événement proposé sans cote 1xBet : rien n'est repris ailleurs |
+| Manuels conservés | vos saisies manuelles, jamais modifiées |
+
+**Ce qu'il faut savoir** :
+
+- seul le bookmaker **1xBet** est utilisé ; s'il est absent, aucune cote n'est
+  importée et aucun autre bookmaker ne le remplace ;
+- le quota est **mensuel** (400 crédits dans l'application, 492 sur le compte
+  réel) et toujours affiché ; l'aperçu ne le consomme pas ;
+- importer deux fois la même journée ne crée **aucun doublon** : les marchés et
+  les liens sont réutilisés, seuls de nouveaux **relevés** horodatés sont
+  ajoutés quand la cote a changé ;
 - une cote absente reste absente : rien n'est inventé, rien n'est extrapolé ;
-- une cote saisie à la main n'est **jamais** écrasée par un import.
+- une cote saisie à la main n'est **jamais** écrasée par un import ;
+- un club dont le nom diffère franchement (exonyme) reste sans cote : vous
+  pouvez toujours coter la rencontre à la main (8.1).
+
+**Si la clé manque**, le panneau affiche « Clé absente » et l'import est
+désactivé. Renseignez `THE_ODDS_API_KEY` dans `apps/api/.env`, puis redémarrez
+l'API.
 
 ### 8.3 Ce qu'affiche une cote enregistrée
 
