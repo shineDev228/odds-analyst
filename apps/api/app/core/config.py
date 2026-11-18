@@ -76,6 +76,14 @@ class Settings(BaseSettings):
     # Dossier des fichiers CSV conservés ; vide = `data/local/csv`.
     csv_storage_dir: str = ""
 
+    # Mise à jour automatique au démarrage de l'API (phase 15, étape 6).
+    # Une seule passe de faits et de CSV, jamais les cotes 1xBet.
+    auto_sync_enabled: bool = True
+    auto_sync_interval_hours: float = 24
+    auto_sync_check_minutes: int = 60
+    auto_sync_startup_delay_seconds: int = 30
+    auto_sync_stats_limit: int = 20
+
     # Budgets locaux (réserves déjà déduites).
     # BigBallsData autorise 2 000 requêtes par jour ; le plafond local garde
     # 10 % de marge pour les reprises et les erreurs.

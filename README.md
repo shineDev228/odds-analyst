@@ -31,7 +31,7 @@ Application web personnelle d'analyse statistique sportive.
 | 13 — Cotes 1X2 dans la liste des rencontres | ✅ Terminée |
 | 14A.1 — Snapshots quotidiens | ✅ Terminée |
 | 14A.2 à 14A.6 — Collecte quotidienne | ⏸ Reportées (voir phase 15) |
-| 15 — Reconstruction sur BigBallsData | 🔄 En cours — étapes 1 à 5 livrées |
+| 15 — Reconstruction sur BigBallsData | 🔄 En cours — étapes 1 à 6 livrées |
 
 ---
 
@@ -144,6 +144,14 @@ powershell -ExecutionPolicy Bypass -File infra/scripts/dev.ps1
   jamais remplacé, un marché saisi à la main n'est jamais écrasé, une ligne
   douteuse n'écrit rien et reste en attente. Le dernier fichier local est
   réutilisé si le réseau échoue.
+- **Mise à jour automatique et CLI** : au démarrage de l'API, si la dernière
+  passe de faits appliquée date de plus de 24 heures, une tâche de fond importe
+  les faits puis le CSV, **sans jamais toucher aux cotes 1xBet**. Une seule passe
+  à la fois, nouvel essai au plus une fois par heure, échec journalisé sans
+  interrompre l'application. La ligne de commande `app.cli` offre les mêmes
+  actions sans navigateur (`status`, `facts`, `csv-download`, `csv-import`,
+  `odds-preview`, `odds-import`), avec des codes de sortie exploitables par le
+  Planificateur de tâches Windows (`infra/scripts/sync.ps1`).
 - **Sécurité et exploitation** : en-têtes de sécurité, CSP par nonce en
   production, expiration d'inactivité de 12 h, purge des sessions, journal JSON
   avec identifiant de requête, sauvegarde et restauration vérifiée dans une base
@@ -217,7 +225,7 @@ Cette contrainte garantit la fiabilité et la reproductibilité des calculs.
 ## Tests et qualité
 
 ```powershell
-# API et moteur (327 tests)
+# API et moteur (365 tests)
 uv run pytest
 
 # Analyse statique du code Python
@@ -256,6 +264,7 @@ Les tests s'exécutent sur une base SQLite en mémoire : la CI ne se connecte ni
 | Sauvegarde et restauration vérifiée | `docs/exploitation/sauvegarde-restauration.md` |
 | Pannes courantes, ports, quotas | `docs/exploitation/depannage.md` |
 | Routes et erreurs de l'API | `docs/exploitation/api.md` |
+| Ligne de commande et mise à jour automatique | `docs/exploitation/cli.md` |
 | Phase 8 : décisions et tests | `docs/phases/phase-8-durcissement.md` |
 | Phase 9 : appariement et performance | `docs/phases/phase-9-appariement-performance.md` |
 | Phase 10 : marché « les deux équipes marquent » | `docs/phases/phase-10-btts.md` |
@@ -271,6 +280,9 @@ Commandes utiles :
 ```powershell
 # Sauvegarde
 powershell -ExecutionPolicy Bypass -File infra/scripts/backup.ps1
+
+# Synchronisation sans navigateur (faits par défaut, -Csv, -Odds, -Status)
+powershell -ExecutionPolicy Bypass -File infra/scripts/sync.ps1 -Status
 
 # Restauration dans une base de test (jamais la base réelle par défaut)
 powershell -ExecutionPolicy Bypass -File infra/scripts/restore.ps1 `

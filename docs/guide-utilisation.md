@@ -56,6 +56,13 @@ powershell -ExecutionPolicy Bypass -File infra/scripts/dev.ps1
 
 Laissez la fenêtre ouverte pendant toute la session.
 
+> **Mise à jour automatique.** Si la dernière synchronisation des faits date de
+> plus de **24 heures**, une passe démarre toute seule **30 secondes** après
+> l'ouverture, en arrière-plan : l'interface reste utilisable pendant ce temps.
+> Elle importe les faits puis le xG et la clôture CSV, mais **jamais les cotes
+> 1xBet**. Son avancement apparaît dans le journal de la page
+> « Synchronisation » (voir 7.4).
+
 ### Première utilisation
 
 À la première ouverture, l'écran « Première utilisation » crée **l'unique compte
@@ -342,7 +349,47 @@ tableau de couverture : le moteur utilise alors les **tirs cadrés** (proxy
 `0,30 × tirs cadrés`, plafonné à 4,0), puis les buts réels — jamais une valeur
 inventée.
 
-### 7.4 Vérifier que l'historique est suffisant
+### 7.4 Mettre à jour sans navigateur (automatique et ligne de commande)
+
+**La mise à jour automatique.** Elle est active par défaut. À chaque démarrage
+de l'API, l'application regarde la date de la dernière synchronisation de faits
+réussie :
+
+- moins de 24 heures : rien ne se passe ;
+- plus de 24 heures, ou aucune passe connue : les faits sont importés
+  (statistiques plafonnées à 20 rencontres par compétition), puis les fichiers
+  CSV sont téléchargés et importés ;
+- en cas d'échec total (aucune compétition importée) : une nouvelle tentative au
+  plus tard une heure après, puis toutes les heures suivantes ; l'application
+  n'affiche aucune erreur bloquante. Une passe **partielle** attend l'échéance
+  suivante et reste rejouable à la main depuis la page Synchronisation.
+
+Le déclencheur **ne touche jamais aux cotes 1xBet** : elles coûtent des crédits
+et restent un clic volontaire dans la page Synchronisation. Pour le couper,
+ajoutez `AUTO_SYNC_ENABLED=false` dans `.env` puis redémarrez l'API.
+
+**La ligne de commande.** Elle sert de secours si l'application est fermée, ou
+de tâche planifiée. Depuis un terminal, dans le dossier du projet :
+
+```powershell
+powershell -ExecutionPolicy Bypass -File infra/scripts/sync.ps1 -Status
+powershell -ExecutionPolicy Bypass -File infra/scripts/sync.ps1
+powershell -ExecutionPolicy Bypass -File infra/scripts/sync.ps1 -Csv
+```
+
+- sans option : les faits BigBallsData ;
+- `-Stats -Standings` : avec statistiques et classements ;
+- `-Csv` : télécharge puis enrichit le xG et la clôture ;
+- `-Odds` : **aperçu gratuit** des cotes, aucun crédit ;
+- `-OddsImport` : import payant des cotes, à demander explicitement ;
+- `-Status` : état des trois sources, en lecture seule.
+
+Le détail des six commandes, des options et de la planification Windows est
+dans [`docs/exploitation/cli.md`](exploitation/cli.md). Une commande qui échoue
+affiche un message court et un code de sortie (`0` réussi, `1` échec, `3`
+partiel) : aucun secret n'y apparaît.
+
+### 7.5 Vérifier que l'historique est suffisant
 
 Ouvrez une rencontre à venir et regardez « Analyse statistique (modèle v2) » :
 

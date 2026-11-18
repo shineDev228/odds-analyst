@@ -20,6 +20,7 @@ from app.core.middleware import RequestContextMiddleware, SecurityHeadersMiddlew
 from app.db.seed import seed_defaults
 from app.db.session import SessionLocal
 from app.services import auth as auth_service
+from app.services.auto_sync import AutoSyncScheduler
 
 configure_logging()
 
@@ -32,7 +33,7 @@ AVERTISSEMENT = (
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     """Insère les données de référence au démarrage, si la base est prête."""
     try:
         with SessionLocal() as db:
@@ -42,7 +43,16 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
                 logger.info("Sessions expirées supprimées au démarrage : %s", purgees)
     except Exception as exc:
         logger.warning("Initialisation des données de référence ignorée : %s", exc)
-    yield
+
+    # Mise à jour des faits en arrière-plan : l'API répond immédiatement.
+    # Les cotes 1xBet ne sont jamais importées ici (crédits payants).
+    scheduler = AutoSyncScheduler()
+    application.state.auto_sync = scheduler
+    scheduler.start()
+    try:
+        yield
+    finally:
+        await scheduler.stop()
 
 
 app = FastAPI(

@@ -278,7 +278,7 @@ Elle n'a lieu qu'après la reconstruction des données, jamais avant.
 | **3** | Reconstruction réelle : 7 compétitions, ≈ 1 000 requêtes | **réalisée le 16/11** — 971 résultats, 0 doublon, 0 équipe hors BigBallsData ; **113 statistiques relancées le 17/11 : le fournisseur n'en a aucune**, dossier clos |
 | **4** | Appariement des cotes par clé composite, import 1xBet borné, panneau de synchronisation | **réalisée le 17/11** — 118/122 événements rattachés, 26 liens, 56 marchés, 230 relevés, 10 crédits consommés |
 | **5** | Enrichissement CSV : xG et cotes de clôture | **réalisée le 17/11** — 500 lignes lues, 496 rattachées (99,2 %), 4 en attente, 992 lignes de xG, 992 marchés, 2 480 relevés |
-| **6** | Page Synchronisation (remplace Connecteurs) + CLI | **page livrée avec l'étape 2** ; CLI à faire |
+| **6** | Page Synchronisation (remplace Connecteurs) + CLI | **réalisée le 18/11** — CLI six commandes et déclencheur automatique au démarrage (seuil 24 h, jamais les cotes 1xBet) |
 | **7** | Vérification et documentation d'exploitation | comptages, intégrité, moteur et interface inchangés |
 
 ### 5.1 Budget de requêtes
@@ -819,3 +819,106 @@ run).
 - La Liga (118/120) et la Bundesliga (78/81) ne seront complètes qu'après une
   prochaine passe, quand les rencontres manquantes auront une ligne CSV.
 
+### Étape 6 — ligne de commande et déclencheur automatique (18/11/2026)
+
+#### Pourquoi
+
+La page Synchronisation suffit quand l'application est ouverte. Deux manques
+restaient :
+
+1. **aucune mise à jour spontanée** : une application ouverte après une semaine
+   d'absence affichait des données anciennes jusqu'à un clic ;
+2. **aucun moyen d'agir sans navigateur** : ni pour un lancement manuel en
+   terminal, ni pour une tâche planifiée Windows.
+
+L'utilisateur a proposé le déclencheur au démarrage ; la CLI, prévue depuis la
+phase 14A, reste le secours et le repli pour une planification.
+
+#### Décisions
+
+| Décision | Choix | Justification |
+|---|---|---|
+| Déclencheur | `lifespan` de l'API, tâche `asyncio` de fond | l'interface répond immédiatement ; aucune modification d'interface |
+| Référence | dernière passe `fixtures` **appliquée** dans `sync_runs` | même source que la page, donc aucune divergence |
+| Délai initial | 30 s | ne concurrence pas l'ouverture ni les migrations |
+| Seuil | 24 h, réglable | une application rouverte rattrape une journée manquée |
+| Périmètre | faits puis CSV ; **jamais les cotes 1xBet** | gratuit d'un côté, crédits payants de l'autre |
+| Statistiques | plafond 20 par compétition | borne la passe automatique à ≈ 170 requêtes |
+| Nouvel essai | au plus 1×/heure après un échec total | ne martèle pas un fournisseur indisponible |
+| Verrou | verrou `asyncio` en mémoire + `is_due` | une seule passe par processus ; rejeu sans doublon entre démarrages |
+| Échec | journalisé, jamais propagé | l'API ne tombe pas pour une mise à jour |
+| Clé absente | information, aucun lancement | l'absence de fournisseur n'est pas une erreur |
+| CLI | `app.cli`, `argparse` seul | aucune dépendance nouvelle, `package = false` respecté |
+| Codes de sortie | 0 / 1 / 3, 2 pour l'usage | `3` distingue « partiel » de « échec » dans le Planificateur |
+| Transaction | la CLI commite, `rollback` sur exception | même contrat que les routes |
+
+Nouvelles variables, toutes facultatives :
+
+| Variable | Défaut |
+|---|---|
+| `AUTO_SYNC_ENABLED` | `true` |
+| `AUTO_SYNC_INTERVAL_HOURS` | `24` |
+| `AUTO_SYNC_CHECK_MINUTES` | `60` |
+| `AUTO_SYNC_STARTUP_DELAY_SECONDS` | `30` |
+| `AUTO_SYNC_STATS_LIMIT` | `20` |
+
+#### Ce que fait la CLI
+
+Six commandes, miroir exact des routes :
+
+| Commande | Route | Écriture | Coût |
+|---|---|---|---|
+| `status` | trois `GET /sync/*/overview` | non | aucun |
+| `facts` | `POST /sync/run` | oui | requêtes BigBallsData |
+| `csv-download` | `POST /sync/csv/download` | journal seulement | aucun |
+| `csv-import` | `POST /sync/csv/run` | oui | aucun |
+| `odds-preview` | `POST /sync/odds/preview` | non | **zéro crédit** |
+| `odds-import` | `POST /sync/odds/run` | oui | **crédits payants** |
+
+`infra/scripts/sync.ps1` enveloppe ces commandes : faits par défaut, `-Csv`,
+`-Odds` (aperçu seul), `-OddsImport` explicite, `-Status`. Le script se place
+lui-même dans `apps/api` et additionne les codes de sortie.
+
+#### Mesures réelles
+
+`status` sur la base réelle, sans réseau :
+
+| Source | Mesure |
+|---|---|
+| BigBallsData | quota 0 / 1 800 (journée consommée), 2 314 rencontres, 145 équipes, 992 lignes de xG |
+| CSV | 5 fichiers, 500 lignes, 496 rencontres couvertes, **4 lignes en attente** |
+| The Odds API | 14 / 492 crédits, 56 marchés, 230 relevés, 26 liens actifs |
+| Dernière passe de faits appliquée | 17/11/2026 08:33 (heure de Paris) |
+| Décision du déclencheur | « à jour » : moins de 24 h, aucun lancement |
+
+Le script PowerShell a été exécuté en `-Status` (code `0`) et avec deux actions
+incompatibles (refus explicite, code `1`). Aucun crédit n'a été consommé par
+cette étape.
+
+#### Ce qui n'est pas fait, volontairement
+
+- **Aucune tâche planifiée installée** : le script et la procédure sont fournis,
+  la décision de planifier revient à l'utilisateur.
+- **Aucun retry séparé du CSV** : si les faits sont appliqués mais le CSV échoue,
+  l'ensemble est partiel, visible dans le journal ; `csv-import` reste
+  disponible, et l'échéance suivante réessaie. Un échec **total** des faits est,
+  lui, retenté une heure plus tard.
+- **Aucun verrou inter-processus** : l'hypothèse est un seul processus API,
+  comme pour le développement local.
+- **Aucune modification du moteur ni de l'interface**.
+
+#### Contrôles de sortie
+
+`pytest` **365 tests verts** (dont 38 nouveaux : 19 pour le déclencheur, 19 cas
+pour la CLI), `ruff check app tests engine` vert, `mypy app engine` vert
+(99 fichiers). La suite désactive le déclencheur par une fixture autouse :
+aucun test ne déclenche de réseau.
+
+Les tests couvrent : pas d'historique → dû, 23 h → non, 25 h → dû, échec récent
+→ non, échec ancien → dû, CSV ne réinitialise pas l'horloge des faits, faits
+puis CSV dans cet ordre, **jamais les cotes**, clé absente → aucun lancement,
+passe récente → aucun lancement, CSV ignoré si les faits échouent, exception
+absorbée, statut partiel, désactivation, démarrage/arrêt de la boucle, et le
+branchement `app.state.auto_sync`. Côté CLI : options transmises, codes 0/1/3,
+erreurs d'usage 2, `--json` valide, `status` strictement en lecture (session qui
+refuse tout `commit`), aucune clé dans la sortie, `rollback` sur exception.
