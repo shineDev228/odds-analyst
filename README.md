@@ -30,8 +30,16 @@ Application web personnelle d'analyse statistique sportive.
 | 12 — Combinaisons limitées au jour | ✅ Terminée |
 | 13 — Cotes 1X2 dans la liste des rencontres | ✅ Terminée |
 | 14A.1 — Snapshots quotidiens | ✅ Terminée |
-| 14A.2 à 14A.6 — Collecte quotidienne | ⏸ Reportées (voir phase 15) |
-| 15 — Reconstruction sur BigBallsData | 🔄 En cours — étapes 1 à 6 livrées |
+| 14A.2 — Collecteur de résultats | ✅ Terminée |
+| 14A.3 à 14A.6 — Collecte quotidienne | ⏳ À reprendre (débloquées le 18/11/2026) |
+| 15 — Reconstruction sur BigBallsData | ✅ Terminée le 18/11/2026 |
+
+> **Bilan de la phase 15.** Base reconstruite sur BigBallsData : **2 314
+> rencontres**, **145 équipes**, **992 lignes de xG**, **496 rencontres**
+> couvertes par le CSV (4 en attente), **26 liens de cotes actifs**. Le
+> déclencheur automatique a été observé en conditions réelles le 18/11 :
+> 9 lignes de journal, 68 requêtes, **0 crédit**. 365 tests verts, version
+> **1.1.0**.
 
 ---
 

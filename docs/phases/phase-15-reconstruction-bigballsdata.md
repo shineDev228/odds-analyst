@@ -1,6 +1,6 @@
 # Phase 15 — Reconstruction sur BigBallsData
 
-> **Statut : étapes 1 à 5 livrées. Étapes 6 et 7 à faire (17/11/2026).**
+> **Statut : phase terminée le 18/11/2026. Étapes 1 à 7 livrées.**
 >
 > Objectif : **repartir d'une base propre, construite autour d'une source
 > unique de faits** (BigBallsData), en supprimant l'appariement d'équipes qui a
@@ -279,7 +279,7 @@ Elle n'a lieu qu'après la reconstruction des données, jamais avant.
 | **4** | Appariement des cotes par clé composite, import 1xBet borné, panneau de synchronisation | **réalisée le 17/11** — 118/122 événements rattachés, 26 liens, 56 marchés, 230 relevés, 10 crédits consommés |
 | **5** | Enrichissement CSV : xG et cotes de clôture | **réalisée le 17/11** — 500 lignes lues, 496 rattachées (99,2 %), 4 en attente, 992 lignes de xG, 992 marchés, 2 480 relevés |
 | **6** | Page Synchronisation (remplace Connecteurs) + CLI | **réalisée le 18/11** — CLI six commandes et déclencheur automatique au démarrage (seuil 24 h, jamais les cotes 1xBet) |
-| **7** | Vérification et documentation d'exploitation | comptages, intégrité, moteur et interface inchangés |
+| **7** | Vérification et documentation d'exploitation | **livrée le 18/11** — passe automatique observée (9 lignes, 68 requêtes, 0 crédit), 0 doublon, 0 anomalie, moteur et interface inchangés |
 
 ### 5.1 Budget de requêtes
 
@@ -922,3 +922,121 @@ absorbée, statut partiel, désactivation, démarrage/arrêt de la boucle, et le
 branchement `app.state.auto_sync`. Côté CLI : options transmises, codes 0/1/3,
 erreurs d'usage 2, `--json` valide, `status` strictement en lecture (session qui
 refuse tout `commit`), aucune clé dans la sortie, `rollback` sur exception.
+
+### Étape 7 — vérification et clôture (18/11/2026)
+
+#### Objectif
+
+Prouver en conditions réelles que la reconstruction est complète et intègre,
+puis clore la phase sans toucher au moteur ni à l'interface.
+
+#### Passe automatique observée
+
+L'API a été démarrée à **12:21:53 UTC** (13:21 Paris) avec
+`infra/scripts/dev.ps1`. Le déclencheur a attendu 30 s, puis a exécuté la passe,
+commitée à **12:22:33 UTC** (13:22 Paris).
+
+| Preuve | Valeur |
+|---|---|
+| Lignes de journal | **9** : 7 `fixtures` + 1 téléchargement CSV + 1 import CSV |
+| Statuts | **9 / 9 `applied`** |
+| Transaction | **un seul** `created_at` pour les 9 lignes |
+| Requêtes BigBallsData | **68 / 1 800** (67 faits + 1 catalogue) |
+| CSV | 5 fichiers téléchargés, 0 crédit |
+| Crédits The Odds API | **14 / 492**, inchangés |
+| Passe `odds` | **aucune** ; 2 710 relevés, inchangés |
+
+Détail des faits (rencontres **traitées**, c'est-à-dire créées ou mises à jour) :
+
+| Compétition | Requêtes | Traitées | Classements |
+|---|---:|---:|---:|
+| Ligue 1 | 4 | 306 | 18 |
+| Premier League | 4 | 380 | 20 |
+| La Liga | 5 | 380 | 20 |
+| Serie A | 4 | 380 | 20 |
+| Bundesliga | 4 | 306 | 18 |
+| Ligue des champions | 22 | 148 | 32 |
+| MLS | 24 | 414 | 30 |
+| **Total** | **67** | **2 314** | **158** |
+
+MLS a reçu 428 fiches : 14 étaient des doublons du fournisseur, écartés par
+l'importeur, et 414 ont été retenues. Aucune rencontre n'a été créée.
+
+#### Effet sur la base
+
+| Mesure | Avant | Après |
+|---|---:|---:|
+| Rencontres | 2 314 | 2 314 |
+| Équipes | 145 | 145 |
+| Lignes de statistiques | 1 716 | 1 716 |
+| Lignes avec xG | 992 | 992 |
+| Marchés | 1 048 | 1 048 |
+| Relevés de cotes | 2 710 | 2 710 |
+| Liens CSV appliqués | 496 | 496 |
+| Liens CSV en attente | 4 | 4 |
+
+Il n'y avait aucun nouveau résultat entre le 17/11 et le 18/11 : la passe a
+**rafraîchi** les rencontres existantes et rejoué le CSV sans doublon. Les
+4 lignes en attente sont inchangées, avec les mêmes motifs.
+
+#### Contrôles d'intégrité après passe
+
+- **8 contrôles de doublons : 0.**
+- **7 contrôles de cohérence : 0** (aucune rencontre BigBallsData sans
+  `external_id`, aucun lien appliqué sans rencontre, aucune cote ≤ 1, aucun
+  marché CSV personnalisé, aucun xG sans provenance).
+- Bookmakers : `1xBet` (230 relevés) et `Clôture (moyenne)` (2 480), rien
+  d'autre.
+- Couverture xG : Ligue 1 90/90, Premier League 100/100, Serie A 110/110,
+  La Liga 118/120, Bundesliga 78/81 ; MLS et Ligue des champions hors périmètre.
+
+#### Moteur témoin
+
+`Troyes — Le Havre AC` (20/11/2026), avant et après la passe :
+
+| Élément | Valeur |
+|---|---|
+| Buts attendus | **1,567 / 1,218** (total 2,786) |
+| Qualité | Faible (10 matchs par équipe) |
+| Source | 10 matchs, **10 avec xG** de chaque côté, méthode `xg` |
+| 1X2 | **45,35 %** [20,88 ; 73,67] · **25,11 %** [14,03 ; 30,26] · **29,54 %** [10,60 ; 55,18] |
+| Avertissement | présent |
+
+La passe n'a rien dégradé : le xG reste utilisé et les fourchettes restent
+affichées.
+
+#### Coût récurrent à connaître
+
+La passe a demandé **40 statistiques** (20 MLS, 19 Ligue des champions, 1 La
+Liga) et en a obtenu **0** : c'est le manque structurel déjà constaté, le
+fournisseur n'en publie pas pour ces rencontres. Cela représente 40 requêtes par
+passe, soit 2,2 % du plafond local. Aucune correction n'a été faite : ce serait
+un changement de code hors périmètre de l'étape 7. Le point est noté pour la
+suite (14A.3).
+
+#### Moteur et interface inchangés
+
+`git diff 6eb6dc5..HEAD -- apps/api/engine` est vide.
+Côté interface, seule la page Connecteurs a été remplacée par la page
+Synchronisation, comme prévu depuis l'étape 2. Aucune autre page n'a changé.
+
+#### Vérifications finales
+
+`ruff check app tests engine` vert, `mypy app engine` vert (99 fichiers),
+`pytest` **365 tests verts**, `eslint`, `tsc --noEmit` et `next build` verts,
+`git diff --check` propre. Version **1.1.0**, aucune Release.
+
+#### Ce qui reste ouvert
+
+- **4 lignes CSV en attente** : décision manuelle possible, sans blocage.
+- **Pas de reprise séparée du CSV** : une passe partielle attend l'échéance
+  suivante ; `csv-import` reste disponible.
+- **Un seul processus API** : le verrou du déclencheur est en mémoire.
+- **Statistiques MLS / Ligue des champions** : demandées à chaque passe, jamais
+  fournies ; coût connu et borné.
+
+#### Clôture
+
+La phase 15 est terminée. Les snapshots **14A.3 à 14A.6** sont débloqués ;
+ils construiront l'historique nécessaire pour juger le moteur, pour ≈ 435
+requêtes par jour, sous le plafond de 1 800.

@@ -1,16 +1,16 @@
 # Phase 14A — Snapshots quotidiens BigBallsData
 
-> **Statut : plan validé. 14A.1 et 14A.2 livrés le 14/11/2026 ; 14A.3 à 14A.6 à faire.**
+> **Statut : plan validé. 14A.1 et 14A.2 livrés le 14/11/2026 ; 14A.3 à 14A.6 débloqués le 18/11/2026 (phase 15 close) et à faire.**
 >
 > **Mise à jour du 16/11/2026 (phase 15).** La reconstruction a changé deux
 > hypothèses de ce plan : les équipes ne sont plus appariées par leur nom
 > (l'identifiant BigBallsData est stocké sur l'équipe et sur la rencontre), et le
 > référentiel compte désormais **145 équipes** réparties sur 7 compétitions. Le
 > coût des snapshots équipes passe donc de 114 à ≈ 435 requêtes par jour, ce qui
-> reste sous le plafond local de 1 800. Les snapshots 14A.3 à 14A.6 ne doivent
-> pas être lancés avant l'étape 7 de la phase 15. Les chiffres « 38 équipes » et
-> « 5 conflits de noms » cités ci-dessous sont ceux du plan d'origine, conservés
-> comme historique.
+> reste sous le plafond local de 1 800. **L'étape 7 de la phase 15 est terminée
+> le 18/11/2026 : les snapshots 14A.3 à 14A.6 sont débloqués.** Les chiffres
+> « 38 équipes » et « 5 conflits de noms » cités ci-dessous sont ceux du plan
+> d'origine, conservés comme historique.
 >
 > Objectif de la phase : **arrêter de dépendre de la mémoire du fournisseur** et
 > constituer nous-mêmes l'historique dont le moteur a besoin pour être jugé.
