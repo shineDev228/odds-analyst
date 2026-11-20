@@ -31,7 +31,7 @@ Application web personnelle d'analyse statistique sportive.
 | 13 — Cotes 1X2 dans la liste des rencontres | ✅ Terminée |
 | 14A.1 — Snapshots quotidiens | ✅ Terminée |
 | 14A.2 — Collecteur de résultats | ✅ Terminée |
-| 14A.3 à 14A.6 — Collecte quotidienne | ⏳ À reprendre (débloquées le 18/11/2026) |
+| 14A.3 à 14A.6 — Collecte quotidienne | ✅ Terminée le 20/11/2026 |
 | 15 — Reconstruction sur BigBallsData | ✅ Terminée le 18/11/2026 |
 
 > **Bilan de la phase 15.** Base reconstruite sur BigBallsData : **2 314
@@ -233,7 +233,7 @@ Cette contrainte garantit la fiabilité et la reproductibilité des calculs.
 ## Tests et qualité
 
 ```powershell
-# API et moteur (365 tests)
+# API et moteur (429 tests)
 uv run pytest
 
 # Analyse statique du code Python
@@ -273,6 +273,7 @@ Les tests s'exécutent sur une base SQLite en mémoire : la CI ne se connecte ni
 | Pannes courantes, ports, quotas | `docs/exploitation/depannage.md` |
 | Routes et erreurs de l'API | `docs/exploitation/api.md` |
 | Ligne de commande et mise à jour automatique | `docs/exploitation/cli.md` |
+| Snapshots quotidiens : passes, budget, planification | `docs/exploitation/snapshots.md` |
 | Phase 8 : décisions et tests | `docs/phases/phase-8-durcissement.md` |
 | Phase 9 : appariement et performance | `docs/phases/phase-9-appariement-performance.md` |
 | Phase 10 : marché « les deux équipes marquent » | `docs/phases/phase-10-btts.md` |

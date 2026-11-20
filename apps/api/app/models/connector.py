@@ -41,6 +41,8 @@ class SyncOperation(enum.StrEnum):
     ODDS = "odds"
     # xG et cotes de clôture des rencontres terminées (CSV public, étape 5).
     CSV = "csv"
+    # Snapshots quotidiens des équipes et du board marché (phase 14A).
+    SNAPSHOTS = "snapshots"
 
 
 class SyncRun(Base, TimestampMixin):

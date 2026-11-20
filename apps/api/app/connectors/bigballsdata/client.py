@@ -86,6 +86,35 @@ class BigBallsDataClient:
         rows = first.get("rows") if isinstance(first, dict) else None
         return [row for row in rows or [] if isinstance(row, dict)]
 
+    def get_team_elo(self, team_id: str) -> dict[str, Any]:
+        """Force Elo du jour ; le fournisseur la recalcule par lots."""
+        data = self._get(f"/v1/teams/{team_id}/elo")
+        return data if isinstance(data, dict) else {}
+
+    def get_team_stats(self, team_id: str) -> dict[str, Any]:
+        """Cumul de tous les matchs conservés par le fournisseur."""
+        data = self._get(f"/v1/teams/{team_id}/stats", {"sport": "football"})
+        return data if isinstance(data, dict) else {}
+
+    def get_team_season(self, team_id: str) -> dict[str, Any]:
+        """Splits de la saison en cours et dix derniers matchs."""
+        data = self._get(f"/v1/teams/{team_id}/season", {"sport": "football"})
+        return data if isinstance(data, dict) else {}
+
+    def list_games(self, *, league: str, day: str) -> list[dict[str, Any]]:
+        """Rencontres d'une compétition et d'une date UTC, cotes agrégées incluses."""
+        data = self._get(
+            "/v1/games",
+            {"sport": "football", "league": league, "date": day},
+        )
+        games = data.get("games") if isinstance(data, dict) else None
+        return [game for game in games or [] if isinstance(game, dict)]
+
+    def get_usage(self) -> dict[str, Any]:
+        """Quota réel annoncé par le fournisseur, pour recaler le compteur local."""
+        data = self._get("/v1/usage")
+        return data if isinstance(data, dict) else {}
+
 
 def _header_int(headers: Any, name: str) -> int | None:
     raw = headers.get(name)

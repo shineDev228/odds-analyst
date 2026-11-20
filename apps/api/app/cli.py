@@ -1,6 +1,6 @@
-"""Ligne de commande de synchronisation (phase 15, étape 6).
+"""Ligne de commande de synchronisation (phase 15, étape 6 ; phase 14A, étape 5).
 
-Six commandes, miroir exact des routes et des panneaux de la page
+Sept commandes, miroir exact des routes et des panneaux de la page
 Synchronisation. Aucune logique n'est dupliquée : chaque commande appelle le
 service utilisé par l'API.
 
@@ -10,13 +10,14 @@ service utilisé par l'API.
     uv run python -m app.cli csv-import
     uv run python -m app.cli odds-preview
     uv run python -m app.cli odds-import
+    uv run python -m app.cli snapshots --slot morning
 
 Codes de sortie :
 
     0   appliqué, ou rien à faire
     1   échec
     2   erreur d'usage (argument invalide)
-    3   partiel : une partie des compétitions a échoué
+    3   partiel : une partie des compétitions ou des étapes a échoué
 
 Aucune clé n'est affichée : les rapports ne contiennent que des compteurs et
 des messages du fournisseur.
@@ -27,8 +28,9 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager, suppress
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -38,12 +40,19 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models.connector import SyncRun
-from app.services import auto_sync, csv_sync, odds_sync
+from app.services import auto_sync, csv_sync, odds_sync, snapshots
 from app.services import synchronization as facts
 
 EXIT_OK = 0
 EXIT_FAILED = 1
 EXIT_PARTIAL = 3
+
+# Chaque passe du matin recharge les mêmes 20 rencontres par compétition que
+# la mise à jour automatique : au-delà, le budget BigBallsData ne suffit plus.
+SNAPSHOTS_STATS_LIMIT = 20
+_SNAP_SLOTS = ("morning", "evening")
+_SNAP_LABELS = {"morning": "matin", "evening": "soir"}
+_MAX_WARNINGS = 10
 
 # Statuts qui ne demandent aucune reprise.
 _OK = frozenset({"applied", "empty", "preview"})
@@ -64,6 +73,7 @@ _LEAGUES: dict[str, tuple[str, ...]] = {
     "csv-import": csv_sync.TRACKED_LEAGUES,
     "odds-preview": odds_sync.TRACKED_LEAGUES,
     "odds-import": odds_sync.TRACKED_LEAGUES,
+    "snapshots": facts.TRACKED_LEAGUES,
 }
 
 
@@ -156,6 +166,23 @@ def _code_for(status: str) -> int:
     if status == "partial":
         return EXIT_PARTIAL
     return EXIT_FAILED
+
+
+def _status_for(code: int) -> str:
+    if code == EXIT_FAILED:
+        return "failed"
+    if code == EXIT_PARTIAL:
+        return "partial"
+    return "applied"
+
+
+def _worst(codes: list[int]) -> int:
+    """Le pire code l'emporte : 1, puis 3, puis 0."""
+    if EXIT_FAILED in codes:
+        return EXIT_FAILED
+    if EXIT_PARTIAL in codes:
+        return EXIT_PARTIAL
+    return EXIT_OK
 
 
 def _json_default(value: Any) -> Any:
@@ -276,6 +303,70 @@ def _print_odds_import(report: odds_sync.OddsReport) -> None:
             print(f"    ! {warning}")
         if item.error:
             print(f"    ! {item.error}")
+
+
+@dataclass(slots=True)
+class _Step:
+    """Une étape de la passe quotidienne, déjà exécutée."""
+
+    libelle: str
+    status: str
+    payload: dict[str, Any]
+    render: Callable[[], None]
+
+    @property
+    def code(self) -> int:
+        return _code_for(self.status)
+
+
+def _print_warnings(warnings: list[str]) -> None:
+    for warning in warnings[:_MAX_WARNINGS]:
+        print(f"    ! {warning}")
+    if len(warnings) > _MAX_WARNINGS:
+        reste = len(warnings) - _MAX_WARNINGS
+        print(f"    ! … et {_n(reste)} autres avertissements.")
+
+
+def _print_snapshots(report: snapshots.SnapshotReport) -> None:
+    teams = report.teams
+    board = report.board
+    print(f"Snapshots BigBallsData — statut : {_label(report.status)}")
+    print(f"Créneau : {_SNAP_LABELS.get(report.slot, report.slot)}")
+    if report.error:
+        print(f"Erreur : {report.error}")
+    if teams.selected:
+        print(
+            f"Équipes : {_n(teams.written)} écrites sur {_n(teams.selected)} "
+            f"({_n(teams.created)} créées, {_n(teams.updated)} mises à jour, "
+            f"{_n(teams.unchanged)} inchangées, {_n(teams.skipped)} déjà relevées, "
+            f"{_n(teams.failed)} en échec)"
+        )
+    print(
+        f"Board : {_n(board.written)} relevés "
+        f"({_n(board.created)} créés, {_n(board.updated)} mis à jour) · "
+        f"{_n(board.no_odds)} sans cotes · {_n(board.too_late)} trop tard · "
+        f"{_n(board.unmatched)} sans correspondance"
+    )
+    if report.facts_standings:
+        print(f"Classements écrits par la passe de faits : {_n(report.facts_standings)}")
+    print(f"Requêtes BigBallsData : {_n(report.requests)}")
+    if report.quota_remaining is not None:
+        print(f"Quota restant : {_n(report.quota_remaining)}")
+    _print_warnings(report.warnings)
+    _print_warnings(teams.warnings)
+    _print_warnings(board.warnings)
+
+
+def _print_snapshots_pass(slot: str, steps: list[_Step], code: int) -> None:
+    libelle = _SNAP_LABELS.get(slot, slot)
+    total = len(steps)
+    print(f"Passe du {libelle} — {total} étape{'s' if total > 1 else ''}")
+    for index, step in enumerate(steps, start=1):
+        print()
+        print(f"[{index}/{total}] {step.libelle} — {_label(step.status)}")
+        step.render()
+    print()
+    print(f"Résultat de la passe du {libelle} : {_label(_status_for(code))} (code {code})")
 
 
 def _run_line(run: SyncRun | None) -> dict[str, Any] | None:
@@ -421,6 +512,180 @@ def _cmd_odds_import(args: argparse.Namespace) -> int:
     else:
         _print_odds_import(report)
     return _code_for(report.status)
+
+
+# --- Passe quotidienne (phase 14A) -----------------------------------------
+
+
+def _step_facts(args: argparse.Namespace) -> _Step:
+    """Passe de faits du matin : résultats, statistiques et classements."""
+    with _session() as db:
+        report = facts.run_sync(
+            db,
+            leagues=args.leagues,
+            include_stats=True,
+            include_standings=True,
+            stats_limit=SNAPSHOTS_STATS_LIMIT,
+        )
+        db.commit()
+    return _Step(
+        "Faits BigBallsData",
+        report.status,
+        report.as_dict(),
+        lambda: _print_facts(report),
+    )
+
+
+def _step_csv_download(args: argparse.Namespace) -> _Step:
+    with _session() as db:
+        report = csv_sync.download(db, leagues=args.leagues)
+        db.commit()
+    return _Step(
+        "Téléchargement CSV",
+        report.status,
+        report.as_dict(),
+        lambda: _print_csv_download(report),
+    )
+
+
+def _step_csv_import(args: argparse.Namespace) -> _Step:
+    """Importe les fichiers déjà téléchargés : aucun second téléchargement."""
+    with _session() as db:
+        report = csv_sync.run(db, leagues=args.leagues, refresh=False)
+        db.commit()
+    return _Step(
+        "Import CSV",
+        report.status,
+        report.as_dict(),
+        lambda: _print_csv_import(report),
+    )
+
+
+def _step_snapshots(
+    args: argparse.Namespace,
+    *,
+    slot: str,
+    include_teams: bool,
+    include_board: bool,
+    standings: int = 0,
+) -> _Step:
+    with _session() as db:
+        report = snapshots.run_snapshots(
+            db,
+            leagues=args.leagues,
+            force=args.force,
+            slot=slot,
+            include_teams=include_teams,
+            include_board=include_board,
+            facts_standings=standings,
+        )
+        db.commit()
+    return _Step(
+        "Snapshots BigBallsData",
+        report.status,
+        report.as_dict(),
+        lambda: _print_snapshots(report),
+    )
+
+
+def _attempt(
+    steps: list[_Step], libelle: str, action: Callable[[], _Step]
+) -> _Step | None:
+    """Exécute une étape ; une exception devient un échec isolé.
+
+    Une étape qui lève ne doit jamais annuler les suivantes : la passe du matin
+    reste utile même si les faits ou le CSV sont indisponibles.
+    """
+    try:
+        step = action()
+    except Exception as exc:  # une étape en panne n'arrête pas la passe
+        message = f"{exc.__class__.__name__} — {exc}"
+        print(f"Échec de l'étape « {libelle} » : {message}", file=sys.stderr)
+        step = _Step(
+            libelle,
+            "failed",
+            {"status": "failed", "error": message},
+            lambda: None,
+        )
+    steps.append(step)
+    return step
+
+
+def _cmd_snapshots(args: argparse.Namespace) -> int:
+    """Passe du matin ou du soir, étape par étape, sans jamais tout annuler."""
+    steps: list[_Step] = []
+    if args.slot == "morning":
+        standings = 0
+        if not args.no_facts:
+            done = _attempt(steps, "Faits BigBallsData", lambda: _step_facts(args))
+            if done is not None and done.code != EXIT_FAILED:
+                totals = done.payload.get("totals") or {}
+                standings = int(totals.get("standings_written", 0))
+        if not args.no_csv:
+            downloaded = _attempt(
+                steps, "Téléchargement CSV", lambda: _step_csv_download(args)
+            )
+            # Un téléchargement totalement échoué laisse les fichiers de la veille :
+            # l'import n'apporterait rien de neuf.
+            if downloaded is not None and downloaded.code != EXIT_FAILED:
+                _attempt(steps, "Import CSV", lambda: _step_csv_import(args))
+        if not (args.no_teams and args.no_board):
+            _attempt(
+                steps,
+                "Snapshots BigBallsData",
+                lambda: _step_snapshots(
+                    args,
+                    slot="morning",
+                    include_teams=not args.no_teams,
+                    include_board=not args.no_board,
+                    standings=standings,
+                ),
+            )
+    else:
+        # Le soir ne relève que le board : les équipes ne changent pas entre-temps.
+        _attempt(
+            steps,
+            "Snapshots BigBallsData",
+            lambda: _step_snapshots(
+                args,
+                slot="evening",
+                include_teams=False,
+                include_board=True,
+            ),
+        )
+
+    code = _worst([step.code for step in steps])
+    if args.json:
+        _print_json(
+            {
+                "slot": args.slot,
+                "status": _status_for(code),
+                "code": code,
+                "etapes": [
+                    {
+                        "etape": step.libelle,
+                        "status": step.status,
+                        "code": step.code,
+                        "rapport": step.payload,
+                    }
+                    for step in steps
+                ],
+            }
+        )
+    else:
+        _print_snapshots_pass(args.slot, steps, code)
+    return code
+
+
+def _snapshots_problem(args: argparse.Namespace) -> str | None:
+    """Refuse une passe qui ne ferait rien, avant d'ouvrir la moindre session."""
+    if args.slot == "evening":
+        if args.no_board:
+            return "La passe du soir ne relève que le board : retirez --no-board."
+        return None
+    if args.no_facts and args.no_csv and args.no_teams and args.no_board:
+        return "Toutes les étapes sont désactivées : rien à faire."
+    return None
 
 
 def _cmd_status(args: argparse.Namespace) -> int:
@@ -596,6 +861,51 @@ def build_parser() -> argparse.ArgumentParser:
     _add_json(p_odds)
     p_odds.set_defaults(handler=_cmd_odds_import)
 
+    p_snap = sub.add_parser(
+        "snapshots",
+        help="passe quotidienne : faits, CSV, équipes et board marché",
+        description=(
+            "Passe du matin : faits (statistiques et classements), CSV, puis "
+            "snapshots des équipes et board marché. Passe du soir : board seul, "
+            "au plus près de la clôture. Chaque étape ouvre sa propre session et "
+            "commite ; l'échec de l'une n'annule pas les autres."
+        ),
+    )
+    p_snap.add_argument(
+        "--slot",
+        required=True,
+        choices=_SNAP_SLOTS,
+        help="créneau : morning (passe complète) ou evening (board seul)",
+    )
+    _add_leagues(p_snap, facts.TRACKED_LEAGUES)
+    p_snap.add_argument(
+        "--no-facts",
+        action="store_true",
+        help="saute la passe de faits du matin",
+    )
+    p_snap.add_argument(
+        "--no-csv",
+        action="store_true",
+        help="saute le téléchargement et l'import CSV du matin",
+    )
+    p_snap.add_argument(
+        "--no-teams",
+        action="store_true",
+        help="ne relève pas les snapshots d'équipes",
+    )
+    p_snap.add_argument(
+        "--no-board",
+        action="store_true",
+        help="ne relève pas le board marché",
+    )
+    p_snap.add_argument(
+        "--force",
+        action="store_true",
+        help="rejoue une passe d'équipes déjà faite aujourd'hui",
+    )
+    _add_json(p_snap)
+    p_snap.set_defaults(handler=_cmd_snapshots)
+
     p_status = sub.add_parser(
         "status",
         help="état des trois sources, sans appel réseau",
@@ -621,6 +931,11 @@ def main(argv: list[str] | None = None) -> int:
             args.leagues = _parse_leagues(args.leagues, allowed)
         except ValueError as exc:
             parser.error(str(exc))
+
+    if args.command == "snapshots":
+        problem = _snapshots_problem(args)
+        if problem:
+            parser.error(problem)
 
     try:
         return int(args.handler(args))

@@ -1,6 +1,8 @@
 # Phase 14A — Snapshots quotidiens BigBallsData
 
-> **Statut : plan validé. 14A.1 et 14A.2 livrés le 14/11/2026 ; 14A.3 à 14A.6 débloqués le 18/11/2026 (phase 15 close) et à faire.**
+> **Statut : plan validé. 14A.1 et 14A.2 livrés le 14/11/2026 ; 14A.3 et 14A.4
+> livrés les 18 et 19/11/2026 ; 14A.5 livrée le 19/11/2026 ; 14A.6 vérifiée le
+> 20/11/2026.**
 >
 > **Mise à jour du 16/11/2026 (phase 15).** La reconstruction a changé deux
 > hypothèses de ce plan : les équipes ne sont plus appariées par leur nom
@@ -391,3 +393,121 @@ Avant d'écrire la moindre ligne de code, trois points doivent être validés :
 
 Si ces trois points sont acceptés, l'implémentation commence par 14A.1
 (modèle + migration), qui est réversible et ne touche à rien d'existant.
+
+---
+
+## 14. Journal de réalisation (18–20/11/2026)
+
+### 14A.3 — Snapshots d'équipes
+
+| Élément | Contenu livré |
+|---|---|
+| Client | `get_team_elo`, `get_team_stats`, `get_team_season`, `list_games`, `get_usage` |
+| Journal | `SyncOperation.SNAPSHOTS = "snapshots"` — **aucune migration** |
+| Normalisation | `NormalizedTeamSnapshot` + `map_team_snapshot` : valeurs du fournisseur, `source_as_of` = plus ancien des trois horodatages, `ties` → `draws`, valeur aberrante → `NULL` + avertissement |
+| Écriture | `upsert_team_snapshot` sur `(team_id, captured_on)` ; une valeur connue n'est jamais écrasée par `NULL` |
+| Service | `run_snapshots` + `_run_teams` : 145 équipes, budget lu avant chaque appel, arrêt propre sur 401/403/429, recalibrage `/v1/usage`, une ligne `sync_runs` par passe |
+| Tests | `test_snapshots_teams.py` — **21 tests** |
+
+### 14A.4 — Board marché, deux créneaux
+
+| Élément | Contenu livré |
+|---|---|
+| Normalisation | `NormalizedMarketBoard` + `map_market_board_snapshot` : cotes, total, `books_count`, dates UTC, créneau ; bornes `PRICE_MAX` |
+| Écriture | `upsert_board_snapshot` sur `(match_id, captured_on, snapshot_slot)` ; matin et soir coexistent, un rejeu met à jour sans doublon |
+| Collecte | 7 compétitions × 2 dates UTC (J et J+1) ; `game_id` → `matches.external_id`, **aucune création de rencontre** |
+| Garde-fous | `odds: null` → aucune ligne ; côté manquant → `NULL` ; rencontre commencée ou non `upcoming` → ignorée ; quatre cotes nulles → aucune ligne |
+| Rapport | `BoardCollectionReport`, journal enrichi (`slot`, `equipes`, `board`, `avertissements`) |
+| Tests | `test_snapshots_board.py` — **19 tests**, dont une passe combinée équipes + board |
+
+### 14A.5 — Déclencheur quotidien
+
+| Élément | Contenu livré |
+|---|---|
+| CLI | `snapshots --slot morning\|evening`, options `--leagues`, `--no-facts`, `--no-csv`, `--no-teams`, `--no-board`, `--force`, `--json` |
+| Matin | faits (statistiques + classements, plafond 20) → CSV (téléchargement puis import `refresh=False`) → équipes + board |
+| Soir | board seul, `include_teams=False` |
+| Isolation | une session et un commit par étape ; une exception devient un échec d'étape, la passe continue ; code final = pire des codes (`1` > `3` > `0`) |
+| Refus | passe vide (`evening --no-board`, ou matin avec les quatre `--no-…`) → code `2`, avant toute session |
+| Journal | `classements` recopiés depuis la passe de faits dans la ligne `snapshots` |
+| Script | `infra/scripts/snapshots.ps1` (`-Slot`, `-Leagues`, `-Force`, `-Json`) : `.venv\Scripts\python.exe` direct, `PYTHONPATH` et encodage fixés, code de sortie transmis |
+| Documentation | `docs/exploitation/snapshots.md` (nouvelle), `cli.md`, `guide-utilisation.md`, `README.md` |
+| Tests | `test_cli_snapshots.py` — **19 tests** (ordre, options, JSON sans clé, isolation, codes 0/1/2/3) |
+
+### Vérifications intermédiaires
+
+| Contrôle | Résultat |
+|---|---|
+| `pytest` | **424 tests verts** |
+| `ruff check app tests engine` | vert |
+| `mypy app engine` | vert, 102 fichiers |
+| `git diff apps/api/engine` / `apps/web` | **vides** |
+| Appels réseau pendant le développement | **aucun** |
+
+### 14A.6 — Vérification réelle et planification (20/11/2026)
+
+#### Passe réelle du matin
+
+| Mesure | Résultat |
+|---|---|
+| Code de sortie | `0` |
+| Équipes relevées | **145 / 145** |
+| Board | **5 relevés** créés (aucune rencontre sans cotes) |
+| Faits | 68 requêtes, 2 328 rencontres, classements du 19/11 |
+| CSV | 5 fichiers, import sans `refresh` |
+| Journal `snapshots` | `applied`, `equipes.ecrites` 145, `board.ecrites` 5, `requests_used` 450, `quota_remaining` 1 214 |
+| Total du matin | **518 requêtes** (68 faits + 435 équipes + 14 board + 1 quota) |
+| Crédits The Odds API | **0** |
+
+Une première tentative a été interrompue par un délai de commande après le
+commit des faits et du CSV : l'étape équipes n'avait **rien** écrit (0 ligne,
+aucun journal `snapshots`). La passe a été relancée en entier. Une étape
+interrompue ne doit donc jamais être considérée comme écrite.
+
+#### Deux défauts réels corrigés
+
+| Défaut observé | Correction |
+|---|---|
+| `/v1/games` renvoie tantôt des cotes américaines (`+114`, `-112`, `+2242`), tantôt décimales (`2,25`, `3`), et les premières étaient stockées telles quelles | `_price` convertit les magnitudes ≥ 100 (`+114` → `2,140`, `-112` → `1,893`) et conserve `1 < v < 100` ; `v ≤ 1` est rejeté avec avertissement ; arrondi au millième (`numeric(7,3)`) pour l'idempotence |
+| `/v1/usage` renvoie `remaining_today`, que le parseur ignorait | `_remaining_from_usage` lit `remaining_today` en premier, puis les anciens noms |
+| Le recalibrage pouvait relever le plafond local au-dessus de 1 800 (le fournisseur annonce 2 000/jour) | `usage.limit = min(usage.limit, usage.used + remaining)` : le budget du projet ne peut que se resserrer |
+
+Board rejoué après correctif : **33 relevés** (28 créés, 5 mis à jour), 3
+rencontres sans correspondance locale, 15 requêtes, quota local **1 785**.
+Les cotes stockées sont désormais toutes décimales, y compris pour les
+rencontres dont la réponse était en écriture américaine.
+
+#### Passe réelle du soir
+
+| Mesure | Résultat |
+|---|---|
+| Code de sortie | `0` |
+| Board | **33 relevés créés**, aucune cote rejetée, **1 rencontre trop tard** (coup d'envoi passé) |
+| Requêtes | **15** |
+| Quota restant | **1 770** |
+| Créneaux en base | `morning` **et** `evening` sur les mêmes rencontres (66 lignes, 0 doublon) |
+
+#### Planification Windows
+
+Deux tâches ont été installées (accord explicite de l'utilisateur) :
+
+| Tâche | Déclencheur | Action |
+|---|---|---|
+| `ODDS ANALYST - snapshots matin` | tous les jours à **06:30** | `powershell -File infra\scripts\snapshots.ps1 -Slot morning` |
+| `ODDS ANALYST - snapshots soir` | tous les jours à **18:30** | `powershell -File infra\scripts\snapshots.ps1 -Slot evening` |
+
+Les deux sont à l'état **Prêt**, démarrent au prochain allumage si l'heure est
+passée (`StartWhenAvailable`), sont relancées 3 fois à 15 minutes d'intervalle
+en cas d'échec et arrêtées au bout de 2 heures. Le déclencheur automatique de
+l'API reste activé comme filet de sécurité.
+
+#### Vérifications finales
+
+| Contrôle | Résultat |
+|---|---|
+| `pytest` | **429 tests verts** (21 min 40 s sur un poste chargé) |
+| `ruff check app tests engine` | vert |
+| `mypy app engine` | vert, 102 fichiers |
+| `git diff apps/api/engine` / `apps/web` | **vides** |
+| Doublons `(match_id, captured_on, snapshot_slot)` | **0** |
+| Version | **1.1.0** (aucune release) |

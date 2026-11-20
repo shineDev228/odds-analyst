@@ -384,9 +384,11 @@ powershell -ExecutionPolicy Bypass -File infra/scripts/sync.ps1 -Csv
 - `-OddsImport` : import payant des cotes, à demander explicitement ;
 - `-Status` : état des trois sources, en lecture seule.
 
-Le détail des six commandes, des options et de la planification Windows est
-dans [`docs/exploitation/cli.md`](exploitation/cli.md). Une commande qui échoue
-affiche un message court et un code de sortie (`0` réussi, `1` échec, `3`
+Le détail des sept commandes, des options et de la planification Windows est
+dans [`docs/exploitation/cli.md`](exploitation/cli.md). La collecte quotidienne
+(06:30 et 18:30) est décrite dans
+[`docs/exploitation/snapshots.md`](exploitation/snapshots.md). Une commande qui
+échoue affiche un message court et un code de sortie (`0` réussi, `1` échec, `3`
 partiel) : aucun secret n'y apparaît.
 
 ### 7.5 Vérifier que l'historique est suffisant
