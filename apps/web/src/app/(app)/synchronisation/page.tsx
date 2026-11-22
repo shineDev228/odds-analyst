@@ -924,11 +924,14 @@ export default function PageSynchronisation() {
         ) : null}
       </Section>
 
-      <Section
-        titre={`Compétitions suivies (${vue?.leagues.length ?? 0})`}
-        description="Ce que la base contient pour chaque compétition, et la dernière passe connue."
-      >
-        <div className="overflow-x-auto">
+      <details className="border-t border-bordure pt-5">
+        <summary className="flex cursor-pointer flex-wrap items-baseline justify-between gap-2 text-base font-medium text-texte">
+          <span>Compétitions suivies ({vue?.leagues.length ?? 0})</span>
+          <span className="text-[11px] font-normal text-texte-faible">
+            Ce que contient la base, et la dernière passe connue
+          </span>
+        </summary>
+        <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[640px] border-collapse text-xs">
             <thead>
               <tr className="border-b border-bordure text-left text-xs text-texte-faible">
@@ -960,12 +963,16 @@ export default function PageSynchronisation() {
             </tbody>
           </table>
         </div>
-      </Section>
+      </details>
 
-      <Section
-        titre="Journal des passes"
-        description="Une ligne par compétition et par passe. Aucune clé n'y figure."
-      >
+      <details className="border-t border-bordure pt-5">
+        <summary className="flex cursor-pointer flex-wrap items-baseline justify-between gap-2 text-base font-medium text-texte">
+          <span>Journal des passes</span>
+          <span className="text-[11px] font-normal text-texte-faible">
+            Une ligne par compétition et par passe
+          </span>
+        </summary>
+        <div className="mt-4">
         {(vue?.runs.length ?? 0) === 0 ? (
           <EtatVide>Aucune synchronisation enregistrée pour le moment.</EtatVide>
         ) : (
@@ -1010,7 +1017,8 @@ export default function PageSynchronisation() {
             </table>
           </div>
         )}
-      </Section>
+        </div>
+      </details>
     </div>
   );
 }
