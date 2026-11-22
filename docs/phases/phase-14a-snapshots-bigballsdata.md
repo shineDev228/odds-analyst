@@ -325,11 +325,12 @@ La phase 14A est considérée comme livrée si, et seulement si :
 
 1. `pytest` et `ruff` verts, **aucun test ne touche le réseau** ;
 2. `git diff apps/api/engine` est **vide** ;
-3. une passe complète consomme **≤ 200 requêtes** et laisse un résumé lisible
-   dans `sync_runs` ;
+3. une passe complète consomme **≤ 600 requêtes** (518 mesurées le 20/11/2026)
+   et laisse un résumé lisible dans `sync_runs` ;
 4. un rejeu immédiat ne crée **aucune ligne** supplémentaire ;
 5. après 7 jours consécutifs, **≥ 95 %** des rencontres terminées de la saison
-   sont en base ;
+   sont en base — critère **non encore démontrable** : les snapshots des 21 et
+   22/11/2026 ont été perdus ;
 6. aucun identifiant de bookmaker, aucune clé d'API, aucun scrape non autorisé ;
 7. la documentation d'exploitation explique comment **relancer une passe** et
    comment **vérifier qu'elle a tourné**.

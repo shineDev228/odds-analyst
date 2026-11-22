@@ -7,10 +7,11 @@
 > valables : aucune correction manuelle écrasée, aucune clé journalisée, aucun
 > scraping non autorisé.
 
-> **Statut : implémentée — en attente de validation.** Import automatique du
-> calendrier, des résultats, des statistiques et des **cotes 1xBet** via une
-> combinaison de sources gratuites et autorisées. La saisie manuelle reste
-> disponible comme secours et correction.
+> **Statut : terminée.** Import automatique du calendrier, des résultats, des
+> statistiques et des **cotes 1xBet** via une combinaison de sources gratuites
+> et autorisées. La saisie manuelle reste disponible comme secours et
+> correction. L'assemblage de trois connecteurs décrit ici a été remplacé par
+> la source unique BigBallsData (phase 15) ; voir la note ci-dessus.
 
 ## Objectif
 
@@ -733,9 +734,10 @@ page Connecteurs, puis vérifications complètes et documentation.
 
 ## Phase 7.1 — Fournisseur CSV `football_data_uk`
 
-> **Statut : implémentée — en attente de validation.** Ajout d'une source de
-> statistiques gratuite, sans clé et sans quota, en complément de
-> football-data.org pour le calendrier et de The Odds API pour les cotes.
+> **Statut : terminée.** Ajout d'une source de statistiques gratuite, sans clé
+> et sans quota, en complément de football-data.org pour le calendrier et de
+> The Odds API pour les cotes. L'enrichissement CSV `football_data_uk` reste
+> actif et alimente encore les statistiques (phase 14A).
 
 ### Objectif
 

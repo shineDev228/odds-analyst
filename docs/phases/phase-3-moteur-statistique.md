@@ -1,7 +1,8 @@
 # Phase 3 — Moteur statistique v1
 
-> **Statut : implémentée — en attente de validation.** Modèle football fondé sur
-> les buts, avec fourchettes d'incertitude obligatoires.
+> **Statut : terminée.** Modèle football fondé sur les buts, avec fourchettes
+> d'incertitude obligatoires. Le moteur v1 décrit ici a depuis été remplacé par
+> le moteur v2 (phase 6) ; ce document conserve la description du modèle initial.
 
 ## Objectif
 
