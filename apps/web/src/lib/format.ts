@@ -7,6 +7,16 @@ const formateurDateHeure = new Intl.DateTimeFormat("fr-FR", {
 
 const formateurDate = new Intl.DateTimeFormat("fr-FR", { dateStyle: "long" });
 
+const formateurDateCourte = new Intl.DateTimeFormat("fr-FR", {
+  day: "2-digit",
+  month: "2-digit",
+});
+
+const formateurHeure = new Intl.DateTimeFormat("fr-FR", {
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
 const formateurNombre = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 });
 
 export function formatDateHeure(iso: string | null | undefined): string {
@@ -21,6 +31,22 @@ export function formatDate(iso: string | null | undefined): string {
   const date = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(date.getTime())) return "—";
   return formateurDate.format(date);
+}
+
+/** Date courte « 22/11 », pensée pour les colonnes de tableau. */
+export function formatDateCourte(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return formateurDateCourte.format(date);
+}
+
+/** Heure seule « 20:45 », alignée avec la date courte. */
+export function formatHeure(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return formateurHeure.format(date);
 }
 
 export function formatNombre(valeur: number | null | undefined): string {

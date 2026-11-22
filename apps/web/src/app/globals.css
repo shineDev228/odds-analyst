@@ -1,30 +1,32 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   Jetons de design ODDS ANALYST — thème sombre
+   Jetons de design ODDS ANALYST — « registre »
    Toute couleur utilisée dans l'interface doit provenir de ces variables.
    --------------------------------------------------------------------------- */
 @theme {
-  --color-fond: #070b12;
-  --color-fond-panneau: #0f1722;
-  --color-fond-eleve: #16202e;
-  --color-bordure: #1e293b;
-  --color-bordure-forte: #2b3b52;
+  --color-fond: #0b100e;
+  --color-fond-panneau: #121a16;
+  --color-fond-eleve: #1a241e;
+  --color-bordure: #26332c;
+  --color-bordure-forte: #3a4a40;
 
-  --color-texte: #e6edf6;
-  --color-texte-doux: #94a3b8;
-  --color-texte-faible: #64748b;
+  --color-texte: #e9e6da;
+  --color-texte-doux: #9aa69e;
+  --color-texte-faible: #8a968d;
 
-  --color-accent: #22d3ee;
-  --color-accent-sombre: #0e7490;
+  --color-accent: #e1542e;
+  --color-accent-sombre: #a33a1f;
 
-  --color-succes: #34d399;
-  --color-alerte: #fbbf24;
-  --color-danger: #f87171;
+  --color-succes: #4fa87c;
+  --color-alerte: #d9a441;
+  --color-danger: #e06a58;
 
   --font-sans:
-    "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: "Cascadia Code", "Consolas", "SF Mono", monospace;
+    var(--font-archivo), "Segoe UI", system-ui, -apple-system, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-mono:
+    var(--font-plex-mono), "Cascadia Code", "Consolas", "SF Mono", monospace;
 }
 
 html {
@@ -35,6 +37,7 @@ body {
   background-color: var(--color-fond);
   color: var(--color-texte);
   font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
 }
 

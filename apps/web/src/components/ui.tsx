@@ -35,7 +35,7 @@ type VarianteBouton = "principal" | "secondaire" | "danger" | "discret";
 
 const stylesBouton: Record<VarianteBouton, string> = {
   principal:
-    "border-accent/40 bg-accent/15 text-accent hover:bg-accent/25 disabled:opacity-50",
+    "border-accent bg-accent text-fond hover:bg-accent/90 disabled:opacity-50",
   secondaire:
     "border-bordure-forte bg-fond-eleve text-texte hover:border-accent/40 hover:text-accent disabled:opacity-50",
   danger: "border-danger/40 bg-danger/10 text-danger hover:bg-danger/20 disabled:opacity-50",

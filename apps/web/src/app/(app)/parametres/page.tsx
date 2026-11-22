@@ -186,7 +186,7 @@ export default function PageParametres() {
               >
                 <input
                   type="checkbox"
-                  className="size-4 accent-cyan-400"
+                  className="size-4 accent-accent"
                   checked={preferences.marches_autorises.includes(marche.code)}
                   onChange={() => basculerMarche(marche.code)}
                 />

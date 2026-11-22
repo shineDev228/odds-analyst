@@ -5,17 +5,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   Alerte,
-  Badge,
   Bouton,
   Champ,
   Chargement,
-  EtatVide,
-  Panneau,
   Saisie,
   Selection,
 } from "@/components/ui";
 import { apiFetch, messageErreur } from "@/lib/api";
-import { datetimeLocalParDefaut, formatDateHeure } from "@/lib/format";
+import {
+  datetimeLocalParDefaut,
+  formatDateCourte,
+  formatDateHeure,
+  formatHeure,
+} from "@/lib/format";
 import type {
   Competition,
   Equipe,
@@ -46,12 +48,12 @@ const formVide: FormRencontre = {
   referee: "",
 };
 
-const tonsStatut: Record<StatutRencontre, "accent" | "succes" | "neutre" | "alerte" | "danger"> = {
-  programme: "accent",
-  en_cours: "alerte",
-  termine: "succes",
-  reporte: "neutre",
-  annule: "danger",
+const couleursStatut: Record<StatutRencontre, string> = {
+  programme: "bg-accent",
+  en_cours: "bg-alerte",
+  termine: "bg-succes",
+  reporte: "bg-texte-faible",
+  annule: "bg-danger",
 };
 
 function coteOuTiret(valeur: number | null): string {
@@ -62,48 +64,29 @@ function coteOuTiret(valeur: number | null): string {
   });
 }
 
-function Cote1x2({
-  libelle,
-  titre,
-  valeur,
-}: {
-  libelle: string;
-  titre: string;
-  valeur: number | null;
-}) {
-  return (
-    <span
-      title={`${titre} : ${coteOuTiret(valeur)}`}
-      className="flex min-w-11 flex-col items-center rounded-md border border-bordure px-1.5 py-0.5"
-    >
-      <span className="text-[9px] font-medium uppercase leading-none text-texte-faible">
-        {libelle}
-      </span>
-      <span className="mt-0.5 font-mono text-[11px] leading-none text-texte">
-        {coteOuTiret(valeur)}
-      </span>
-    </span>
-  );
+function indiceFavori(cotes: Rencontre["odds_1x2"]): number | null {
+  if (!cotes) return null;
+  const valeurs = [cotes.home, cotes.draw, cotes.away];
+  let indice: number | null = null;
+  let minimum = Number.POSITIVE_INFINITY;
+  valeurs.forEach((valeur, index) => {
+    if (valeur !== null && valeur < minimum) {
+      minimum = valeur;
+      indice = index;
+    }
+  });
+  return indice;
 }
 
-function ApercuCotes1x2({
-  cotes,
-  equipeDomicile,
-  equipeExterieur,
-}: {
-  cotes: Rencontre["odds_1x2"];
-  equipeDomicile: string;
-  equipeExterieur: string;
-}) {
-  if (!cotes || (cotes.home === null && cotes.draw === null && cotes.away === null)) {
-    return <span className="text-[10px] text-texte-faible">Aucune cote 1X2</span>;
-  }
+function CelluleCote({ valeur, favori }: { valeur: number | null; favori: boolean }) {
   return (
-    <div className="flex items-center gap-1" aria-label="Dernières cotes 1X2">
-      <Cote1x2 libelle="1" titre={equipeDomicile} valeur={cotes.home} />
-      <Cote1x2 libelle="X" titre="Match nul" valeur={cotes.draw} />
-      <Cote1x2 libelle="2" titre={equipeExterieur} valeur={cotes.away} />
-    </div>
+    <td
+      className={`px-1.5 py-2.5 text-right font-mono text-sm tabular-nums ${
+        favori && valeur !== null ? "font-medium text-texte" : "text-texte-doux"
+      }`}
+    >
+      {coteOuTiret(valeur)}
+    </td>
   );
 }
 
@@ -118,10 +101,13 @@ export default function PageRencontres() {
   const [succes, setSucces] = useState<string | null>(null);
   const [envoi, setEnvoi] = useState(false);
   const [form, setForm] = useState<FormRencontre>(formVide);
+  const [formOuvert, setFormOuvert] = useState(false);
 
   const [filtreCompetition, setFiltreCompetition] = useState("");
   const [filtreStatut, setFiltreStatut] = useState("");
   const [ordre, setOrdre] = useState<"asc" | "desc">("desc");
+
+  const filtreActif = filtreCompetition !== "" || filtreStatut !== "" || ordre !== "desc";
 
   const competitionChoisie = useMemo(
     () => competitions.find((item) => item.id === form.competition_id) ?? null,
@@ -217,6 +203,12 @@ export default function PageRencontres() {
     setTimeout(() => setSucces(null), 4000);
   }
 
+  function reinitialiserFiltres() {
+    setFiltreCompetition("");
+    setFiltreStatut("");
+    setOrdre("desc");
+  }
+
   async function creer(evenement: React.FormEvent<HTMLFormElement>) {
     evenement.preventDefault();
     setErreur(null);
@@ -252,6 +244,7 @@ export default function PageRencontres() {
         season_id: form.season_id,
         kickoff_at: datetimeLocalParDefaut(),
       });
+      setFormOuvert(false);
       await chargerRencontres(filtreCompetition, filtreStatut, ordre);
       signalerSucces("Rencontre créée.");
     } catch (error) {
@@ -262,219 +255,333 @@ export default function PageRencontres() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight">Rencontres</h1>
-        <p className="mt-1 text-xs text-texte-doux">
-          Calendrier, dernières cotes 1X2 et résultats. Ouvrez une rencontre pour
-          saisir ses statistiques et ses marchés.
-        </p>
+    <div className="flex flex-col">
+      <header className="flex flex-wrap items-end justify-between gap-4 pb-5">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Rencontres</h1>
+          <p className="mt-1 max-w-[62ch] text-sm leading-relaxed text-texte-doux">
+            Calendrier, cotes 1X2 et résultats. Ouvrez une rencontre pour saisir ses
+            statistiques et ses marchés.
+          </p>
+        </div>
+        <Bouton
+          variante={formOuvert ? "secondaire" : "principal"}
+          onClick={() => setFormOuvert((ouvert) => !ouvert)}
+          aria-expanded={formOuvert}
+          aria-controls="nouvelle-rencontre"
+        >
+          {formOuvert ? "Fermer" : "Ajouter une rencontre"}
+        </Bouton>
       </header>
 
-      {erreur ? <Alerte ton="erreur">{erreur}</Alerte> : null}
-      {succes ? <Alerte ton="succes">{succes}</Alerte> : null}
+      {erreur ? (
+        <div className="pb-4">
+          <Alerte ton="erreur">{erreur}</Alerte>
+        </div>
+      ) : null}
+      {succes ? (
+        <div className="pb-4">
+          <Alerte ton="succes">{succes}</Alerte>
+        </div>
+      ) : null}
 
-      <Panneau titre="Nouvelle rencontre">
-        <form onSubmit={creer} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Champ label="Compétition">
-            <Selection
-              required
-              value={form.competition_id}
-              onChange={(e) => void choisirCompetition(e.target.value)}
-            >
-              <option value="">—</option>
-              {competitions.map((competition) => (
-                <option key={competition.id} value={competition.id}>
-                  {competition.name}
-                </option>
-              ))}
-            </Selection>
-          </Champ>
-
-          <Champ label="Saison">
-            <Selection
-              required
-              value={form.season_id}
-              onChange={(e) => setForm({ ...form, season_id: e.target.value })}
-              disabled={saisons.length === 0}
-            >
-              <option value="">—</option>
-              {saisons.map((saison) => (
-                <option key={saison.id} value={saison.id}>
-                  {saison.label}
-                </option>
-              ))}
-            </Selection>
-          </Champ>
-
-          <Champ label="Équipe à domicile">
-            <Selection
-              required
-              value={form.home_team_id}
-              onChange={(e) => setForm({ ...form, home_team_id: e.target.value })}
-            >
-              <option value="">—</option>
-              {equipesDisponibles.map((equipe) => (
-                <option key={equipe.id} value={equipe.id}>
-                  {equipe.name}
-                </option>
-              ))}
-            </Selection>
-          </Champ>
-
-          <Champ label="Équipe à l'extérieur">
-            <Selection
-              required
-              value={form.away_team_id}
-              onChange={(e) => setForm({ ...form, away_team_id: e.target.value })}
-            >
-              <option value="">—</option>
-              {equipesDisponibles.map((equipe) => (
-                <option key={equipe.id} value={equipe.id}>
-                  {equipe.name}
-                </option>
-              ))}
-            </Selection>
-          </Champ>
-
-          <Champ label="Date et heure">
-            <Saisie
-              type="datetime-local"
-              required
-              value={form.kickoff_at}
-              onChange={(e) => setForm({ ...form, kickoff_at: e.target.value })}
-            />
-          </Champ>
-
-          <Champ label="Stade">
-            <Saisie
-              maxLength={120}
-              value={form.venue}
-              onChange={(e) => setForm({ ...form, venue: e.target.value })}
-            />
-          </Champ>
-
-          <Champ label="Arbitre">
-            <Saisie
-              maxLength={120}
-              value={form.referee}
-              onChange={(e) => setForm({ ...form, referee: e.target.value })}
-            />
-          </Champ>
-
-          <div className="flex items-end">
-            <Bouton type="submit" variante="principal" disabled={envoi} className="w-full py-2">
-              {envoi ? "Création…" : "Ajouter la rencontre"}
+      {formOuvert ? (
+        <section
+          id="nouvelle-rencontre"
+          className="mb-5 rounded-lg border border-bordure bg-fond-panneau p-4 sm:p-5"
+        >
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-base font-medium text-texte">Nouvelle rencontre</h2>
+            <Bouton variante="discret" onClick={() => setFormOuvert(false)}>
+              Annuler
             </Bouton>
           </div>
-        </form>
 
-        {form.competition_id && saisons.length === 0 ? (
-          <p className="mt-3 text-[11px] text-alerte">
-            Cette compétition n&apos;a pas encore de saison.{" "}
-            <Link href="/competitions" className="underline">
-              Ajoutez-en une
-            </Link>
-            .
-          </p>
-        ) : null}
-        {equipesDisponibles.length < 2 ? (
-          <p className="mt-3 text-[11px] text-alerte">
-            Il faut au moins deux équipes pour ce sport.{" "}
-            <Link href="/equipes" className="underline">
-              Créer des équipes
-            </Link>
-            .
-          </p>
-        ) : null}
-      </Panneau>
+          <form onSubmit={creer} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Champ label="Compétition">
+              <Selection
+                required
+                value={form.competition_id}
+                onChange={(e) => void choisirCompetition(e.target.value)}
+              >
+                <option value="">—</option>
+                {competitions.map((competition) => (
+                  <option key={competition.id} value={competition.id}>
+                    {competition.name}
+                  </option>
+                ))}
+              </Selection>
+            </Champ>
 
-      <Panneau
-        titre={`Rencontres (${total})`}
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            <Selection
-              aria-label="Filtrer par compétition"
-              value={filtreCompetition}
-              onChange={(e) => setFiltreCompetition(e.target.value)}
-              className="w-44"
-            >
-              <option value="">Toutes compétitions</option>
-              {competitions.map((competition) => (
-                <option key={competition.id} value={competition.id}>
-                  {competition.name}
-                </option>
-              ))}
-            </Selection>
-            <Selection
-              aria-label="Filtrer par statut"
-              value={filtreStatut}
-              onChange={(e) => setFiltreStatut(e.target.value)}
-              className="w-36"
-            >
-              <option value="">Tous statuts</option>
-              {Object.entries(statutsRencontre).map(([valeur, libelle]) => (
-                <option key={valeur} value={valeur}>
-                  {libelle}
-                </option>
-              ))}
-            </Selection>
-            <Selection
-              aria-label="Ordre chronologique"
-              value={ordre}
-              onChange={(e) => setOrdre(e.target.value as "asc" | "desc")}
-              className="w-32"
-            >
-              <option value="desc">Plus récentes</option>
-              <option value="asc">Plus anciennes</option>
-            </Selection>
-          </div>
-        }
-      >
-        {chargement ? (
-          <Chargement />
-        ) : rencontres.length === 0 ? (
-          <EtatVide>Aucune rencontre ne correspond à ces critères.</EtatVide>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {rencontres.map((rencontre) => (
-              <li key={rencontre.id}>
-                <Link
-                  href={`/rencontres/${rencontre.id}`}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-bordure bg-fond p-3 transition hover:border-accent/40"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-texte">
-                      {rencontre.home_team_name}{" "}
-                      <span className="text-texte-faible">—</span>{" "}
-                      {rencontre.away_team_name}
-                    </p>
-                    <p className="mt-0.5 truncate text-[11px] text-texte-faible">
-                      {rencontre.competition_name} · {rencontre.season_label} ·{" "}
-                      {formatDateHeure(rencontre.kickoff_at)}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center justify-end gap-3">
-                    <ApercuCotes1x2
-                      cotes={rencontre.odds_1x2}
-                      equipeDomicile={rencontre.home_team_name}
-                      equipeExterieur={rencontre.away_team_name}
-                    />
-                    {rencontre.home_score !== null || rencontre.away_score !== null ? (
-                      <span className="font-mono text-sm text-texte">
-                        {rencontre.home_score ?? "—"} : {rencontre.away_score ?? "—"}
+            <Champ label="Saison">
+              <Selection
+                required
+                value={form.season_id}
+                onChange={(e) => setForm({ ...form, season_id: e.target.value })}
+                disabled={saisons.length === 0}
+              >
+                <option value="">—</option>
+                {saisons.map((saison) => (
+                  <option key={saison.id} value={saison.id}>
+                    {saison.label}
+                  </option>
+                ))}
+              </Selection>
+            </Champ>
+
+            <Champ label="Équipe à domicile">
+              <Selection
+                required
+                value={form.home_team_id}
+                onChange={(e) => setForm({ ...form, home_team_id: e.target.value })}
+              >
+                <option value="">—</option>
+                {equipesDisponibles.map((equipe) => (
+                  <option key={equipe.id} value={equipe.id}>
+                    {equipe.name}
+                  </option>
+                ))}
+              </Selection>
+            </Champ>
+
+            <Champ label="Équipe à l'extérieur">
+              <Selection
+                required
+                value={form.away_team_id}
+                onChange={(e) => setForm({ ...form, away_team_id: e.target.value })}
+              >
+                <option value="">—</option>
+                {equipesDisponibles.map((equipe) => (
+                  <option key={equipe.id} value={equipe.id}>
+                    {equipe.name}
+                  </option>
+                ))}
+              </Selection>
+            </Champ>
+
+            <Champ label="Date et heure">
+              <Saisie
+                type="datetime-local"
+                required
+                value={form.kickoff_at}
+                onChange={(e) => setForm({ ...form, kickoff_at: e.target.value })}
+              />
+            </Champ>
+
+            <Champ label="Stade">
+              <Saisie
+                maxLength={120}
+                value={form.venue}
+                onChange={(e) => setForm({ ...form, venue: e.target.value })}
+              />
+            </Champ>
+
+            <Champ label="Arbitre">
+              <Saisie
+                maxLength={120}
+                value={form.referee}
+                onChange={(e) => setForm({ ...form, referee: e.target.value })}
+              />
+            </Champ>
+
+            <div className="flex items-end">
+              <Bouton type="submit" variante="principal" disabled={envoi} className="w-full">
+                {envoi ? "Création…" : "Créer la rencontre"}
+              </Bouton>
+            </div>
+          </form>
+
+          {form.competition_id && saisons.length === 0 ? (
+            <p className="mt-3 text-xs text-alerte">
+              Cette compétition n&apos;a pas encore de saison.{" "}
+              <Link href="/competitions" className="underline">
+                Ajoutez-en une
+              </Link>
+              .
+            </p>
+          ) : null}
+          {equipesDisponibles.length < 2 ? (
+            <p className="mt-3 text-xs text-alerte">
+              Il faut au moins deux équipes pour ce sport.{" "}
+              <Link href="/equipes" className="underline">
+                Créer des équipes
+              </Link>
+              .
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      <div className="flex flex-wrap items-center gap-2 border-y border-bordure py-3">
+        <Selection
+          aria-label="Filtrer par compétition"
+          value={filtreCompetition}
+          onChange={(e) => setFiltreCompetition(e.target.value)}
+          className="sm:w-44"
+        >
+          <option value="">Toutes compétitions</option>
+          {competitions.map((competition) => (
+            <option key={competition.id} value={competition.id}>
+              {competition.name}
+            </option>
+          ))}
+        </Selection>
+        <Selection
+          aria-label="Filtrer par statut"
+          value={filtreStatut}
+          onChange={(e) => setFiltreStatut(e.target.value)}
+          className="sm:w-36"
+        >
+          <option value="">Tous statuts</option>
+          {Object.entries(statutsRencontre).map(([valeur, libelle]) => (
+            <option key={valeur} value={valeur}>
+              {libelle}
+            </option>
+          ))}
+        </Selection>
+        <Selection
+          aria-label="Ordre chronologique"
+          value={ordre}
+          onChange={(e) => setOrdre(e.target.value as "asc" | "desc")}
+          className="sm:w-36"
+        >
+          <option value="desc">Plus récentes</option>
+          <option value="asc">Plus anciennes</option>
+        </Selection>
+        {filtreActif ? (
+          <Bouton variante="discret" onClick={reinitialiserFiltres}>
+            Réinitialiser
+          </Bouton>
+        ) : null}
+        <span className="ml-auto text-xs text-texte-faible">
+          {chargement
+            ? "Chargement…"
+            : `${rencontres.length} affichée${rencontres.length > 1 ? "s" : ""} sur ${total}`}
+        </span>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[680px] border-collapse text-left">
+          <caption className="sr-only">
+            Rencontres, avec leurs cotes 1X2, leur score et leur statut
+          </caption>
+          <thead>
+            <tr className="border-b border-bordure-forte text-[11px] text-texte-faible">
+              <th scope="col" className="py-2 pr-3 font-medium">
+                Date
+              </th>
+              <th scope="col" className="py-2 pr-3 font-medium">
+                Rencontre
+              </th>
+              <th scope="col" aria-label="Cote domicile" className="px-1.5 py-2 text-right font-medium">
+                1
+              </th>
+              <th scope="col" aria-label="Cote match nul" className="px-1.5 py-2 text-right font-medium">
+                X
+              </th>
+              <th scope="col" aria-label="Cote extérieur" className="px-1.5 py-2 text-right font-medium">
+                2
+              </th>
+              <th scope="col" className="py-2 pl-3 text-right font-medium">
+                Score
+              </th>
+              <th scope="col" className="py-2 pl-3 font-medium">
+                Statut
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {chargement ? (
+              <tr>
+                <td colSpan={7}>
+                  <Chargement />
+                </td>
+              </tr>
+            ) : rencontres.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="py-12 text-center">
+                  <p className="text-sm text-texte-doux">
+                    Aucune rencontre ne correspond à ces critères.
+                  </p>
+                  {filtreActif ? (
+                    <button
+                      type="button"
+                      onClick={reinitialiserFiltres}
+                      className="mt-2 text-xs text-accent hover:underline"
+                    >
+                      Réinitialiser les filtres
+                    </button>
+                  ) : null}
+                </td>
+              </tr>
+            ) : (
+              rencontres.map((rencontre) => {
+                const favori = indiceFavori(rencontre.odds_1x2);
+                const aUnScore =
+                  rencontre.home_score !== null || rencontre.away_score !== null;
+                return (
+                  <tr
+                    key={rencontre.id}
+                    className="group border-b border-bordure/70 transition-colors hover:bg-fond-panneau"
+                  >
+                    <td
+                      className="whitespace-nowrap py-2.5 pr-3"
+                      title={formatDateHeure(rencontre.kickoff_at)}
+                    >
+                      <span className="block text-xs text-texte-doux">
+                        {formatDateCourte(rencontre.kickoff_at)}
                       </span>
-                    ) : null}
-                    <Badge ton={tonsStatut[rencontre.status]}>
-                      {statutsRencontre[rencontre.status]}
-                    </Badge>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Panneau>
+                      <span className="block font-mono text-sm text-texte tabular-nums">
+                        {formatHeure(rencontre.kickoff_at)}
+                      </span>
+                    </td>
+                    <td className="py-2.5 pr-3">
+                      <Link href={`/rencontres/${rencontre.id}`} className="block">
+                        <span className="block text-sm font-medium text-texte group-hover:text-accent">
+                          {rencontre.home_team_name}{" "}
+                          <span className="text-texte-faible">—</span>{" "}
+                          {rencontre.away_team_name}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] text-texte-faible">
+                          {rencontre.competition_name} · {rencontre.season_label}
+                        </span>
+                      </Link>
+                    </td>
+                    <CelluleCote valeur={rencontre.odds_1x2?.home ?? null} favori={favori === 0} />
+                    <CelluleCote valeur={rencontre.odds_1x2?.draw ?? null} favori={favori === 1} />
+                    <CelluleCote valeur={rencontre.odds_1x2?.away ?? null} favori={favori === 2} />
+                    <td
+                      className={`py-2.5 pl-3 text-right font-mono text-sm tabular-nums ${
+                        aUnScore ? "text-texte" : "text-texte-faible"
+                      }`}
+                    >
+                      {aUnScore
+                        ? `${rencontre.home_score ?? "—"} : ${rencontre.away_score ?? "—"}`
+                        : "—"}
+                    </td>
+                    <td className="py-2.5 pl-3">
+                      <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[11px] text-texte-doux">
+                        <span
+                          aria-hidden
+                          className={`size-1.5 rounded-full ${couleursStatut[rencontre.status]}`}
+                        />
+                        {statutsRencontre[rencontre.status]}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {total > rencontres.length ? (
+        <p className="border-t border-bordure pt-3 text-[11px] text-texte-faible">
+          Affichage limité aux {rencontres.length} rencontres les plus récentes sur {total}.
+          Affinez les filtres pour voir les autres.
+        </p>
+      ) : null}
     </div>
   );
 }

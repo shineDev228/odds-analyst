@@ -15,7 +15,7 @@ const navigation = [
   { href: "/competitions", libelle: "Compétitions", symbole: "▤" },
   { href: "/synchronisation", libelle: "Synchronisation", symbole: "⇄" },
   { href: "/equipes", libelle: "Équipes", symbole: "◉" },
-  { href: "/rencontres", libelle: "Rencontres", symbole: "⚽" },
+  { href: "/rencontres", libelle: "Rencontres", symbole: "◈" },
   { href: "/combinaisons", libelle: "Combinaisons", symbole: "∑" },
   { href: "/historique", libelle: "Historique", symbole: "◷" },
   { href: "/calibration", libelle: "Calibration", symbole: "◎" },
@@ -92,12 +92,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        <nav aria-label="Navigation principale" className="px-3 pb-3 lg:flex-1">
-          <ul className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
+        <nav aria-label="Navigation principale" className="min-w-0 px-3 pb-3 lg:flex-1">
+          <ul className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:flex lg:flex-col">
             {navigation.map((item) => {
               const actif = chemin === item.href || chemin.startsWith(`${item.href}/`);
               return (
-                <li key={item.href} className="shrink-0 lg:w-full">
+                <li key={item.href} className="w-full">
                   <Link
                     href={item.href}
                     aria-current={actif ? "page" : undefined}
