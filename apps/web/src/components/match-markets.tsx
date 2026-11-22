@@ -9,8 +9,8 @@ import {
   Champ,
   Chargement,
   EtatVide,
-  Panneau,
   Saisie,
+  Section,
   Selection,
 } from "@/components/ui";
 import { apiFetch, messageErreur } from "@/lib/api";
@@ -125,6 +125,7 @@ export function PanneauMarches({
   const [succes, setSucces] = useState<string | null>(null);
   const [envoi, setEnvoi] = useState(false);
   const [form, setForm] = useState<FormMarche>(formVide);
+  const [formOuvert, setFormOuvert] = useState(false);
   const [filtreModele, setFiltreModele] = useState("");
   const [cotes, setCotes] = useState<Record<string, string>>({});
 
@@ -304,6 +305,7 @@ export function PanneauMarches({
         ...courant,
         selections: courant.selections.map((item) => ({ ...item, odds: "" })),
       }));
+      setFormOuvert(false);
       signalerSucces("Marché ajouté. Saisissez une nouvelle cote quand elle évolue.");
     } catch (error) {
       setErreur(messageErreur(error));
@@ -366,15 +368,30 @@ export function PanneauMarches({
   const typeLigne = modeleCourant?.line_kind ?? "libre";
 
   return (
-    <Panneau
+    <Section
       titre={`Marchés et cotes (${marches.length})`}
-      description="Saisie manuelle des cotes 1xBet. Chaque ajout crée un relevé horodaté : une cote n'est jamais écrasée. Les probabilités et la marge sont indicatives, jamais une certitude."
+      description="Saisie manuelle des cotes. Chaque ajout crée un relevé horodaté : une cote n'est jamais écrasée."
+      action={
+        <Bouton
+          variante={formOuvert ? "secondaire" : "principal"}
+          onClick={() => setFormOuvert((ouvert) => !ouvert)}
+          aria-expanded={formOuvert}
+          aria-controls="nouveau-marche"
+        >
+          {formOuvert ? "Fermer" : "Ajouter un marché"}
+        </Bouton>
+      }
     >
       <div className="flex flex-col gap-4">
         {erreur ? <Alerte ton="erreur">{erreur}</Alerte> : null}
         {succes ? <Alerte ton="succes">{succes}</Alerte> : null}
 
-        <form onSubmit={creerMarche} className="flex flex-col gap-4 rounded-xl border border-bordure bg-fond p-4">
+        {formOuvert ? (
+          <form
+            id="nouveau-marche"
+            onSubmit={creerMarche}
+            className="flex flex-col gap-4 rounded-lg border border-bordure bg-fond-panneau p-4"
+          >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <Champ label="Filtrer le catalogue" aide="Tapez « corners », « joueur », « total »…">
               <Saisie
@@ -405,7 +422,7 @@ export function PanneauMarches({
           </div>
 
           {form.template_code && modeleCourant ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-bordure-forte bg-fond-eleve px-3 py-2 text-[11px] text-texte-doux">
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-bordure-forte bg-fond-eleve px-3 py-2 text-xs text-texte-doux">
               <Badge ton="accent">{libelleFamille(modeleCourant.family)}</Badge>
               <span>{libellePeriode(modeleCourant.period)}</span>
               <span>·</span>
@@ -527,7 +544,7 @@ export function PanneauMarches({
                 + Ajouter une sélection
               </Bouton>
             </div>
-            <p className="mt-1 text-[11px] text-texte-faible">
+            <p className="mt-1 text-xs text-texte-faible">
               Laissez la cote vide pour créer le marché sans cote initiale. La cote doit être
               strictement supérieure à 1.
             </p>
@@ -597,7 +614,8 @@ export function PanneauMarches({
               {envoi ? "Ajout…" : "Ajouter le marché"}
             </Bouton>
           </div>
-        </form>
+          </form>
+        ) : null}
 
         {chargement ? (
           <Chargement libelle="Chargement des marchés…" />
@@ -614,12 +632,12 @@ export function PanneauMarches({
               return (
                 <article
                   key={marche.id}
-                  className="rounded-xl border border-bordure bg-fond p-4"
+                  className="border-t border-bordure pt-4 first:border-0 first:pt-0"
                 >
                   <header className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-sm font-semibold text-texte">{marche.name}</h3>
+                        <h3 className="text-base font-medium text-texte">{marche.name}</h3>
                         {marche.is_custom ? <Badge>Personnalisé</Badge> : null}
                         <Badge ton={marche.is_complete && !margeNegative ? "accent" : "alerte"}>
                           {marche.is_complete && marche.overround_percent !== null
@@ -634,7 +652,7 @@ export function PanneauMarches({
                             : "Cotes incomplètes"}
                         </Badge>
                       </div>
-                      <p className="mt-1 text-[11px] text-texte-faible">
+                      <p className="mt-1 text-xs text-texte-faible">
                         {libelleFamille(marche.family)} · {libellePeriode(marche.period)} ·{" "}
                         {libelleSujet(marche.subject)}
                         {ligne ? ` · ${ligne}` : ""}
@@ -643,13 +661,17 @@ export function PanneauMarches({
                           : ""}
                       </p>
                     </div>
-                    <Bouton variante="danger" onClick={() => void supprimerMarche(marche)}>
+                    <Bouton
+                      variante="discret"
+                      className="text-texte-faible hover:text-danger"
+                      onClick={() => void supprimerMarche(marche)}
+                    >
                       Supprimer
                     </Bouton>
                   </header>
 
                   {marche.is_complete && marche.implied_probability_total !== null ? (
-                    <p className="mt-2 text-[11px] text-texte-doux">
+                    <p className="mt-2 text-xs text-texte-doux">
                       Somme des probabilités implicites : {pourcent(marche.implied_probability_total)}
                       {" · "}les cotes équitables retirent la marge du bookmaker.
                       {margeNegative
@@ -664,14 +686,14 @@ export function PanneauMarches({
                       return (
                         <div
                           key={selection.id}
-                          className="rounded-lg border border-bordure-forte bg-fond-eleve p-3"
+                          className="rounded-md border border-bordure-forte bg-fond-eleve p-3"
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
                               <p className="truncate text-xs font-medium text-texte">
                                 {selection.label}
                               </p>
-                              <p className="mt-0.5 text-[11px] text-texte-faible">
+                              <p className="mt-0.5 text-xs text-texte-faible">
                                 Implicite {pourcent(selection.implied_probability)}
                                 {selection.fair_odds !== null
                                   ? ` · équitable ${cote(selection.fair_odds)}`
@@ -705,7 +727,7 @@ export function PanneauMarches({
                           </div>
 
                           {selection.history.length > 0 ? (
-                            <details className="mt-2 text-[11px] text-texte-faible">
+                            <details className="mt-2 text-xs text-texte-faible">
                               <summary className="cursor-pointer select-none">
                                 Historique ({selection.odds_count})
                               </summary>
@@ -742,7 +764,7 @@ export function PanneauMarches({
                   </div>
 
                   {marche.notes ? (
-                    <p className="mt-2 text-[11px] text-texte-doux">{marche.notes}</p>
+                    <p className="mt-2 text-xs text-texte-doux">{marche.notes}</p>
                   ) : null}
                 </article>
               );
@@ -750,6 +772,6 @@ export function PanneauMarches({
           </div>
         )}
       </div>
-    </Panneau>
+    </Section>
   );
 }

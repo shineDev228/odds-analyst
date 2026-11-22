@@ -4,13 +4,15 @@ import { useCallback, useEffect, useState } from "react";
 
 import {
   Alerte,
-  Badge,
   Bouton,
   Champ,
   Chargement,
+  EntetePage,
   EtatVide,
-  Panneau,
+  Indicateur,
+  Section,
   Selection,
+  Tableau,
 } from "@/components/ui";
 import { apiFetch, messageErreur } from "@/lib/api";
 import { formatDateHeure } from "@/lib/format";
@@ -35,34 +37,6 @@ function decimal(valeur: number | null, chiffres = 3): string {
   });
 }
 
-function Indicateur({
-  libelle,
-  valeur,
-  aide,
-  ton = "texte",
-}: {
-  libelle: string;
-  valeur: string;
-  aide?: string;
-  ton?: "succes" | "danger" | "texte" | "accent";
-}) {
-  const couleur =
-    ton === "succes"
-      ? "text-succes"
-      : ton === "danger"
-        ? "text-danger"
-        : ton === "accent"
-          ? "text-accent"
-          : "text-texte";
-  return (
-    <div className="rounded-xl border border-bordure bg-fond p-4">
-      <p className="text-[11px] text-texte-faible">{libelle}</p>
-      <p className={`mt-1 font-mono text-lg ${couleur}`}>{valeur}</p>
-      {aide ? <p className="mt-1 text-[10px] text-texte-faible">{aide}</p> : null}
-    </div>
-  );
-}
-
 function tonEcart(ecart: number): "danger" | "texte" {
   return Math.abs(ecart) > 0.02 ? "danger" : "texte";
 }
@@ -74,7 +48,7 @@ function classeTon(ton: "danger" | "texte"): string {
 function BarreFiabilite({ tranche }: { tranche: TrancheCalibration }) {
   return (
     <div
-      className="relative h-1.5 w-24 overflow-hidden rounded-full bg-fond-eleve"
+      className="relative h-1.5 w-32 overflow-hidden rounded-full bg-fond-eleve"
       role="img"
       aria-label={`Probabilité moyenne ${pourcent(tranche.mean_predicted)}, fréquence observée ${pourcent(tranche.observed)}`}
     >
@@ -94,14 +68,15 @@ function LigneTranche({ tranche }: { tranche: TrancheCalibration }) {
   if (tranche.count === 0) {
     return (
       <tr className="border-b border-bordure/60 last:border-0">
-        <td className="py-2 pr-3 font-mono text-texte-doux">
+        <td className="py-2 pr-3 font-mono text-xs text-texte-doux">
           {pourcent(tranche.low, false)} – {pourcent(tranche.high, false)}
         </td>
-        <td className="py-2 pr-3 text-right font-mono text-texte-faible">0</td>
-        <td className="py-2 pr-3 text-right font-mono text-texte-faible">—</td>
-        <td className="py-2 pr-3 text-right font-mono text-texte-faible">—</td>
-        <td className="py-2 pr-3 font-mono text-texte-faible">—</td>
-        <td className="py-2 text-texte-faible">Aucune prévision</td>
+        <td className="py-2 pr-3 text-right font-mono text-xs text-texte-faible">0</td>
+        <td className="py-2 pr-3 text-right font-mono text-xs text-texte-faible">—</td>
+        <td className="py-2 pr-3 text-right font-mono text-xs text-texte-faible">—</td>
+        <td className="py-2 pr-3 font-mono text-[11px] text-texte-faible">—</td>
+        <td className="py-2 pr-3 text-right font-mono text-xs text-texte-faible">—</td>
+        <td className="py-2 text-xs text-texte-faible">Aucune prévision</td>
       </tr>
     );
   }
@@ -109,20 +84,20 @@ function LigneTranche({ tranche }: { tranche: TrancheCalibration }) {
   const ecart = tranche.mean_predicted - tranche.observed;
   return (
     <tr className="border-b border-bordure/60 last:border-0">
-      <td className="py-2 pr-3 font-mono text-texte-doux">
+      <td className="py-2 pr-3 font-mono text-xs text-texte-doux">
         {pourcent(tranche.low, false)} – {pourcent(tranche.high, false)}
       </td>
-      <td className="py-2 pr-3 text-right font-mono text-texte">{tranche.count}</td>
-      <td className="py-2 pr-3 text-right font-mono text-texte">
+      <td className="py-2 pr-3 text-right font-mono text-xs text-texte">{tranche.count}</td>
+      <td className="py-2 pr-3 text-right font-mono text-xs text-texte">
         {pourcent(tranche.mean_predicted)}
       </td>
-      <td className="py-2 pr-3 text-right font-mono text-texte">
+      <td className="py-2 pr-3 text-right font-mono text-xs text-texte">
         {pourcent(tranche.observed)}
       </td>
-      <td className="py-2 pr-3 font-mono text-[10px] text-texte-doux">
+      <td className="py-2 pr-3 font-mono text-[11px] text-texte-doux">
         {pourcent(tranche.wilson_low)} – {pourcent(tranche.wilson_high)}
       </td>
-      <td className={`py-2 pr-3 text-right font-mono ${classeTon(tonEcart(ecart))}`}>
+      <td className={`py-2 pr-3 text-right font-mono text-xs ${classeTon(tonEcart(ecart))}`}>
         {pourcent(ecart, true)}
       </td>
       <td className="py-2">
@@ -158,69 +133,57 @@ export default function PageCalibration() {
   }, [charger]);
 
   return (
-    <div className="flex flex-col gap-5">
-      <header>
-        <h1 className="text-lg font-semibold tracking-tight">Calibration du modèle</h1>
-        <p className="mt-1 text-xs text-texte-doux">
-          Rétro-test honnête : chaque rencontre passée est pronostiquée avec uniquement
-          l&apos;historique antérieur à son coup d&apos;envoi, puis comparée au résultat réel.
-          Cet outil mesure le modèle ; il ne garantit aucune performance future.
-        </p>
-      </header>
+    <div className="flex flex-col gap-6">
+      <EntetePage
+        titre="Calibration du modèle"
+        description="Rétro-test honnête : chaque rencontre passée est pronostiquée avec uniquement l'historique antérieur à son coup d'envoi, puis comparée au résultat réel. Cet outil mesure le modèle ; il ne garantit aucune performance future."
+      />
 
       {erreur ? <Alerte ton="erreur">{erreur}</Alerte> : null}
 
-      <Panneau
-        titre="Paramètres du rétro-test"
-        description="Le nombre de rencontres récentes évaluées est plafonné pour garder un calcul rapide."
-        action={
-          <Bouton onClick={() => void charger()} disabled={chargement}>
-            {chargement ? "Calcul…" : "Actualiser"}
-          </Bouton>
-        }
-      >
-        <div className="max-w-xs">
-          <Champ
-            label="Rencontres évaluées au maximum"
-            aide="Les rencontres sans historique suffisant sont exclues et comptées."
+      <div className="flex flex-wrap items-end justify-between gap-3 border-t border-bordure pt-4">
+        <Champ
+          label="Rencontres évaluées au maximum"
+          aide="Les rencontres sans historique suffisant sont exclues et comptées."
+          className="w-full sm:w-64"
+        >
+          <Selection
+            value={limite}
+            onChange={(event) => setLimite(Number(event.target.value))}
+            disabled={chargement}
           >
-            <Selection
-              value={limite}
-              onChange={(event) => setLimite(Number(event.target.value))}
-              disabled={chargement}
-            >
-              {limites.map((valeur) => (
-                <option key={valeur} value={valeur}>
-                  {valeur} rencontres
-                </option>
-              ))}
-            </Selection>
-          </Champ>
-        </div>
-      </Panneau>
+            {limites.map((valeur) => (
+              <option key={valeur} value={valeur}>
+                {valeur} rencontres
+              </option>
+            ))}
+          </Selection>
+        </Champ>
+        <Bouton onClick={() => void charger()} disabled={chargement}>
+          {chargement ? "Calcul…" : "Actualiser"}
+        </Bouton>
+      </div>
 
       {chargement ? (
         <Chargement libelle="Reconstruction des prévisions passées…" />
       ) : !donnees ? null : donnees.matches_evaluated === 0 ? (
-        <Panneau titre="Résultat du rétro-test">
-          <div className="flex flex-col gap-3">
-            <Alerte ton="info">{donnees.message}</Alerte>
-            <EtatVide>
-              Saisissez des rencontres terminées avec leur score. Le modèle exige au moins
-              trois matchs terminés par équipe avant chaque rencontre évaluée ; les autres
-              sont exclues du calcul, jamais inventées.
-            </EtatVide>
-            {donnees.matches_excluded > 0 ? (
-              <p className="text-[11px] text-texte-faible">
-                {donnees.matches_excluded} rencontre(s) exclue(s) faute d&apos;historique
-                suffisant.
-              </p>
-            ) : null}
-          </div>
-        </Panneau>
+        <div className="flex flex-col gap-3">
+          <Alerte ton="info">{donnees.message}</Alerte>
+          <EtatVide>
+            Saisissez des rencontres terminées avec leur score. Le modèle exige au moins trois
+            matchs terminés par équipe avant chaque rencontre évaluée ; les autres sont exclues
+            du calcul, jamais inventées.
+          </EtatVide>
+          {donnees.matches_excluded > 0 ? (
+            <p className="text-[11px] text-texte-faible">
+              {donnees.matches_excluded} rencontre(s) exclue(s) faute d&apos;historique
+              suffisant.
+            </p>
+          ) : null}
+        </div>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <dl className="grid grid-cols-2 gap-x-8 gap-y-4 border-t border-bordure pt-4 sm:grid-cols-3 lg:grid-cols-6">
             <Indicateur
               libelle="Rencontres évaluées"
               valeur={String(donnees.matches_evaluated)}
@@ -245,7 +208,7 @@ export default function PageCalibration() {
             <Indicateur
               libelle="Compétence Brier"
               valeur={pourcent(donnees.brier_skill, true)}
-              aide="Comparaison aux fréquences de base de l'échantillon. Positif = meilleur que la base."
+              aide="Comparaison aux fréquences de base. Positif = meilleur que la base."
               ton={
                 donnees.brier_skill === null
                   ? "texte"
@@ -259,65 +222,53 @@ export default function PageCalibration() {
               valeur={pourcent(donnees.ece)}
               aide="Écart moyen entre probabilité annoncée et fréquence observée."
             />
-          </div>
+          </dl>
 
-          <Panneau
+          <Section
             titre="Tableau de fiabilité"
             description="Chaque probabilité 1X2 est rangée dans une tranche. La barre montre la fréquence observée ; le trait vertical indique la probabilité moyenne annoncée."
           >
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] border-collapse text-left text-[11px]">
-                <thead>
-                  <tr className="border-b border-bordure text-texte-faible">
-                    <th className="pb-2 pr-3 font-medium">Tranche</th>
-                    <th className="pb-2 pr-3 text-right font-medium">Effectif</th>
-                    <th className="pb-2 pr-3 text-right font-medium">Probabilité moyenne</th>
-                    <th className="pb-2 pr-3 text-right font-medium">Fréquence observée</th>
-                    <th className="pb-2 pr-3 font-medium">Intervalle Wilson 95 %</th>
-                    <th className="pb-2 pr-3 text-right font-medium">Écart</th>
-                    <th className="pb-2 font-medium">Fiabilité</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {donnees.bins.map((tranche) => (
-                    <LigneTranche key={`${tranche.low}-${tranche.high}`} tranche={tranche} />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Panneau>
+            <Tableau minWidth="760px">
+              <thead>
+                <tr className="border-b border-bordure text-[11px] text-texte-faible">
+                  <th className="pb-2 pr-3 font-medium">Tranche</th>
+                  <th className="pb-2 pr-3 text-right font-medium">Effectif</th>
+                  <th className="pb-2 pr-3 text-right font-medium">Probabilité moyenne</th>
+                  <th className="pb-2 pr-3 text-right font-medium">Fréquence observée</th>
+                  <th className="pb-2 pr-3 font-medium">Intervalle Wilson 95 %</th>
+                  <th className="pb-2 pr-3 text-right font-medium">Écart</th>
+                  <th className="pb-2 font-medium">Fiabilité</th>
+                </tr>
+              </thead>
+              <tbody>
+                {donnees.bins.map((tranche) => (
+                  <LigneTranche key={`${tranche.low}-${tranche.high}`} tranche={tranche} />
+                ))}
+              </tbody>
+            </Tableau>
+          </Section>
 
-          <Panneau titre="Couverture et période">
-            <div className="grid gap-3 text-[11px] text-texte-doux sm:grid-cols-3">
-              <div className="rounded-lg border border-bordure bg-fond p-3">
-                <p className="text-texte-faible">Période couverte</p>
-                <p className="mt-1 text-texte">
+          <Section titre="Couverture et période">
+            <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-3">
+              <div>
+                <dt className="text-[11px] text-texte-faible">Période couverte</dt>
+                <dd className="mt-1 text-xs text-texte">
                   {formatDateHeure(donnees.period_start)} →{" "}
                   {formatDateHeure(donnees.period_end)}
-                </p>
+                </dd>
               </div>
-              <div className="rounded-lg border border-bordure bg-fond p-3">
-                <p className="text-texte-faible">Couverture xG / tirs cadrés</p>
-                <p className="mt-1 font-mono text-texte">
-                  {pourcent(donnees.mean_xg_coverage)}
-                </p>
+              <Indicateur
+                libelle="Couverture xG / tirs cadrés"
+                valeur={pourcent(donnees.mean_xg_coverage)}
+              />
+              <div>
+                <dt className="text-[11px] text-texte-faible">Version du modèle</dt>
+                <dd className="mt-1 text-xs text-texte">{donnees.model_version}</dd>
               </div>
-              <div className="rounded-lg border border-bordure bg-fond p-3">
-                <p className="text-texte-faible">Version du modèle</p>
-                <p className="mt-1 flex items-center gap-2 text-texte">
-                  <Badge ton="accent">{donnees.model_version}</Badge>
-                </p>
-              </div>
-            </div>
-          </Panneau>
+            </dl>
+          </Section>
 
-          <Alerte ton="avertissement">
-            <p>{donnees.avertissement}</p>
-            <p className="mt-1">
-              Un échantillon faible ou une couverture xG partielle rendent ces indicateurs
-              instables. La calibration décrit le passé du modèle, pas ses résultats futurs.
-            </p>
-          </Alerte>
+          <Alerte ton="avertissement">{donnees.avertissement}</Alerte>
         </>
       )}
     </div>

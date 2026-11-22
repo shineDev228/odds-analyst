@@ -1,17 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 
 import {
   Alerte,
-  Badge,
   Bouton,
   Champ,
   Chargement,
+  EntetePage,
   EtatVide,
   Panneau,
   Saisie,
   Selection,
+  Tableau,
 } from "@/components/ui";
 import { apiFetch, messageErreur } from "@/lib/api";
 import { formatDate } from "@/lib/format";
@@ -35,6 +36,7 @@ export default function PageCompetitions() {
   const [succes, setSucces] = useState<string | null>(null);
   const [form, setForm] = useState<FormCompetition>(formVide);
   const [envoi, setEnvoi] = useState(false);
+  const [formOuvert, setFormOuvert] = useState(false);
 
   const [editionId, setEditionId] = useState<string | null>(null);
   const [edition, setEdition] = useState<FormCompetition>(formVide);
@@ -112,6 +114,7 @@ export default function PageCompetitions() {
         },
       });
       setForm({ ...formVide, sport_id: form.sport_id });
+      setFormOuvert(false);
       await chargerCompetitions(recherche);
       signalerSucces("Compétition créée.");
     } catch (error) {
@@ -232,241 +235,297 @@ export default function PageCompetitions() {
   }
 
   const nomSport = (id: string) => sports.find((sport) => sport.id === id)?.name ?? "—";
+  const competitionEnEdition = competitions.find((item) => item.id === editionId) ?? null;
 
   return (
     <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight">Compétitions</h1>
-        <p className="mt-1 text-xs text-texte-doux">
-          Organisez vos compétitions et leurs saisons. Les équipes et rencontres s&apos;y rattachent.
-        </p>
-      </header>
+      <EntetePage
+        titre="Compétitions"
+        description="Organisez les compétitions et leurs saisons. Les équipes et rencontres s'y rattachent."
+        action={
+          <Bouton
+            variante={formOuvert ? "secondaire" : "principal"}
+            onClick={() => setFormOuvert((ouvert) => !ouvert)}
+            aria-expanded={formOuvert}
+            aria-controls="nouvelle-competition"
+          >
+            {formOuvert ? "Fermer" : "Ajouter une compétition"}
+          </Bouton>
+        }
+      />
 
       {erreur ? <Alerte ton="erreur">{erreur}</Alerte> : null}
       {succes ? <Alerte ton="succes">{succes}</Alerte> : null}
 
-      <Panneau titre="Nouvelle compétition">
-        <form onSubmit={creer} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <Champ label="Sport">
-            <Selection
-              required
-              value={form.sport_id}
-              onChange={(e) => setForm({ ...form, sport_id: e.target.value })}
-            >
-              <option value="">—</option>
-              {sports.map((sport) => (
-                <option key={sport.id} value={sport.id}>
-                  {sport.name}
-                </option>
-              ))}
-            </Selection>
-          </Champ>
+      {formOuvert ? (
+        <Panneau
+          titre="Nouvelle compétition"
+          className="scroll-mt-4"
+        >
+          <div id="nouvelle-competition">
+            <form onSubmit={creer} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <Champ label="Sport">
+                <Selection
+                  required
+                  value={form.sport_id}
+                  onChange={(e) => setForm({ ...form, sport_id: e.target.value })}
+                >
+                  <option value="">—</option>
+                  {sports.map((sport) => (
+                    <option key={sport.id} value={sport.id}>
+                      {sport.name}
+                    </option>
+                  ))}
+                </Selection>
+              </Champ>
 
-          <Champ label="Nom">
-            <Saisie
-              required
-              minLength={2}
-              maxLength={120}
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="Ligue 1"
-            />
-          </Champ>
+              <Champ label="Nom">
+                <Saisie
+                  required
+                  minLength={2}
+                  maxLength={120}
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="Ligue 1"
+                />
+              </Champ>
 
-          <Champ label="Pays">
-            <Saisie
-              maxLength={80}
-              value={form.country}
-              onChange={(e) => setForm({ ...form, country: e.target.value })}
-              placeholder="France"
-            />
-          </Champ>
+              <Champ label="Pays">
+                <Saisie
+                  maxLength={80}
+                  value={form.country}
+                  onChange={(e) => setForm({ ...form, country: e.target.value })}
+                  placeholder="France"
+                />
+              </Champ>
 
-          <Champ label="Niveau" aide="1 = élite">
-            <Saisie
-              type="number"
-              min={1}
-              max={10}
-              value={form.tier}
-              onChange={(e) => setForm({ ...form, tier: e.target.value })}
-            />
-          </Champ>
+              <Champ label="Niveau" aide="1 = élite">
+                <Saisie
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={form.tier}
+                  onChange={(e) => setForm({ ...form, tier: e.target.value })}
+                />
+              </Champ>
 
-          <div className="flex items-end">
-            <Bouton type="submit" variante="principal" disabled={envoi} className="w-full py-2">
-              {envoi ? "Création…" : "Ajouter"}
-            </Bouton>
+              <div className="flex items-end">
+                <Bouton type="submit" variante="principal" disabled={envoi} className="w-full">
+                  {envoi ? "Création…" : "Ajouter"}
+                </Bouton>
+              </div>
+            </form>
           </div>
-        </form>
-      </Panneau>
+        </Panneau>
+      ) : null}
 
-      <Panneau
-        titre={`Compétitions (${competitions.length})`}
-        action={
-          <Saisie
-            placeholder="Rechercher…"
-            value={recherche}
-            onChange={(e) => setRecherche(e.target.value)}
-            className="w-48"
-            aria-label="Rechercher une compétition"
-          />
-        }
-      >
-        {chargement ? (
-          <Chargement />
-        ) : competitions.length === 0 ? (
-          <EtatVide>Aucune compétition enregistrée.</EtatVide>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {competitions.map((competition) => (
-              <li
-                key={competition.id}
-                className="rounded-xl border border-bordure bg-fond p-3"
+      {competitionEnEdition ? (
+        <Panneau titre={`Modifier « ${competitionEnEdition.name} »`}>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Champ label="Nom">
+              <Saisie
+                value={edition.name}
+                onChange={(e) => setEdition({ ...edition, name: e.target.value })}
+              />
+            </Champ>
+            <Champ label="Pays">
+              <Saisie
+                value={edition.country}
+                onChange={(e) => setEdition({ ...edition, country: e.target.value })}
+              />
+            </Champ>
+            <Champ label="Niveau">
+              <Saisie
+                type="number"
+                min={1}
+                max={10}
+                value={edition.tier}
+                onChange={(e) => setEdition({ ...edition, tier: e.target.value })}
+              />
+            </Champ>
+            <div className="flex items-end gap-2">
+              <Bouton
+                variante="principal"
+                onClick={() => void enregistrerEdition(competitionEnEdition)}
               >
-                {editionId === competition.id ? (
-                  <div className="grid gap-3 sm:grid-cols-4">
-                    <Champ label="Nom">
-                      <Saisie
-                        value={edition.name}
-                        onChange={(e) => setEdition({ ...edition, name: e.target.value })}
-                      />
-                    </Champ>
-                    <Champ label="Pays">
-                      <Saisie
-                        value={edition.country}
-                        onChange={(e) => setEdition({ ...edition, country: e.target.value })}
-                      />
-                    </Champ>
-                    <Champ label="Niveau">
-                      <Saisie
-                        type="number"
-                        min={1}
-                        max={10}
-                        value={edition.tier}
-                        onChange={(e) => setEdition({ ...edition, tier: e.target.value })}
-                      />
-                    </Champ>
-                    <div className="flex items-end gap-2">
-                      <Bouton
-                        variante="principal"
-                        onClick={() => void enregistrerEdition(competition)}
-                      >
-                        Enregistrer
-                      </Bouton>
-                      <Bouton variante="discret" onClick={() => setEditionId(null)}>
-                        Annuler
-                      </Bouton>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-medium text-texte">{competition.name}</p>
-                        {competition.is_active ? (
-                          <Badge ton="succes">Active</Badge>
-                        ) : (
-                          <Badge ton="neutre">Inactive</Badge>
-                        )}
-                      </div>
-                      <p className="mt-0.5 text-[11px] text-texte-faible">
-                        {nomSport(competition.sport_id)}
-                        {competition.country ? ` · ${competition.country}` : ""}
-                        {competition.tier ? ` · niveau ${competition.tier}` : ""}
-                      </p>
-                    </div>
+                Enregistrer
+              </Bouton>
+              <Bouton variante="discret" onClick={() => setEditionId(null)}>
+                Annuler
+              </Bouton>
+            </div>
+          </div>
+        </Panneau>
+      ) : null}
 
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Bouton onClick={() => void basculerSaisons(competition)}>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-y border-bordure py-3">
+        <p className="text-xs text-texte-faible">
+          {competitions.length} compétition{competitions.length > 1 ? "s" : ""}
+        </p>
+        <Saisie
+          placeholder="Rechercher…"
+          value={recherche}
+          onChange={(e) => setRecherche(e.target.value)}
+          className="sm:w-56"
+          aria-label="Rechercher une compétition"
+        />
+      </div>
+
+      {chargement ? (
+        <Chargement />
+      ) : competitions.length === 0 ? (
+        <EtatVide>Aucune compétition enregistrée.</EtatVide>
+      ) : (
+        <Tableau minWidth="720px">
+          <thead>
+            <tr className="border-b border-bordure-forte text-[11px] text-texte-faible">
+              <th className="py-2 pr-3 font-medium">Compétition</th>
+              <th className="py-2 pr-3 font-medium">Sport</th>
+              <th className="py-2 pr-3 font-medium">Pays</th>
+              <th className="py-2 pr-3 text-right font-medium">Niveau</th>
+              <th className="py-2 text-right font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {competitions.map((competition) => (
+              <Fragment key={competition.id}>
+                <tr className="border-b border-bordure/70 hover:bg-fond-panneau">
+                  <td className="py-2.5 pr-3">
+                    <p className="text-sm text-texte">{competition.name}</p>
+                    <span className="mt-0.5 inline-flex items-center gap-1.5 text-[11px] text-texte-faible">
+                      <span
+                        aria-hidden
+                        className={`size-1.5 rounded-full ${
+                          competition.is_active ? "bg-succes" : "bg-texte-faible"
+                        }`}
+                      />
+                      {competition.is_active ? "Active" : "Inactive"}
+                    </span>
+                  </td>
+                  <td className="py-2.5 pr-3 text-xs text-texte-doux">
+                    {nomSport(competition.sport_id)}
+                  </td>
+                  <td className="py-2.5 pr-3 text-xs text-texte-doux">
+                    {competition.country ?? "—"}
+                  </td>
+                  <td className="py-2.5 pr-3 text-right font-mono text-xs text-texte-doux">
+                    {competition.tier ?? "—"}
+                  </td>
+                  <td className="py-2.5">
+                    <div className="flex flex-wrap justify-end gap-1">
+                      <Bouton
+                        variante="discret"
+                        className="h-8 px-2 text-xs"
+                        onClick={() => void basculerSaisons(competition)}
+                      >
                         Saisons
                       </Bouton>
-                      <Bouton onClick={() => ouvrirEdition(competition)}>Modifier</Bouton>
-                      <Bouton variante="discret" onClick={() => void basculerActive(competition)}>
+                      <Bouton
+                        variante="discret"
+                        className="h-8 px-2 text-xs"
+                        onClick={() => ouvrirEdition(competition)}
+                      >
+                        Modifier
+                      </Bouton>
+                      <Bouton
+                        variante="discret"
+                        className="h-8 px-2 text-xs"
+                        onClick={() => void basculerActive(competition)}
+                      >
                         {competition.is_active ? "Désactiver" : "Activer"}
                       </Bouton>
-                      <Bouton variante="danger" onClick={() => void supprimer(competition)}>
+                      <Bouton
+                        variante="discret"
+                        className="h-8 px-2 text-xs text-texte-faible hover:text-danger"
+                        onClick={() => void supprimer(competition)}
+                      >
                         Supprimer
                       </Bouton>
                     </div>
-                  </div>
-                )}
+                  </td>
+                </tr>
 
                 {ouverteId === competition.id ? (
-                  <div className="mt-3 border-t border-bordure pt-3">
-                    {(saisons[competition.id] ?? []).length === 0 ? (
-                      <p className="text-[11px] text-texte-faible">
-                        Aucune saison : ajoutez-en une pour pouvoir créer des rencontres.
-                      </p>
-                    ) : (
-                      <ul className="flex flex-col gap-1.5">
-                        {(saisons[competition.id] ?? []).map((saison) => (
-                          <li
-                            key={saison.id}
-                            className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-bordure/70 px-3 py-2"
-                          >
-                            <div>
-                              <p className="text-xs text-texte">{saison.label}</p>
-                              <p className="text-[11px] text-texte-faible">
-                                {saison.start_date ? formatDate(saison.start_date) : "début ?"}
-                                {" → "}
-                                {saison.end_date ? formatDate(saison.end_date) : "fin ?"}
-                              </p>
-                            </div>
-                            <Bouton
-                              variante="danger"
-                              onClick={() => void supprimerSaison(competition.id, saison)}
+                  <tr className="border-b border-bordure/70 bg-fond-panneau">
+                    <td colSpan={5} className="px-4 py-3">
+                      {(saisons[competition.id] ?? []).length === 0 ? (
+                        <p className="text-xs text-texte-faible">
+                          Aucune saison : ajoutez-en une pour pouvoir créer des rencontres.
+                        </p>
+                      ) : (
+                        <ul className="flex flex-col gap-1">
+                          {(saisons[competition.id] ?? []).map((saison) => (
+                            <li
+                              key={saison.id}
+                              className="flex flex-wrap items-center justify-between gap-2 border-b border-bordure/60 py-1.5 last:border-0"
                             >
-                              Supprimer
-                            </Bouton>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                              <div>
+                                <p className="text-xs text-texte">{saison.label}</p>
+                                <p className="text-[11px] text-texte-faible">
+                                  {saison.start_date ? formatDate(saison.start_date) : "début ?"}
+                                  {" → "}
+                                  {saison.end_date ? formatDate(saison.end_date) : "fin ?"}
+                                </p>
+                              </div>
+                              <Bouton
+                                variante="discret"
+                                className="h-8 px-2 text-xs"
+                                onClick={() => void supprimerSaison(competition.id, saison)}
+                              >
+                                Supprimer
+                              </Bouton>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
 
-                    <div className="mt-3 grid gap-2 sm:grid-cols-4">
-                      <Champ label="Libellé">
-                        <Saisie
-                          value={formSaison.label}
-                          onChange={(e) => setFormSaison({ ...formSaison, label: e.target.value })}
-                          placeholder="2026-2027"
-                        />
-                      </Champ>
-                      <Champ label="Début">
-                        <Saisie
-                          type="date"
-                          value={formSaison.start_date}
-                          onChange={(e) =>
-                            setFormSaison({ ...formSaison, start_date: e.target.value })
-                          }
-                        />
-                      </Champ>
-                      <Champ label="Fin">
-                        <Saisie
-                          type="date"
-                          value={formSaison.end_date}
-                          onChange={(e) =>
-                            setFormSaison({ ...formSaison, end_date: e.target.value })
-                          }
-                        />
-                      </Champ>
-                      <div className="flex items-end">
-                        <Bouton
-                          variante="principal"
-                          className="w-full py-2"
-                          disabled={formSaison.label.trim().length < 2}
-                          onClick={() => void ajouterSaison(competition.id)}
-                        >
-                          Ajouter la saison
-                        </Bouton>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                        <Champ label="Libellé">
+                          <Saisie
+                            value={formSaison.label}
+                            onChange={(e) =>
+                              setFormSaison({ ...formSaison, label: e.target.value })
+                            }
+                            placeholder="2026-2027"
+                          />
+                        </Champ>
+                        <Champ label="Début">
+                          <Saisie
+                            type="date"
+                            value={formSaison.start_date}
+                            onChange={(e) =>
+                              setFormSaison({ ...formSaison, start_date: e.target.value })
+                            }
+                          />
+                        </Champ>
+                        <Champ label="Fin">
+                          <Saisie
+                            type="date"
+                            value={formSaison.end_date}
+                            onChange={(e) =>
+                              setFormSaison({ ...formSaison, end_date: e.target.value })
+                            }
+                          />
+                        </Champ>
+                        <div className="flex items-end">
+                          <Bouton
+                            variante="principal"
+                            className="w-full"
+                            disabled={formSaison.label.trim().length < 2}
+                            onClick={() => void ajouterSaison(competition.id)}
+                          >
+                            Ajouter la saison
+                          </Bouton>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    </td>
+                  </tr>
                 ) : null}
-              </li>
+              </Fragment>
             ))}
-          </ul>
-        )}
-      </Panneau>
+          </tbody>
+        </Tableau>
+      )}
     </div>
   );
 }

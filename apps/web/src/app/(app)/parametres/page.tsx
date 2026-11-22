@@ -7,21 +7,17 @@ import {
   Bouton,
   Champ,
   Chargement,
+  EntetePage,
   Panneau,
   Saisie,
 } from "@/components/ui";
 import { apiFetch, messageErreur } from "@/lib/api";
+import { marchesDisponibles } from "@/lib/marches";
 import type { Preferences } from "@/lib/types";
-
-const marchesDisponibles = [
-  { code: "1X2", libelle: "1X2 (résultat du match)" },
-  { code: "DOUBLE_CHANCE", libelle: "Double chance" },
-  { code: "PLUS_MOINS", libelle: "Plus / moins de buts" },
-  { code: "BTTS", libelle: "Les deux équipes marquent" },
-];
 
 export default function PageParametres() {
   const [preferences, setPreferences] = useState<Preferences | null>(null);
+  const [reference, setReference] = useState<Preferences | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
   const [enregistrement, setEnregistrement] = useState(false);
@@ -31,7 +27,10 @@ export default function PageParametres() {
     void (async () => {
       try {
         const donnees = await apiFetch<Preferences>("/v1/settings");
-        if (actif) setPreferences(donnees);
+        if (actif) {
+          setPreferences(donnees);
+          setReference(donnees);
+        }
       } catch (error) {
         if (actif) setErreur(messageErreur(error));
       }
@@ -53,6 +52,7 @@ export default function PageParametres() {
         corps: preferences,
       });
       setPreferences(donnees);
+      setReference(donnees);
       setSucces("Préférences enregistrées.");
       setTimeout(() => setSucces(null), 4000);
     } catch (error) {
@@ -77,24 +77,25 @@ export default function PageParametres() {
     return erreur ? <Alerte ton="erreur">{erreur}</Alerte> : <Chargement />;
   }
 
+  const modifie =
+    reference !== null && JSON.stringify(preferences) !== JSON.stringify(reference);
+
   return (
     <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight">Paramètres</h1>
-        <p className="mt-1 text-xs text-texte-doux">
-          Ces valeurs orientent le moteur statistique et le générateur de combinaisons.
-        </p>
-      </header>
+      <EntetePage
+        titre="Paramètres"
+        description="Ces valeurs orientent le moteur statistique et le générateur de combinaisons."
+      />
 
       {erreur ? <Alerte ton="erreur">{erreur}</Alerte> : null}
       {succes ? <Alerte ton="succes">{succes}</Alerte> : null}
 
       <form onSubmit={enregistrer} className="flex flex-col gap-6">
         <Panneau
-          titre="Combinaisons de cotes"
-          description="Fourchette de cote totale visée et nombre de sélections par défaut."
+          titre="Modèle et combinaisons"
+          description="Fourchette de cote visée, nombre de sélections et fenêtre d'analyse du moteur."
         >
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <Champ label="Cote minimale">
               <Saisie
                 type="number"
@@ -151,14 +152,6 @@ export default function PageParametres() {
                 }
               />
             </Champ>
-          </div>
-        </Panneau>
-
-        <Panneau
-          titre="Moteur statistique"
-          description="Demi-vie de pondération : plus la valeur est faible, plus les matchs récents comptent."
-        >
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Champ label="Demi-vie (jours)" aide="Entre 30 et 730 jours">
               <Saisie
                 type="number"
@@ -172,45 +165,56 @@ export default function PageParametres() {
               />
             </Champ>
           </div>
-        </Panneau>
 
-        <Panneau
-          titre="Marchés autorisés"
-          description="Seuls ces marchés seront proposés dans les combinaisons."
-        >
-          <div className="flex flex-col gap-2">
-            {marchesDisponibles.map((marche) => (
-              <label
-                key={marche.code}
-                className="flex cursor-pointer items-center gap-3 rounded-lg border border-bordure px-3 py-2 text-xs text-texte-doux transition hover:border-accent/40"
-              >
-                <input
-                  type="checkbox"
-                  className="size-4 accent-accent"
-                  checked={preferences.marches_autorises.includes(marche.code)}
-                  onChange={() => basculerMarche(marche.code)}
-                />
-                {marche.libelle}
-              </label>
-            ))}
+          <div className="mt-5 border-t border-bordure pt-4">
+            <p className="text-xs font-medium text-texte-doux">Marchés autorisés</p>
+            <p className="mt-1 text-[11px] text-texte-faible">
+              Seuls ces marchés seront proposés dans les combinaisons.
+            </p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {marchesDisponibles.map((marche) => (
+                <label
+                  key={marche.code}
+                  className="flex cursor-pointer items-center gap-3 rounded-md border border-bordure px-3 py-2 text-xs text-texte-doux transition hover:border-accent/40"
+                >
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-accent"
+                    checked={preferences.marches_autorises.includes(marche.code)}
+                    onChange={() => basculerMarche(marche.code)}
+                  />
+                  {marche.libelle}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-bordure pt-4">
+            <p className="text-[11px] text-texte-faible">
+              {modifie ? "Modifications non enregistrées." : "Aucune modification en attente."}
+            </p>
+            <Bouton
+              type="submit"
+              variante="principal"
+              disabled={enregistrement || !modifie}
+            >
+              {enregistrement ? "Enregistrement…" : "Enregistrer les préférences"}
+            </Bouton>
           </div>
         </Panneau>
-
-        <div>
-          <Bouton type="submit" variante="principal" disabled={enregistrement}>
-            {enregistrement ? "Enregistrement…" : "Enregistrer les préférences"}
-          </Bouton>
-        </div>
       </form>
 
-      <Panneau titre="Données et confidentialité">
-        <ul className="flex flex-col gap-2 text-xs leading-relaxed text-texte-doux">
-          <li>• Toutes les données sont stockées localement, sur votre machine.</li>
-          <li>• Aucun identifiant de bookmaker n&apos;est demandé ni conservé.</li>
-          <li>• Aucun scraping non autorisé n&apos;est effectué.</li>
-          <li>• Aucun pari n&apos;est placé automatiquement.</li>
+      <details className="border-t border-bordure pt-5">
+        <summary className="cursor-pointer text-xs font-medium text-texte-doux">
+          Données et confidentialité
+        </summary>
+        <ul className="mt-3 flex flex-col gap-2 text-xs leading-relaxed text-texte-doux">
+          <li>Toutes les données sont stockées localement, sur votre machine.</li>
+          <li>Aucun identifiant de bookmaker n&apos;est demandé ni conservé.</li>
+          <li>Aucun scraping non autorisé n&apos;est effectué.</li>
+          <li>Aucun pari n&apos;est placé automatiquement.</li>
         </ul>
-      </Panneau>
+      </details>
     </div>
   );
 }

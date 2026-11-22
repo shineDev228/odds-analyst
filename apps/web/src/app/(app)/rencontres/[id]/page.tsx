@@ -10,13 +10,12 @@ import {
   Bouton,
   Champ,
   Chargement,
-  Panneau,
   Saisie,
   Selection,
   ZoneTexte,
 } from "@/components/ui";
 import { apiFetch, messageErreur } from "@/lib/api";
-import { formatDateHeure, versDatetimeLocal } from "@/lib/format";
+import { formatDateHeure, formatHeure, versDatetimeLocal } from "@/lib/format";
 import type { RencontreDetail, Statistique, StatutRencontre } from "@/lib/types";
 import { statutsRencontre } from "@/lib/types";
 import { PanneauMarches } from "@/components/match-markets";
@@ -69,6 +68,14 @@ const champsStats: Array<{ cle: keyof FormStats; libelle: string; pas?: string }
   { cle: "red_cards", libelle: "Cartons rouges" },
   { cle: "expected_goals", libelle: "Buts attendus (xG)", pas: "0.01" },
 ];
+
+const couleursStatut: Record<StatutRencontre, "neutre" | "accent" | "succes" | "alerte" | "danger"> = {
+  programme: "accent",
+  en_cours: "alerte",
+  termine: "succes",
+  reporte: "neutre",
+  annule: "danger",
+};
 
 function versFormStats(stat: Statistique | undefined): FormStats {
   if (!stat) return { ...statsVide };
@@ -233,24 +240,43 @@ export default function PageRencontre() {
 
   if (!rencontre || !edition) return <Chargement />;
 
+  const aUnScore = rencontre.home_score !== null || rencontre.away_score !== null;
+
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <Link href="/rencontres" className="text-[11px] text-texte-faible hover:text-accent">
+      <header>
+        <Link href="/rencontres" className="text-xs text-texte-faible hover:text-accent">
           ← Rencontres
         </Link>
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+
+        <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">
-              {rencontre.home_team_name} — {rencontre.away_team_name}
+            <h1 className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-2xl font-semibold tracking-tight">
+              <span>{rencontre.home_team.name}</span>
+              {aUnScore ? (
+                <span className="font-mono text-3xl tabular-nums text-texte">
+                  {rencontre.home_score ?? "—"} : {rencontre.away_score ?? "—"}
+                </span>
+              ) : (
+                <span className="font-mono text-3xl tabular-nums text-texte-doux">
+                  {formatHeure(rencontre.kickoff_at)}
+                </span>
+              )}
+              <span>{rencontre.away_team.name}</span>
             </h1>
-            <p className="mt-1 text-xs text-texte-doux">
+            <p className="mt-1 text-sm text-texte-doux">
               {rencontre.competition_name} · {rencontre.season_label} ·{" "}
               {formatDateHeure(rencontre.kickoff_at)}
             </p>
+            {rencontre.venue || rencontre.referee ? (
+              <p className="mt-0.5 text-xs text-texte-faible">
+                {[rencontre.venue, rencontre.referee].filter(Boolean).join(" · ")}
+              </p>
+            ) : null}
           </div>
+
           <div className="flex items-center gap-2">
-            <Badge ton={rencontre.status === "termine" ? "succes" : "accent"}>
+            <Badge ton={couleursStatut[rencontre.status]}>
               {statutsRencontre[rencontre.status]}
             </Badge>
             <Bouton variante="danger" onClick={() => void supprimer()}>
@@ -258,13 +284,32 @@ export default function PageRencontre() {
             </Bouton>
           </div>
         </div>
-      </div>
+      </header>
 
       {erreur ? <Alerte ton="erreur">{erreur}</Alerte> : null}
       {succes ? <Alerte ton="succes">{succes}</Alerte> : null}
 
-      <Panneau titre="Informations et résultat">
-        <form onSubmit={enregistrerEdition} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <PanneauPrediction
+        matchId={rencontre.id}
+        equipeDomicile={rencontre.home_team.name}
+        equipeExterieur={rencontre.away_team.name}
+      />
+
+      <PanneauMarches
+        matchId={rencontre.id}
+        sportCode={rencontre.sport_code}
+        equipeDomicile={rencontre.home_team}
+        equipeExterieur={rencontre.away_team}
+      />
+
+      <details className="border-t border-bordure pt-5">
+        <summary className="cursor-pointer text-base font-medium text-texte">
+          Informations et résultat
+        </summary>
+        <form
+          onSubmit={enregistrerEdition}
+          className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+        >
           <Champ label="Date et heure">
             <Saisie
               type="datetime-local"
@@ -301,7 +346,7 @@ export default function PageRencontre() {
             />
           </Champ>
 
-          <Champ label={`Score ${rencontre.home_team_name}`}>
+          <Champ label={`Score ${rencontre.home_team.name}`}>
             <Saisie
               type="number"
               min={0}
@@ -310,7 +355,7 @@ export default function PageRencontre() {
               onChange={(e) => setEdition({ ...edition, home_score: e.target.value })}
             />
           </Champ>
-          <Champ label={`Score ${rencontre.away_team_name}`}>
+          <Champ label={`Score ${rencontre.away_team.name}`}>
             <Saisie
               type="number"
               min={0}
@@ -352,19 +397,23 @@ export default function PageRencontre() {
             </Bouton>
           </div>
         </form>
-      </Panneau>
+      </details>
 
-      <Panneau
-        titre="Statistiques d'équipe"
-        description="Saisie manuelle. Laissez vide les valeurs inconnues : elles seront ignorées par le moteur."
-      >
-        <form onSubmit={enregistrerStats} className="flex flex-col gap-6">
+      <details className="border-t border-bordure pt-5">
+        <summary className="cursor-pointer text-base font-medium text-texte">
+          Statistiques d&apos;équipe
+        </summary>
+        <p className="mt-1 text-xs text-texte-doux">
+          Saisie manuelle. Laissez vide les valeurs inconnues : elles seront ignorées par le
+          moteur.
+        </p>
+        <form onSubmit={enregistrerStats} className="mt-4 flex flex-col gap-6">
           {[rencontre.home_team, rencontre.away_team].map((equipe) => {
             const equipeId = equipe.id;
             const valeurs = stats[equipeId] ?? statsVide;
             return (
               <div key={equipeId}>
-                <h3 className="text-xs font-semibold text-texte">
+                <h3 className="text-sm font-medium text-texte">
                   {equipe.name}
                   <span className="ml-2 font-normal text-texte-faible">
                     {equipeId === rencontre.home_team_id ? "(domicile)" : "(extérieur)"}
@@ -393,20 +442,7 @@ export default function PageRencontre() {
             </Bouton>
           </div>
         </form>
-      </Panneau>
-
-      <PanneauPrediction
-        matchId={rencontre.id}
-        equipeDomicile={rencontre.home_team.name}
-        equipeExterieur={rencontre.away_team.name}
-      />
-
-      <PanneauMarches
-        matchId={rencontre.id}
-        sportCode={rencontre.sport_code}
-        equipeDomicile={rencontre.home_team}
-        equipeExterieur={rencontre.away_team}
-      />
+      </details>
     </div>
   );
 }

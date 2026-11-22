@@ -8,7 +8,8 @@ import {
   Bouton,
   Chargement,
   EtatVide,
-  Panneau,
+  Indicateur,
+  Section,
 } from "@/components/ui";
 import { ApiError, apiFetch, messageErreur } from "@/lib/api";
 import { formatDateHeure } from "@/lib/format";
@@ -38,7 +39,7 @@ function BarreProbabilite({ selection }: { selection: SelectionPrediction }) {
   const centre = Math.max(0, Math.min(100, selection.probability * 100));
   return (
     <div
-      className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-fond"
+      className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-fond-eleve"
       role="img"
       aria-label={`Probabilité ${pourcent(selection.probability)}, fourchette ${fourchette(selection)}`}
     >
@@ -46,31 +47,34 @@ function BarreProbabilite({ selection }: { selection: SelectionPrediction }) {
         className="absolute inset-y-0 bg-accent/25"
         style={{ left: `${gauche}%`, width: `${Math.max(droite - gauche, 0.8)}%` }}
       />
-      <div
-        className="absolute inset-y-0 w-0.5 bg-accent"
-        style={{ left: `${centre}%` }}
-      />
+      <div className="absolute inset-y-0 w-0.5 bg-accent" style={{ left: `${centre}%` }} />
     </div>
   );
 }
 
-function CarteSelection({
+function LigneSelection({
   selection,
   accent = false,
+  grande = false,
 }: {
   selection: SelectionPrediction;
   accent?: boolean;
+  grande?: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-bordure-forte bg-fond-eleve p-3">
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="text-xs font-medium text-texte">{selection.label}</p>
-        <p className={`font-mono text-sm ${accent ? "text-accent" : "text-texte"}`}>
+    <div className="border-b border-bordure/70 py-2.5 last:border-0">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-sm text-texte">{selection.label}</p>
+        <p
+          className={`font-mono tabular-nums ${grande ? "text-lg" : "text-sm"} ${
+            accent ? "text-accent" : "text-texte"
+          }`}
+        >
           {pourcent(selection.probability, 1)}
         </p>
       </div>
       <BarreProbabilite selection={selection} />
-      <p className="mt-1.5 text-[11px] text-texte-faible">
+      <p className="mt-1 text-[11px] text-texte-faible">
         Fourchette 80 % : {fourchette(selection)}
       </p>
     </div>
@@ -84,19 +88,19 @@ const methodesSource: Record<string, string> = {
   buts: "buts uniquement",
 };
 
-function CarteSource({ nom, source }: { nom: string; source: SourcePrediction }) {
+function LigneSource({ nom, source }: { nom: string; source: SourcePrediction }) {
   return (
-    <div className="rounded-lg border border-bordure bg-fond px-3 py-2 text-[11px] text-texte-doux">
-      <p className="font-medium text-texte">{nom}</p>
-      <p className="mt-1">
-        {methodesSource[source.method] ?? source.method} · {source.matches} matchs
-      </p>
-      <p className="text-texte-faible">
+    <div className="border-b border-bordure/70 py-2 last:border-0">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-sm text-texte">{nom}</p>
+        <p className="text-xs text-texte-doux">
+          {methodesSource[source.method] ?? source.method} · {source.matches} matchs
+        </p>
+      </div>
+      <p className="mt-0.5 text-[11px] text-texte-faible">
         xG {source.xg_matches} · proxy {source.proxy_matches} · buts seuls{" "}
-        {source.goals_only_matches}
-      </p>
-      <p className="text-texte-faible">
-        Couverture xG / tirs cadrés : {pourcent(source.xg_coverage)}
+        {source.goals_only_matches} · couverture xG / tirs cadrés{" "}
+        {pourcent(source.xg_coverage)}
       </p>
     </div>
   );
@@ -140,9 +144,9 @@ export function PanneauPrediction({
   }, [charger]);
 
   return (
-    <Panneau
-      titre="Analyse statistique (modèle v2)"
-      description="Probabilités estimées à partir des résultats passés, complétés par le xG ou les tirs cadrés lorsqu'ils sont saisis. Chaque valeur est une estimation, jamais une certitude : la fourchette indique l'incertitude du modèle."
+    <Section
+      titre="Analyse statistique"
+      description="Probabilités estimées à partir des résultats passés, complétées par le xG ou les tirs cadrés lorsqu'ils sont saisis. La fourchette indique l'incertitude du modèle."
       action={
         <Bouton variante="secondaire" onClick={() => void charger()} disabled={chargement}>
           {chargement ? "Calcul…" : "Actualiser"}
@@ -165,15 +169,16 @@ export function PanneauPrediction({
           </div>
         ) : prediction ? (
           <>
-            <div className="flex flex-wrap items-center gap-2 text-[11px] text-texte-faible">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-texte-faible">
               <Badge ton={tonQualite(prediction.quality.level)}>
                 Fiabilité {prediction.quality.label.toLowerCase()}
               </Badge>
               <span>
-                {prediction.quality.matches_home} matchs {equipeDomicile} ·{" "}
+                {prediction.quality.matches_home} matchs {equipeDomicile}
+              </span>
+              <span>
                 {prediction.quality.matches_away} matchs {equipeExterieur}
               </span>
-              <span>·</span>
               <span>
                 échantillon effectif{" "}
                 {Math.min(
@@ -181,9 +186,7 @@ export function PanneauPrediction({
                   prediction.quality.effective_away,
                 ).toLocaleString("fr-FR", { maximumFractionDigits: 1 })}
               </span>
-              <span>·</span>
               <span>{prediction.model_version}</span>
-              <span>·</span>
               <span>calculé le {formatDateHeure(prediction.computed_at)}</span>
             </div>
 
@@ -197,11 +200,37 @@ export function PanneauPrediction({
               </Alerte>
             ) : null}
 
+            <div className="grid gap-4 border-y border-bordure py-3 sm:grid-cols-3">
+              <Indicateur
+                libelle={`Buts attendus · ${equipeDomicile}`}
+                valeur={prediction.expected_goals_home.toLocaleString("fr-FR", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+                ton="accent"
+              />
+              <Indicateur
+                libelle={`Buts attendus · ${equipeExterieur}`}
+                valeur={prediction.expected_goals_away.toLocaleString("fr-FR", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+                ton="accent"
+              />
+              <Indicateur
+                libelle="Total attendu"
+                valeur={prediction.expected_goals_total.toLocaleString("fr-FR", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              />
+            </div>
+
             <section>
-              <h3 className="text-xs font-semibold text-texte">Sources statistiques</h3>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                <CarteSource nom={equipeDomicile} source={prediction.sources.home} />
-                <CarteSource nom={equipeExterieur} source={prediction.sources.away} />
+              <h3 className="text-xs font-medium text-texte-faible">Sources statistiques</h3>
+              <div className="mt-1 grid gap-x-8 sm:grid-cols-2">
+                <LigneSource nom={equipeDomicile} source={prediction.sources.home} />
+                <LigneSource nom={equipeExterieur} source={prediction.sources.away} />
               </div>
               <p className="mt-2 text-[11px] text-texte-faible">
                 Correction Dixon-Coles estimée :{" "}
@@ -211,96 +240,61 @@ export function PanneauPrediction({
                     maximumFractionDigits: 3,
                   })}
                 </span>
-                {" · "}poids du xG :{" "}
-                {pourcent(Number(prediction.config.xg_weight))}
+                {" · "}poids du xG : {pourcent(Number(prediction.config.xg_weight))}
               </p>
             </section>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-bordure bg-fond p-4">
-                <p className="text-[11px] uppercase tracking-wide text-texte-faible">
-                  Buts attendus · {equipeDomicile}
-                </p>
-                <p className="mt-1 font-mono text-2xl text-accent">
-                  {prediction.expected_goals_home.toLocaleString("fr-FR", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-                </p>
-              </div>
-              <div className="rounded-xl border border-bordure bg-fond p-4">
-                <p className="text-[11px] uppercase tracking-wide text-texte-faible">
-                  Buts attendus · {equipeExterieur}
-                </p>
-                <p className="mt-1 font-mono text-2xl text-accent">
-                  {prediction.expected_goals_away.toLocaleString("fr-FR", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-                </p>
-              </div>
-              <div className="rounded-xl border border-bordure bg-fond p-4">
-                <p className="text-[11px] uppercase tracking-wide text-texte-faible">
-                  Total attendu
-                </p>
-                <p className="mt-1 font-mono text-2xl text-texte">
-                  {prediction.expected_goals_total.toLocaleString("fr-FR", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-                </p>
-              </div>
-            </div>
-
             <section>
-              <h3 className="text-xs font-semibold text-texte">Résultat (1X2)</h3>
-              <div className="mt-2 grid gap-2 sm:grid-cols-3">
+              <h3 className="text-xs font-medium text-texte-faible">Résultat (1X2)</h3>
+              <div className="mt-1 grid gap-x-8 sm:grid-cols-3">
                 {prediction.resultat.map((selection) => (
-                  <CarteSelection key={selection.code} selection={selection} accent />
+                  <LigneSelection key={selection.code} selection={selection} accent grande />
                 ))}
               </div>
             </section>
 
-            <section className="grid gap-4 lg:grid-cols-2">
+            <section className="grid gap-x-8 gap-y-4 lg:grid-cols-2">
               <div>
-                <h3 className="text-xs font-semibold text-texte">Double chance</h3>
-                <div className="mt-2 flex flex-col gap-2">
+                <h3 className="text-xs font-medium text-texte-faible">Double chance</h3>
+                <div className="mt-1">
                   {prediction.double_chance.map((selection) => (
-                    <CarteSelection key={selection.code} selection={selection} />
+                    <LigneSelection key={selection.code} selection={selection} />
                   ))}
                 </div>
               </div>
               <div>
-                <h3 className="text-xs font-semibold text-texte">
+                <h3 className="text-xs font-medium text-texte-faible">
                   Les deux équipes marquent
                 </h3>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <div className="mt-1 grid gap-x-8 sm:grid-cols-2">
                   {prediction.btts.map((selection) => (
-                    <CarteSelection key={selection.code} selection={selection} />
+                    <LigneSelection key={selection.code} selection={selection} />
                   ))}
                 </div>
               </div>
             </section>
 
             <section>
-              <h3 className="text-xs font-semibold text-texte">Totaux de buts</h3>
-              <div className="mt-2 flex flex-col gap-2">
+              <h3 className="text-xs font-medium text-texte-faible">Totaux de buts</h3>
+              <div className="mt-1 flex flex-col gap-2">
                 {prediction.totaux.map((total) => (
-                  <div key={total.line} className="grid gap-2 sm:grid-cols-2">
-                    <CarteSelection selection={total.over} />
-                    <CarteSelection selection={total.under} />
+                  <div key={total.line} className="grid gap-x-8 sm:grid-cols-2">
+                    <LigneSelection selection={total.over} />
+                    <LigneSelection selection={total.under} />
                   </div>
                 ))}
               </div>
             </section>
 
             <section>
-              <h3 className="text-xs font-semibold text-texte">Scores exacts les plus probables</h3>
+              <h3 className="text-xs font-medium text-texte-faible">
+                Scores exacts les plus probables
+              </h3>
               <div className="mt-2 flex flex-wrap gap-2">
                 {prediction.scores_exacts.map((score) => (
                   <span
                     key={score.label}
-                    className="rounded-lg border border-bordure-forte bg-fond-eleve px-2.5 py-1.5 text-[11px] text-texte-doux"
+                    className="rounded border border-bordure-forte bg-fond-eleve px-2 py-1 text-xs text-texte-doux"
                   >
                     <span className="font-mono text-texte">{score.label}</span> ·{" "}
                     {pourcent(score.probability, 1)}
@@ -309,14 +303,14 @@ export function PanneauPrediction({
               </div>
             </section>
 
-            <p className="text-[11px] text-texte-faible">
-              {prediction.avertissement} Les fourchettes à 80 % proviennent d&apos;une
-              simulation de l&apos;incertitude des forces estimées ; elles ne couvrent pas les
-              événements imprévisibles (blessures, cartons, arbitrage).
+            <p className="text-[11px] leading-relaxed text-texte-faible">
+              {prediction.avertissement} Les fourchettes à 80 % proviennent d&apos;une simulation
+              de l&apos;incertitude des forces estimées ; elles ne couvrent pas les événements
+              imprévisibles (blessures, cartons, arbitrage).
             </p>
           </>
         ) : null}
       </div>
-    </Panneau>
+    </Section>
   );
 }

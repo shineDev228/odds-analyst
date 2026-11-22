@@ -101,11 +101,11 @@ export default function PageConnexion() {
         </form>
       )}
 
-      <p className="mt-4 text-center text-[11px] text-texte-faible">
+      <p className="mt-4 text-center text-xs text-texte-faible">
         Cinq tentatives échouées bloquent temporairement la connexion.
       </p>
 
-      <p className="mt-2 text-center text-[11px] text-texte-faible">
+      <p className="mt-2 text-center text-xs text-texte-faible">
         Première utilisation ?{" "}
         <Link href="/premiere-utilisation" className="text-accent hover:underline">
           Créer le compte

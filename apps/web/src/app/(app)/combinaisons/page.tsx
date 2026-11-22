@@ -9,26 +9,22 @@ import {
   Bouton,
   Champ,
   Chargement,
+  EntetePage,
   EtatVide,
   Panneau,
   Saisie,
+  Section,
   Selection,
 } from "@/components/ui";
 import { apiFetch, messageErreur } from "@/lib/api";
 import { formatDate, formatDateHeure } from "@/lib/format";
+import { marchesDisponibles } from "@/lib/marches";
 import type {
   Combinaison,
   CombinaisonEnregistree,
   Preferences,
   ReponseCombinaisons,
 } from "@/lib/types";
-
-const marchesDisponibles = [
-  { code: "1X2", libelle: "1X2 (résultat du match)" },
-  { code: "DOUBLE_CHANCE", libelle: "Double chance" },
-  { code: "PLUS_MOINS", libelle: "Plus / moins de buts" },
-  { code: "BTTS", libelle: "Les deux équipes marquent" },
-];
 
 interface FormCombinaison {
   nombre_selections: number;
@@ -92,54 +88,26 @@ function CarteCombinaison({
   dejaEnregistree: boolean;
 }) {
   return (
-    <article className="rounded-xl border border-bordure bg-fond p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge ton="accent">Combinaison {rang}</Badge>
-            <span className="text-[11px] text-texte-faible">
-              {combinaison.selections.length} sélections
-            </span>
-          </div>
-          <p className="mt-2 text-xs text-texte-doux">
-            Cote totale{" "}
-            <span className="font-mono text-lg text-texte">
+    <article className="border-t border-bordure pt-4 first:border-0 first:pt-0">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-baseline gap-3">
+          <span className="font-mono text-xs tabular-nums text-texte-faible">
+            {String(rang).padStart(2, "0")}
+          </span>
+          <div>
+            <p className="text-sm text-texte">{combinaison.selections.length} sélections</p>
+            <p className="mt-1 text-xs text-texte-faible">Cote totale</p>
+            <p className="font-mono text-2xl tabular-nums text-texte">
               {cote(combinaison.total_odds)}
-            </span>
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Bouton
-              type="button"
-              variante="secondaire"
-              onClick={onEnregistrer}
-              disabled={enregistrement || dejaEnregistree}
-            >
-              {dejaEnregistree
-                ? "Enregistrée"
-                : enregistrement
-                  ? "Enregistrement…"
-                  : "Enregistrer dans l'historique"}
-            </Bouton>
-            {dejaEnregistree ? (
-              <Link
-                href="/historique"
-                className="text-[11px] font-medium text-accent hover:underline"
-              >
-                Voir l&apos;historique
-              </Link>
-            ) : null}
+            </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-right text-[11px]">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-right text-xs">
           <span className="text-texte-faible">Probabilité estimée</span>
-          <span className="font-mono text-texte">
-            {pourcent(combinaison.probability)}
-          </span>
+          <span className="font-mono text-texte">{pourcent(combinaison.probability)}</span>
           <span className="text-texte-faible">Fourchette 80 %</span>
-          <span className="font-mono text-texte-doux">
-            {fourchette(combinaison)}
-          </span>
+          <span className="font-mono text-texte-doux">{fourchette(combinaison)}</span>
           <span className="text-texte-faible">Espérance estimée</span>
           <span>
             <Badge ton={tonEsperance(combinaison.expected_value)}>
@@ -149,10 +117,30 @@ function CarteCombinaison({
         </div>
       </div>
 
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Bouton
+          type="button"
+          variante="secondaire"
+          onClick={onEnregistrer}
+          disabled={enregistrement || dejaEnregistree}
+        >
+          {dejaEnregistree
+            ? "Enregistrée"
+            : enregistrement
+              ? "Enregistrement…"
+              : "Enregistrer dans l'historique"}
+        </Bouton>
+        {dejaEnregistree ? (
+          <Link href="/historique" className="text-xs font-medium text-accent hover:underline">
+            Voir l&apos;historique
+          </Link>
+        ) : null}
+      </div>
+
       <div className="mt-3 overflow-x-auto">
-        <table className="w-full min-w-[720px] border-collapse text-left text-[11px]">
+        <table className="w-full min-w-[680px] border-collapse text-left">
           <thead>
-            <tr className="border-b border-bordure text-texte-faible">
+            <tr className="border-b border-bordure text-[11px] text-texte-faible">
               <th className="pb-2 pr-3 font-medium">Rencontre</th>
               <th className="pb-2 pr-3 font-medium">Marché</th>
               <th className="pb-2 pr-3 font-medium">Choix</th>
@@ -167,23 +155,21 @@ function CarteCombinaison({
                 className="border-b border-bordure/60 last:border-0"
               >
                 <td className="py-2 pr-3">
-                  <p className="text-texte">{selection.match_label}</p>
-                  <p className="text-texte-faible">
-                    {selection.competition_name} ·{" "}
-                    {formatDateHeure(selection.kickoff_at)}
+                  <p className="text-xs text-texte">{selection.match_label}</p>
+                  <p className="text-[11px] text-texte-faible">
+                    {selection.competition_name} · {formatDateHeure(selection.kickoff_at)}
                   </p>
                 </td>
-                <td className="py-2 pr-3 text-texte-doux">{selection.market_name}</td>
-                <td className="py-2 pr-3 text-texte">{selection.selection_label}</td>
-                <td className="py-2 pr-3 text-right font-mono text-texte">
+                <td className="py-2 pr-3 text-xs text-texte-doux">{selection.market_name}</td>
+                <td className="py-2 pr-3 text-xs text-texte">{selection.selection_label}</td>
+                <td className="py-2 pr-3 text-right font-mono text-xs tabular-nums text-texte">
                   {cote(selection.decimal_odds)}
                 </td>
                 <td className="py-2 text-right">
-                  <span className="font-mono text-texte">
+                  <span className="font-mono text-xs tabular-nums text-texte">
                     {pourcent(selection.probability)}
                   </span>
-                  <span className="ml-1 text-texte-faible">
-                    {" "}
+                  <span className="ml-1 text-[11px] text-texte-faible">
                     ({fourchette(selection)})
                   </span>
                 </td>
@@ -313,25 +299,20 @@ export default function PageCombinaisons() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight">Combinaisons</h1>
-        <p className="mt-1 text-xs text-texte-doux">
-          Assemblages de sélections dont la cote totale tombe dans la fourchette
-          visée. Les probabilités sont estimées par le modèle statistique et
-          restent incertaines : aucune combinaison n&apos;est un conseil de
-          pari.
-        </p>
-      </header>
+      <EntetePage
+        titre="Combinaisons"
+        description="Assemblages de sélections dont la cote totale tombe dans la fourchette visée. Les probabilités sont estimées et restent incertaines : aucune combinaison n'est un conseil de pari."
+      />
 
       {erreur ? <Alerte ton="erreur">{erreur}</Alerte> : null}
       {succes ? <Alerte ton="succes">{succes}</Alerte> : null}
 
-      <form onSubmit={generer} className="flex flex-col gap-6">
-        <Panneau
-          titre="Critères de recherche"
-          description="Valeurs préremplies depuis les paramètres. Les modifier ici ne change pas les préférences enregistrées. Le générateur ne travaille que sur les rencontres du jour ; sans rencontre aujourd'hui, il utilise le prochain jour de match."
-        >
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <Panneau
+        titre="Critères de recherche"
+        description="Valeurs préremplies depuis les paramètres. Le générateur travaille sur les rencontres du jour ; sans rencontre aujourd'hui, il utilise le prochain jour de match."
+      >
+        <form onSubmit={generer} className="flex flex-col gap-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Champ label="Sélections" aide="Entre 2 et 15">
               <Saisie
                 type="number"
@@ -355,9 +336,7 @@ export default function PageCombinaisons() {
                 step="any"
                 required
                 value={form.cote_min}
-                onChange={(e) =>
-                  setForm({ ...form, cote_min: Number(e.target.value) })
-                }
+                onChange={(e) => setForm({ ...form, cote_min: Number(e.target.value) })}
               />
             </Champ>
             <Champ label="Cote maximale">
@@ -368,17 +347,13 @@ export default function PageCombinaisons() {
                 step="any"
                 required
                 value={form.cote_max}
-                onChange={(e) =>
-                  setForm({ ...form, cote_max: Number(e.target.value) })
-                }
+                onChange={(e) => setForm({ ...form, cote_max: Number(e.target.value) })}
               />
             </Champ>
             <Champ label="Résultats" aide="Nombre maximal affiché">
               <Selection
                 value={form.limite}
-                onChange={(e) =>
-                  setForm({ ...form, limite: Number(e.target.value) })
-                }
+                onChange={(e) => setForm({ ...form, limite: Number(e.target.value) })}
               >
                 {[5, 10, 20, 30, 50].map((valeur) => (
                   <option key={valeur} value={valeur}>
@@ -387,25 +362,15 @@ export default function PageCombinaisons() {
                 ))}
               </Selection>
             </Champ>
-            <div className="flex items-end">
-              <Bouton
-                type="submit"
-                variante="principal"
-                className="w-full"
-                disabled={calcul}
-              >
-                {calcul ? "Recherche…" : "Générer les combinaisons"}
-              </Bouton>
-            </div>
           </div>
 
-          <div className="mt-4 flex flex-col gap-2">
+          <div className="flex flex-col gap-2">
             <p className="text-xs font-medium text-texte-doux">Marchés autorisés</p>
             <div className="grid gap-2 sm:grid-cols-3">
               {marchesDisponibles.map((marche) => (
                 <label
                   key={marche.code}
-                  className="flex cursor-pointer items-center gap-3 rounded-lg border border-bordure px-3 py-2 text-xs text-texte-doux transition hover:border-accent/40"
+                  className="flex cursor-pointer items-center gap-3 rounded-md border border-bordure px-3 py-2 text-xs text-texte-doux transition hover:border-accent/40"
                 >
                   <input
                     type="checkbox"
@@ -418,101 +383,100 @@ export default function PageCombinaisons() {
               ))}
             </div>
           </div>
-        </Panneau>
-      </form>
+
+          <div className="flex justify-end">
+            <Bouton type="submit" variante="principal" disabled={calcul}>
+              {calcul ? "Recherche…" : "Générer les combinaisons"}
+            </Bouton>
+          </div>
+        </form>
+      </Panneau>
 
       {reponse ? (
-        <div className="flex flex-col gap-4">
-          <Panneau
-            titre="Résultat de la recherche"
-            description="Une combinaison contient une seule sélection par rencontre. La probabilité globale suppose les résultats indépendants."
-          >
-            <div className="flex flex-col gap-4">
-              <Alerte ton="info">
-                <p>{reponse.message}</p>
-                <p className="mt-1">
-                  {reponse.matchs_examines} rencontre(s) examinée(s),{" "}
-                  {reponse.matchs_disponibles} exploitable(s),{" "}
-                  {reponse.matchs_ignores} ignorée(s) ·{" "}
-                  {reponse.selections_disponibles} sélection(s) disponible(s).
-                </p>
-                {reponse.jour_cible ? (
-                  <p className="mt-1">
-                    {reponse.repli_jour
-                      ? "Aucune rencontre aujourd'hui : prochain jour de match, le "
-                      : "Rencontres du "}
-                    {formatDate(reponse.jour_cible)}.
-                  </p>
-                ) : null}
-              </Alerte>
+        <Section
+          titre="Résultat de la recherche"
+          description="Une combinaison contient une seule sélection par rencontre. La probabilité globale suppose les résultats indépendants."
+        >
+          <div className="flex flex-col gap-4">
+            <p className="text-xs leading-relaxed text-texte-doux">{reponse.message}</p>
 
-              {reponse.recherche_tronquee ? (
-                <Alerte ton="avertissement">
-                  La recherche a atteint sa limite d&apos;exploration : des
-                  combinaisons valides peuvent manquer. Réduisez le nombre de
-                  sélections ou resserrez les critères.
-                </Alerte>
+            <p className="text-xs text-texte-faible">
+              {reponse.matchs_examines} rencontre(s) examinée(s) ·{" "}
+              {reponse.matchs_disponibles} exploitable(s) · {reponse.matchs_ignores} ignorée(s) ·{" "}
+              {reponse.selections_disponibles} sélection(s) disponible(s).
+              {reponse.jour_cible ? (
+                <>
+                  {" "}
+                  {reponse.repli_jour
+                    ? "Aucune rencontre aujourd'hui : prochain jour de match, le "
+                    : "Rencontres du "}
+                  {formatDate(reponse.jour_cible)}.
+                </>
               ) : null}
+            </p>
 
-              {reponse.combinaisons.length === 0 ? (
-                <EtatVide>
-                  Aucune combinaison affichable pour ce jour. Ajoutez des cotes
-                  récentes et suffisamment de résultats passés, ou élargissez la
-                  fourchette.
-                </EtatVide>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {reponse.combinaisons.map((combinaison, index) => {
-                    const cle = cleCombinaison(combinaison);
-                    return (
-                      <CarteCombinaison
-                        key={cle}
-                        combinaison={combinaison}
-                        rang={index + 1}
-                        onEnregistrer={() => void enregistrer(combinaison)}
-                        enregistrement={enregistrement === cle}
-                        dejaEnregistree={enregistrees.has(cle)}
-                      />
-                    );
-                  })}
-                </div>
-              )}
+            {reponse.recherche_tronquee ? (
+              <Alerte ton="avertissement">
+                La recherche a atteint sa limite d&apos;exploration : des combinaisons valides
+                peuvent manquer. Réduisez le nombre de sélections ou resserrez les critères.
+              </Alerte>
+            ) : null}
 
-              <p className="text-[11px] leading-relaxed text-texte-faible">
-                {reponse.avertissement}
-              </p>
-            </div>
-          </Panneau>
+            {reponse.combinaisons.length === 0 ? (
+              <EtatVide>
+                Aucune combinaison affichable pour ce jour. Ajoutez des cotes récentes et
+                suffisamment de résultats passés, ou élargissez la fourchette.
+              </EtatVide>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {reponse.combinaisons.map((combinaison, index) => {
+                  const cle = cleCombinaison(combinaison);
+                  return (
+                    <CarteCombinaison
+                      key={cle}
+                      combinaison={combinaison}
+                      rang={index + 1}
+                      onEnregistrer={() => void enregistrer(combinaison)}
+                      enregistrement={enregistrement === cle}
+                      dejaEnregistree={enregistrees.has(cle)}
+                    />
+                  );
+                })}
+              </div>
+            )}
 
-          <Panneau
-            titre="Comment lire ces résultats"
-            description="Repères de lecture, sans recommandation de mise."
-          >
-            <ul className="flex flex-col gap-2 text-xs leading-relaxed text-texte-doux">
-              <li>
-                • La <span className="text-texte">cote totale</span> est le
-                produit des cotes saisies pour chaque sélection.
-              </li>
-              <li>
-                • La <span className="text-texte">probabilité estimée</span> est
-                le produit des probabilités du modèle statistique ; la
-                fourchette à 80 %
-                reflète l&apos;incertitude du modèle, pas une garantie.
-              </li>
-              <li>
-                • L&apos;<span className="text-texte">espérance estimée</span>{" "}
-                vaut probabilité × cote totale − 1. Une valeur négative signifie
-                que la marge du bookmaker reste défavorable sur cette
-                combinaison.
-              </li>
-              <li>
-                • Les rencontres sans historique suffisant ou sans cote récente
-                sont ignorées et comptées ci-dessus.
-              </li>
-            </ul>
-          </Panneau>
-        </div>
+            <p className="text-[11px] leading-relaxed text-texte-faible">
+              {reponse.avertissement}
+            </p>
+          </div>
+        </Section>
       ) : null}
+
+      <details className="border-t border-bordure pt-5">
+        <summary className="cursor-pointer text-xs font-medium text-texte-doux">
+          Comment lire ces résultats
+        </summary>
+        <ul className="mt-3 flex flex-col gap-2 text-xs leading-relaxed text-texte-doux">
+          <li>
+            La <span className="text-texte">cote totale</span> est le produit des cotes saisies
+            pour chaque sélection.
+          </li>
+          <li>
+            La <span className="text-texte">probabilité estimée</span> est le produit des
+            probabilités du modèle ; la fourchette à 80 % reflète l&apos;incertitude du modèle,
+            pas une garantie.
+          </li>
+          <li>
+            L&apos;<span className="text-texte">espérance estimée</span> vaut probabilité × cote
+            totale − 1. Une valeur négative signifie que la marge du bookmaker reste défavorable
+            sur cette combinaison.
+          </li>
+          <li>
+            Les rencontres sans historique suffisant ou sans cote récente sont ignorées et
+            comptées ci-dessus.
+          </li>
+        </ul>
+      </details>
     </div>
   );
 }

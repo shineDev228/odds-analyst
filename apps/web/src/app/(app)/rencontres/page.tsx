@@ -8,6 +8,7 @@ import {
   Bouton,
   Champ,
   Chargement,
+  EntetePage,
   Saisie,
   Selection,
 } from "@/components/ui";
@@ -256,23 +257,20 @@ export default function PageRencontres() {
 
   return (
     <div className="flex flex-col">
-      <header className="flex flex-wrap items-end justify-between gap-4 pb-5">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Rencontres</h1>
-          <p className="mt-1 max-w-[62ch] text-sm leading-relaxed text-texte-doux">
-            Calendrier, cotes 1X2 et résultats. Ouvrez une rencontre pour saisir ses
-            statistiques et ses marchés.
-          </p>
-        </div>
-        <Bouton
-          variante={formOuvert ? "secondaire" : "principal"}
-          onClick={() => setFormOuvert((ouvert) => !ouvert)}
-          aria-expanded={formOuvert}
-          aria-controls="nouvelle-rencontre"
-        >
-          {formOuvert ? "Fermer" : "Ajouter une rencontre"}
-        </Bouton>
-      </header>
+      <EntetePage
+        titre="Rencontres"
+        description="Calendrier, cotes 1X2 et résultats. Ouvrez une rencontre pour saisir ses statistiques et ses marchés."
+        action={
+          <Bouton
+            variante={formOuvert ? "secondaire" : "principal"}
+            onClick={() => setFormOuvert((ouvert) => !ouvert)}
+            aria-expanded={formOuvert}
+            aria-controls="nouvelle-rencontre"
+          >
+            {formOuvert ? "Fermer" : "Ajouter une rencontre"}
+          </Bouton>
+        }
+      />
 
       {erreur ? (
         <div className="pb-4">
@@ -466,7 +464,7 @@ export default function PageRencontres() {
             Rencontres, avec leurs cotes 1X2, leur score et leur statut
           </caption>
           <thead>
-            <tr className="border-b border-bordure-forte text-[11px] text-texte-faible">
+            <tr className="border-b border-bordure-forte text-xs text-texte-faible">
               <th scope="col" className="py-2 pr-3 font-medium">
                 Date
               </th>
@@ -542,7 +540,7 @@ export default function PageRencontres() {
                           <span className="text-texte-faible">—</span>{" "}
                           {rencontre.away_team_name}
                         </span>
-                        <span className="mt-0.5 block text-[11px] text-texte-faible">
+                        <span className="mt-0.5 block text-xs text-texte-faible">
                           {rencontre.competition_name} · {rencontre.season_label}
                         </span>
                       </Link>
@@ -560,7 +558,7 @@ export default function PageRencontres() {
                         : "—"}
                     </td>
                     <td className="py-2.5 pl-3">
-                      <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[11px] text-texte-doux">
+                      <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-texte-doux">
                         <span
                           aria-hidden
                           className={`size-1.5 rounded-full ${couleursStatut[rencontre.status]}`}
@@ -577,7 +575,7 @@ export default function PageRencontres() {
       </div>
 
       {total > rencontres.length ? (
-        <p className="border-t border-bordure pt-3 text-[11px] text-texte-faible">
+        <p className="border-t border-bordure pt-3 text-xs text-texte-faible">
           Affichage limité aux {rencontres.length} rencontres les plus récentes sur {total}.
           Affinez les filtres pour voir les autres.
         </p>

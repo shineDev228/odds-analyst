@@ -10,17 +10,44 @@ import { fr } from "@/messages/fr";
 
 import { Chargement } from "./ui";
 
-const navigation = [
-  { href: "/tableau-de-bord", libelle: "Tableau de bord", symbole: "◧" },
-  { href: "/competitions", libelle: "Compétitions", symbole: "▤" },
-  { href: "/synchronisation", libelle: "Synchronisation", symbole: "⇄" },
-  { href: "/equipes", libelle: "Équipes", symbole: "◉" },
-  { href: "/rencontres", libelle: "Rencontres", symbole: "◈" },
-  { href: "/combinaisons", libelle: "Combinaisons", symbole: "∑" },
-  { href: "/historique", libelle: "Historique", symbole: "◷" },
-  { href: "/calibration", libelle: "Calibration", symbole: "◎" },
-  { href: "/parametres", libelle: "Paramètres", symbole: "⚙" },
+interface ItemNavigation {
+  href: string;
+  libelle: string;
+  symbole: string;
+}
+
+const groupesNavigation: Array<{ titre: string; items: ItemNavigation[] }> = [
+  {
+    titre: "Référentiel",
+    items: [
+      { href: "/tableau-de-bord", libelle: "Tableau de bord", symbole: "◧" },
+      { href: "/competitions", libelle: "Compétitions", symbole: "▤" },
+      { href: "/equipes", libelle: "Équipes", symbole: "◉" },
+      { href: "/rencontres", libelle: "Rencontres", symbole: "◈" },
+    ],
+  },
+  {
+    titre: "Analyse",
+    items: [
+      { href: "/combinaisons", libelle: "Combinaisons", symbole: "∑" },
+      { href: "/historique", libelle: "Historique", symbole: "◷" },
+      { href: "/calibration", libelle: "Calibration", symbole: "◎" },
+    ],
+  },
+  {
+    titre: "Système",
+    items: [
+      { href: "/synchronisation", libelle: "Synchronisation", symbole: "⇄" },
+      { href: "/parametres", libelle: "Paramètres", symbole: "⚙" },
+    ],
+  },
 ];
+
+const navigation = groupesNavigation.flatMap((groupe) => groupe.items);
+
+function estActif(chemin: string, href: string): boolean {
+  return chemin === href || chemin.startsWith(`${href}/`);
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -61,9 +88,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (erreur) {
     return (
       <div className="mx-auto max-w-xl px-5 py-16">
-        <div className="rounded-2xl border border-danger/40 bg-danger/10 p-6 text-sm text-danger">
-          {erreur}
-        </div>
+        <div className="border-l-2 border-danger/60 pl-3 text-sm text-danger">{erreur}</div>
       </div>
     );
   }
@@ -76,38 +101,40 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const sectionActive = navigation.find((item) => estActif(chemin, item.href))?.libelle;
+
   return (
     <div className="flex min-h-screen flex-col lg:flex-row">
       <aside className="flex shrink-0 flex-col border-b border-bordure bg-fond-panneau lg:w-64 lg:border-b-0 lg:border-r">
         <div className="flex items-center gap-3 px-5 py-5">
           <div
             aria-hidden
-            className="flex size-10 items-center justify-center rounded-xl border border-accent/30 bg-accent/10 text-sm font-semibold text-accent"
+            className="flex size-9 items-center justify-center rounded-md border border-accent/50 text-sm font-semibold text-accent"
           >
             OA
           </div>
           <div>
             <p className="text-sm font-semibold tracking-tight">{fr.app.nom}</p>
-            <p className="text-[11px] text-texte-faible">{fr.app.sousTitre}</p>
+            <p className="text-xs text-texte-faible">{fr.app.sousTitre}</p>
           </div>
         </div>
 
         <nav aria-label="Navigation principale" className="min-w-0 px-3 pb-3 lg:flex-1">
-          <ul className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:flex lg:flex-col">
+          <ul className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:hidden">
             {navigation.map((item) => {
-              const actif = chemin === item.href || chemin.startsWith(`${item.href}/`);
+              const actif = estActif(chemin, item.href);
               return (
                 <li key={item.href} className="w-full">
                   <Link
                     href={item.href}
                     aria-current={actif ? "page" : undefined}
-                    className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition ${
+                    className={`flex h-9 items-center gap-2 rounded-md border-l-2 px-2.5 text-xs font-medium transition ${
                       actif
-                        ? "border border-accent/30 bg-accent/10 text-accent"
-                        : "border border-transparent text-texte-doux hover:bg-fond-eleve hover:text-texte"
+                        ? "border-accent bg-accent/10 text-accent"
+                        : "border-transparent text-texte-doux hover:bg-fond-eleve hover:text-texte"
                     }`}
                   >
-                    <span aria-hidden className="text-sm">
+                    <span aria-hidden className="w-4 text-center">
                       {item.symbole}
                     </span>
                     {item.libelle}
@@ -116,16 +143,47 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               );
             })}
           </ul>
+
+          <div className="hidden lg:block">
+            {groupesNavigation.map((groupe) => (
+              <div key={groupe.titre} className="mb-4 last:mb-0">
+                <p className="px-3 pb-1 text-xs text-texte-faible">{groupe.titre}</p>
+                <ul className="flex flex-col gap-0.5">
+                  {groupe.items.map((item) => {
+                    const actif = estActif(chemin, item.href);
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          aria-current={actif ? "page" : undefined}
+                          className={`flex h-9 items-center gap-2.5 rounded-md border-l-2 px-3 text-sm transition ${
+                            actif
+                              ? "border-accent bg-accent/10 font-medium text-accent"
+                              : "border-transparent text-texte-doux hover:bg-fond-eleve hover:text-texte"
+                          }`}
+                        >
+                          <span aria-hidden className="w-4 text-center text-sm">
+                            {item.symbole}
+                          </span>
+                          {item.libelle}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
         </nav>
 
         <div className="hidden border-t border-bordure px-5 py-4 lg:block">
-          <p className="truncate text-[11px] text-texte-faible" title={etat.user?.email}>
+          <p className="truncate text-xs text-texte-faible" title={etat.user?.email}>
             {etat.user?.email}
           </p>
           <button
             type="button"
             onClick={() => void seDeconnecter()}
-            className="mt-2 text-[11px] font-medium text-texte-doux transition hover:text-danger"
+            className="mt-2 text-xs font-medium text-texte-doux transition hover:text-danger"
           >
             Se déconnecter
           </button>
@@ -133,14 +191,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-3 border-b border-bordure px-5 py-3">
-          <p className="text-xs text-texte-faible">
-            Outil d&apos;analyse statistique — aucun pari n&apos;est placé automatiquement.
-          </p>
+        <header className="flex items-center justify-between gap-3 border-b border-bordure px-5 py-2">
+          <p className="text-xs text-texte-faible">{sectionActive ?? "Espace de travail"}</p>
           <button
             type="button"
             onClick={() => void seDeconnecter()}
-            className="shrink-0 text-[11px] font-medium text-texte-doux transition hover:text-danger lg:hidden"
+            className="shrink-0 text-xs font-medium text-texte-doux transition hover:text-danger lg:hidden"
           >
             Quitter
           </button>
@@ -148,8 +204,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-6 sm:px-8">{children}</main>
 
-        <footer className="border-t border-bordure px-5 py-4 text-[11px] text-texte-faible sm:px-8">
-          Usage strictement personnel. Aucune donnée de bookmaker n&apos;est stockée.
+        <footer className="border-t border-bordure px-5 py-4 text-xs text-texte-faible sm:px-8">
+          Usage strictement personnel. Aucune donnée de bookmaker n&apos;est stockée. Aucun pari
+          n&apos;est placé automatiquement.
         </footer>
       </div>
     </div>

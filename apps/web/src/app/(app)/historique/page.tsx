@@ -7,8 +7,10 @@ import {
   Badge,
   Bouton,
   Chargement,
+  EntetePage,
   EtatVide,
-  Panneau,
+  Indicateur,
+  Section,
 } from "@/components/ui";
 import { apiFetch, messageErreur } from "@/lib/api";
 import { formatDateHeure } from "@/lib/format";
@@ -104,34 +106,6 @@ function compteur(resume: ResumePerformance, code: string): number | null {
   return null;
 }
 
-function Indicateur({
-  libelle,
-  valeur,
-  aide,
-  ton = "texte",
-}: {
-  libelle: string;
-  valeur: string;
-  aide?: string;
-  ton?: "succes" | "danger" | "texte" | "accent";
-}) {
-  const couleur =
-    ton === "succes"
-      ? "text-succes"
-      : ton === "danger"
-        ? "text-danger"
-        : ton === "accent"
-          ? "text-accent"
-          : "text-texte";
-  return (
-    <div className="rounded-xl border border-bordure bg-fond p-4">
-      <p className="text-[11px] text-texte-faible">{libelle}</p>
-      <p className={`mt-1 font-mono text-lg ${couleur}`}>{valeur}</p>
-      {aide ? <p className="mt-1 text-[10px] text-texte-faible">{aide}</p> : null}
-    </div>
-  );
-}
-
 function CarteHistorique({
   item,
   onSupprimer,
@@ -143,42 +117,35 @@ function CarteHistorique({
 }) {
   const net = item.net_units;
   return (
-    <article className="rounded-xl border border-bordure bg-fond p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <article className="border-t border-bordure pt-4 first:border-0 first:pt-0">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge ton={tonsStatut[item.status]}>{item.status_label}</Badge>
-            <span className="text-[11px] text-texte-faible">
+            <span className="text-xs text-texte-faible">
               {formatDateHeure(item.created_at)}
             </span>
-            <span className="text-[11px] text-texte-faible">
+            <span className="text-xs text-texte-faible">
               {item.nombre_selections} sélections
             </span>
           </div>
-          <p className="mt-2 text-xs text-texte-doux">
-            Cote totale{" "}
-            <span className="font-mono text-lg text-texte">
-              {cote(item.total_odds)}
-            </span>
-            {Math.abs(item.effective_odds - item.total_odds) > 1e-9 ? (
-              <span className="ml-2">
-                Cote effective{" "}
-                <span className="font-mono text-texte-doux">
-                  {cote(item.effective_odds)}
-                </span>
-              </span>
-            ) : null}
+          <p className="mt-2 text-xs text-texte-faible">Cote totale</p>
+          <p className="font-mono text-2xl tabular-nums text-texte">
+            {cote(item.total_odds)}
           </p>
+          {Math.abs(item.effective_odds - item.total_odds) > 1e-9 ? (
+            <p className="mt-0.5 text-xs text-texte-faible">
+              Cote effective <span className="font-mono">{cote(item.effective_odds)}</span>
+            </p>
+          ) : null}
           {item.note ? (
-            <p className="mt-1 text-[11px] text-texte-faible">{item.note}</p>
+            <p className="mt-1 text-xs text-texte-faible">{item.note}</p>
           ) : null}
         </div>
 
-        <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-right text-[11px]">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-right text-xs">
           <span className="text-texte-faible">Probabilité estimée</span>
-          <span className="font-mono text-texte">
-            {pourcent(item.probability)}
-          </span>
+          <span className="font-mono text-texte">{pourcent(item.probability)}</span>
           <span className="text-texte-faible">Fourchette 80 %</span>
           <span className="font-mono text-texte-doux">
             {pourcent(item.low)} – {pourcent(item.high)}
@@ -197,9 +164,9 @@ function CarteHistorique({
       </div>
 
       <div className="mt-3 overflow-x-auto">
-        <table className="w-full min-w-[860px] border-collapse text-left text-[11px]">
+        <table className="w-full min-w-[720px] border-collapse text-left">
           <thead>
-            <tr className="border-b border-bordure text-texte-faible">
+            <tr className="border-b border-bordure text-[11px] text-texte-faible">
               <th className="pb-2 pr-3 font-medium">Rencontre</th>
               <th className="pb-2 pr-3 font-medium">Marché</th>
               <th className="pb-2 pr-3 font-medium">Choix</th>
@@ -210,28 +177,23 @@ function CarteHistorique({
           </thead>
           <tbody>
             {item.selections.map((leg) => (
-              <tr
-                key={leg.id}
-                className="border-b border-bordure/60 last:border-0"
-              >
+              <tr key={leg.id} className="border-b border-bordure/60 last:border-0">
                 <td className="py-2 pr-3">
-                  <p className="text-texte">{leg.match_label}</p>
-                  <p className="text-texte-faible">
+                  <p className="text-xs text-texte">{leg.match_label}</p>
+                  <p className="text-[11px] text-texte-faible">
                     {leg.competition_name} · {formatDateHeure(leg.kickoff_at)}
                   </p>
-                  <p className="mt-0.5 text-[10px] text-texte-faible">
-                    {leg.reason}
-                  </p>
+                  <p className="mt-0.5 text-[11px] text-texte-faible">{leg.reason}</p>
                 </td>
-                <td className="py-2 pr-3 text-texte-doux">{leg.market_name}</td>
-                <td className="py-2 pr-3 text-texte">{leg.selection_label}</td>
-                <td className="py-2 pr-3 text-right font-mono text-texte">
+                <td className="py-2 pr-3 text-xs text-texte-doux">{leg.market_name}</td>
+                <td className="py-2 pr-3 text-xs text-texte">{leg.selection_label}</td>
+                <td className="py-2 pr-3 text-right font-mono text-xs tabular-nums text-texte">
                   {cote(leg.decimal_odds)}
                 </td>
                 <td className="py-2 pr-3">
                   <Badge ton={tonsStatut[leg.status]}>{leg.status_label}</Badge>
                 </td>
-                <td className="py-2 text-right font-mono text-texte-doux">
+                <td className="py-2 text-right font-mono text-xs tabular-nums text-texte-doux">
                   {score(leg)}
                 </td>
               </tr>
@@ -243,7 +205,8 @@ function CarteHistorique({
       <div className="mt-3 flex justify-end">
         <Bouton
           type="button"
-          variante="danger"
+          variante="discret"
+          className="text-texte-faible hover:text-danger"
           onClick={onSupprimer}
           disabled={suppression}
         >
@@ -332,23 +295,19 @@ export default function PageHistorique() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight">Historique</h1>
-        <p className="mt-1 text-xs text-texte-doux">
-          Combinaisons enregistrées, règlement automatique et performance en
-          unités de mise. Aucun montant en argent n&apos;est utilisé et aucune
-          recommandation de mise n&apos;est formulée.
-        </p>
-      </header>
+      <EntetePage
+        titre="Historique"
+        description="Combinaisons enregistrées, règlement automatique et performance en unités de mise. Aucun montant en argent n'est utilisé."
+      />
 
       {erreur ? <Alerte ton="erreur">{erreur}</Alerte> : null}
       {succes ? <Alerte ton="succes">{succes}</Alerte> : null}
 
-      <Panneau
+      <Section
         titre="Synthèse de performance"
         description="Une unité par combinaison réglée. Les combinaisons en attente ou indisponibles sont exclues des calculs."
       >
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <dl className="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
           <Indicateur libelle="Enregistrées" valeur={String(resume.total)} />
           <Indicateur libelle="Réglées" valeur={String(resume.reglees)} />
           <Indicateur
@@ -374,54 +333,64 @@ export default function PageHistorique() {
                     : "texte"
             }
           />
-        </div>
+        </dl>
 
-        <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <dl className="mt-4 grid grid-cols-2 gap-x-8 gap-y-4 border-t border-bordure pt-4 sm:grid-cols-3 lg:grid-cols-6">
           <Indicateur libelle="Gagnées" valeur={String(resume.gagnees)} ton="succes" />
           <Indicateur libelle="Perdues" valeur={String(resume.perdues)} ton="danger" />
           <Indicateur libelle="En attente" valeur={String(resume.en_attente)} />
           <Indicateur libelle="Remboursées" valeur={String(resume.remboursees)} ton="accent" />
           <Indicateur libelle="Indisponibles" valeur={String(resume.indisponibles)} />
           <Indicateur libelle="Cote moyenne" valeur={cote(resume.cote_moyenne)} />
-        </div>
+        </dl>
 
-        <p className="mt-3 text-[11px] text-texte-faible">
+        <p className="mt-4 text-[11px] text-texte-faible">
           {unites(resume.unites_engagees)} unité(s) engagée(s) ·{" "}
           {unites(resume.unites_retournees)} unité(s) retournée(s).
         </p>
-        <p className="mt-2 text-[11px] leading-relaxed text-texte-faible">
+        <p className="mt-1 text-[11px] leading-relaxed text-texte-faible">
           {resume.avertissement}
         </p>
-      </Panneau>
+      </Section>
 
-      <Panneau
+      <Section
         titre="Combinaisons enregistrées"
         description="Le statut est recalculé à chaque consultation à partir du score actuel des rencontres."
         action={
           chargement ? (
-            <span className="text-[11px] text-texte-faible">Actualisation…</span>
+            <span className="text-xs text-texte-faible">Actualisation…</span>
           ) : undefined
         }
       >
-        <div className="flex flex-wrap gap-2">
-          {filtres.map((filtre) => (
-            <Bouton
-              key={filtre.code}
-              type="button"
-              variante={statut === filtre.code ? "principal" : "secondaire"}
-              onClick={() => changerStatut(filtre.code)}
-            >
-              {filtre.libelle}
-              <span className="opacity-70">{compteur(resume, filtre.code)}</span>
-            </Bouton>
-          ))}
+        <div className="flex flex-wrap gap-1 border-b border-bordure">
+          {filtres.map((filtre) => {
+            const actif = statut === filtre.code;
+            return (
+              <button
+                key={filtre.code}
+                type="button"
+                onClick={() => changerStatut(filtre.code)}
+                aria-pressed={actif}
+                className={`border-b-2 px-3 py-2 text-xs font-medium transition ${
+                  actif
+                    ? "border-accent text-accent"
+                    : "border-transparent text-texte-doux hover:text-texte"
+                }`}
+              >
+                {filtre.libelle}
+                <span className="ml-1.5 font-mono text-[11px] text-texte-faible">
+                  {compteur(resume, filtre.code)}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
-        <div className="mt-4 flex flex-col gap-3">
+        <div className="mt-4 flex flex-col gap-4">
           {!liste || liste.items.length === 0 ? (
             <EtatVide>
-              Aucune combinaison enregistrée pour ce filtre. Générez puis
-              enregistrez une combinaison depuis la page Combinaisons.
+              Aucune combinaison enregistrée pour ce filtre. Générez puis enregistrez une
+              combinaison depuis la page Combinaisons.
             </EtatVide>
           ) : (
             liste.items.map((item) => (
@@ -436,7 +405,7 @@ export default function PageHistorique() {
         </div>
 
         {totalPages > 1 ? (
-          <div className="mt-4 flex items-center justify-between gap-3">
+          <div className="mt-4 flex items-center justify-between gap-3 border-t border-bordure pt-3">
             <Bouton
               type="button"
               variante="secondaire"
@@ -445,7 +414,7 @@ export default function PageHistorique() {
             >
               Précédent
             </Bouton>
-            <span className="text-[11px] text-texte-faible">
+            <span className="text-xs text-texte-faible">
               Page {page} / {totalPages}
             </span>
             <Bouton
@@ -458,7 +427,7 @@ export default function PageHistorique() {
             </Bouton>
           </div>
         ) : null}
-      </Panneau>
+      </Section>
     </div>
   );
 }

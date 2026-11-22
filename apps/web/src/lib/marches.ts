@@ -48,6 +48,14 @@ export const typesLigne: Record<string, string> = {
   libre: "Ligne libre",
 };
 
+/** Marchés proposés par le générateur et les préférences. */
+export const marchesDisponibles = [
+  { code: "1X2", libelle: "1X2 (résultat du match)" },
+  { code: "DOUBLE_CHANCE", libelle: "Double chance" },
+  { code: "PLUS_MOINS", libelle: "Plus / moins de buts" },
+  { code: "BTTS", libelle: "Les deux équipes marquent" },
+];
+
 export function libelleFamille(famille: string): string {
   return famillesMarches[famille] ?? famille;
 }

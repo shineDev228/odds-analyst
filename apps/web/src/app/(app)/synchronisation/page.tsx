@@ -8,9 +8,11 @@ import {
   Bouton,
   Champ,
   Chargement,
+  EntetePage,
   EtatVide,
-  Panneau,
+  Indicateur,
   Saisie,
+  Section,
 } from "@/components/ui";
 import { apiFetch, messageErreur } from "@/lib/api";
 import { formatDate, formatDateHeure, formatNombre } from "@/lib/format";
@@ -72,13 +74,13 @@ function compteur(run: JournalSynchronisation, cle: string): number | null {
 
 function CarteRapport({ rapport }: { rapport: LigueRapport }) {
   return (
-    <li className="rounded-lg border border-bordure bg-fond px-3 py-2">
+    <li className="border-b border-bordure/70 py-2 last:border-0">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-xs font-medium text-texte">{rapport.name}</p>
           <Badge ton={tonStatut(rapport.status)}>{libelleStatut(rapport.status)}</Badge>
         </div>
-        <p className="text-[11px] text-texte-faible">
+        <p className="text-xs text-texte-faible">
           {rapport.requests} requête(s) · {rapport.created} créée(s) · {rapport.updated} mise(s) à
           jour · {rapport.unchanged} inchangée(s) · {rapport.ignored} ignorée(s)
         </p>
@@ -87,7 +89,7 @@ function CarteRapport({ rapport }: { rapport: LigueRapport }) {
       rapport.standings_written > 0 ||
       rapport.stats_missing > 0 ||
       rapport.duplicates > 0 ? (
-        <p className="mt-1 text-[11px] text-texte-faible">
+        <p className="mt-1 text-xs text-texte-faible">
           Statistiques écrites : {rapport.stats_written}
           {rapport.stats_missing > 0 ? ` · sans statistiques : ${rapport.stats_missing}` : ""}
           {rapport.duplicates > 0 ? ` · fiches en double ignorées : ${rapport.duplicates}` : ""} · lignes
@@ -95,11 +97,11 @@ function CarteRapport({ rapport }: { rapport: LigueRapport }) {
         </p>
       ) : null}
       {rapport.warnings.map((warning) => (
-        <p key={warning} className="mt-1 text-[11px] text-alerte">
+        <p key={warning} className="mt-1 text-xs text-alerte">
           {warning}
         </p>
       ))}
-      {rapport.error ? <p className="mt-1 text-[11px] text-danger">{rapport.error}</p> : null}
+      {rapport.error ? <p className="mt-1 text-xs text-danger">{rapport.error}</p> : null}
     </li>
   );
 }
@@ -119,57 +121,57 @@ function tonDecision(decision: string): "succes" | "alerte" | "danger" | "neutre
 
 function CarteRapportCotes({ rapport }: { rapport: LigueRapportCotes }) {
   return (
-    <li className="rounded-lg border border-bordure bg-fond px-3 py-2">
+    <li className="border-b border-bordure/70 py-2 last:border-0">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-xs font-medium text-texte">{rapport.name}</p>
           <Badge ton={tonStatut(rapport.status)}>{libelleStatut(rapport.status)}</Badge>
         </div>
-        <p className="text-[11px] text-texte-faible">
+        <p className="text-xs text-texte-faible">
           {rapport.matched}/{rapport.events} rattachée(s) · {rapport.markets_written} marché(s) ·{" "}
           {rapport.snapshots_written} relevé(s) · {rapport.credits} crédit(s)
         </p>
       </div>
-      <p className="mt-1 text-[11px] text-texte-faible">
+      <p className="mt-1 text-xs text-texte-faible">
         Liens créés : {rapport.links_created} · réutilisés : {rapport.links_reused} · désactivés :{" "}
         {rapport.links_deactivated} · sans 1xBet : {rapport.bookmaker_missing} · saisies manuelles
         conservées : {rapport.manual_kept}
       </p>
       {rapport.warnings.map((warning) => (
-        <p key={warning} className="mt-1 text-[11px] text-alerte">
+        <p key={warning} className="mt-1 text-xs text-alerte">
           {warning}
         </p>
       ))}
-      {rapport.error ? <p className="mt-1 text-[11px] text-danger">{rapport.error}</p> : null}
+      {rapport.error ? <p className="mt-1 text-xs text-danger">{rapport.error}</p> : null}
     </li>
   );
 }
 
 function CarteRapportCsv({ rapport }: { rapport: LigueRapportCsv }) {
   return (
-    <li className="rounded-lg border border-bordure bg-fond px-3 py-2">
+    <li className="border-b border-bordure/70 py-2 last:border-0">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-xs font-medium text-texte">{rapport.name}</p>
           <Badge ton={tonStatut(rapport.status)}>{libelleStatut(rapport.status)}</Badge>
         </div>
-        <p className="text-[11px] text-texte-faible">
+        <p className="text-xs text-texte-faible">
           {rapport.matched}/{rapport.rows} ligne(s) rattachée(s) · {rapport.xg_written} xG écrit(s) ·{" "}
           {rapport.snapshots_written} relevé(s) de clôture
         </p>
       </div>
-      <p className="mt-1 text-[11px] text-texte-faible">
+      <p className="mt-1 text-xs text-texte-faible">
         Liens créés : {rapport.links_created} · réutilisés : {rapport.links_reused} · ambigus :{" "}
         {rapport.ambiguous} · sans rencontre : {rapport.unmatched} · xG déjà présent conservé :{" "}
         {rapport.xg_kept} · sans cotes complètes : {rapport.odds_missing} · saisies manuelles
         conservées : {rapport.manual_kept}
       </p>
       {rapport.warnings.map((warning) => (
-        <p key={warning} className="mt-1 text-[11px] text-alerte">
+        <p key={warning} className="mt-1 text-xs text-alerte">
           {warning}
         </p>
       ))}
-      {rapport.error ? <p className="mt-1 text-[11px] text-danger">{rapport.error}</p> : null}
+      {rapport.error ? <p className="mt-1 text-xs text-danger">{rapport.error}</p> : null}
     </li>
   );
 }
@@ -421,15 +423,15 @@ export default function PageSynchronisation() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight">Synchronisation</h1>
-        <p className="mt-1 text-xs text-texte-doux">
-          Une seule source de faits pour les sept compétitions suivies. Chaque passe est rejouable :
-          relancer une journée déjà importée ne crée aucun doublon.
-        </p>
-      </header>
-
-      <Alerte ton="info">{BANDEAU}</Alerte>
+      <EntetePage
+        titre="Synchronisation"
+        description="Une seule source de faits pour les sept compétitions suivies. Chaque passe est rejouable : relancer une journée déjà importée ne crée aucun doublon."
+        action={
+          <Bouton variante="secondaire" onClick={() => void charger()}>
+            Rafraîchir
+          </Bouton>
+        }
+      />
 
       {erreur ? <Alerte ton="erreur">{erreur}</Alerte> : null}
       {succes ? <Alerte ton="succes">{succes}</Alerte> : null}
@@ -442,135 +444,102 @@ export default function PageSynchronisation() {
         </Alerte>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Panneau
-          titre="Quota du jour"
-          description="Compteur local, recalé sur les en-têtes du fournisseur."
-          action={
-            <Bouton variante="discret" onClick={() => void charger()}>
-              Rafraîchir
-            </Bouton>
-          }
-        >
-          <dl className="flex flex-col gap-2 text-xs">
-            <div className="flex items-center justify-between">
-              <dt className="text-texte-faible">Requêtes utilisées</dt>
-              <dd className="text-texte">{formatNombre(quota?.used)}</dd>
-            </div>
-            <div className="flex items-center justify-between">
-              <dt className="text-texte-faible">Plafond local</dt>
-              <dd className="text-texte">{formatNombre(quota?.limit)}</dd>
-            </div>
-            <div className="flex items-center justify-between">
-              <dt className="text-texte-faible">Restantes</dt>
-              <dd className="text-texte">{formatNombre(quota?.remaining)}</dd>
-            </div>
-            <div className="flex items-center justify-between">
-              <dt className="text-texte-faible">Réinitialisation</dt>
-              <dd className="text-texte">{formatDateHeure(quota?.reset_at)}</dd>
-            </div>
-          </dl>
-        </Panneau>
+      <Section
+        titre="État"
+        description="Compteur local, recalé sur les en-têtes du fournisseur. Un classement est enregistré une fois par jour et par équipe."
+      >
+        <dl className="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-3 lg:grid-cols-6">
+          <Indicateur libelle="Requêtes utilisées" valeur={formatNombre(quota?.used)} />
+          <Indicateur libelle="Restantes" valeur={formatNombre(quota?.remaining)} />
+          <Indicateur libelle="Plafond local" valeur={formatNombre(quota?.limit)} />
+          <Indicateur libelle="Réinitialisation" valeur={formatDateHeure(quota?.reset_at)} />
+          <Indicateur libelle="Rencontres" valeur={formatNombre(total?.matches)} />
+          <Indicateur libelle="Lignes avec xG" valeur={formatNombre(total?.xg_rows)} />
+        </dl>
+        <p className="mt-3 text-[11px] text-texte-faible">
+          Saison demandée au fournisseur : {vue?.season ?? "—"}. Équipes du fournisseur :{" "}
+          {formatNombre(total?.teams)} · lignes de statistiques : {formatNombre(total?.stats_rows)}.
+        </p>
+      </Section>
 
-        <Panneau titre="Base actuelle" description="Ce que contient réellement la base.">
-          <dl className="grid grid-cols-2 gap-2 text-xs">
-            {[
-              ["Rencontres", total?.matches],
-              ["Équipes du fournisseur", total?.teams],
-              ["Lignes de statistiques", total?.stats_rows],
-              ["Lignes avec xG (CSV)", total?.xg_rows],
-            ].map(([libelle, valeur]) => (
-              <div
-                key={String(libelle)}
-                className="rounded-lg border border-bordure bg-fond px-3 py-2"
+      <Section
+      titre="Lancer une passe"
+        description="Les données déjà présentes sont mises à jour, jamais dupliquées."
+      >
+        <fieldset className="flex flex-col gap-3">
+          <legend className="text-xs text-texte-faible">
+            Compétitions
+          </legend>
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+            {COMPETITIONS.map((competition) => (
+              <label
+                key={competition.code}
+                className="flex items-center gap-2 text-xs text-texte"
               >
-                <dt className="text-[10px] uppercase tracking-wide text-texte-faible">
-                  {libelle}
-                </dt>
-                <dd className="mt-0.5 text-sm font-semibold text-texte">
-                  {formatNombre(typeof valeur === "number" ? valeur : null)}
-                </dd>
-              </div>
+                <input
+                  type="checkbox"
+                  checked={selection.includes(competition.code)}
+                  onChange={() => basculer(competition.code)}
+                />
+                {competition.libelle}
+              </label>
             ))}
-          </dl>
-          <p className="mt-3 text-[11px] text-texte-faible">
-            Saison demandée au fournisseur : {vue?.season ?? "—"}. Un classement est enregistré une
-            fois par jour et par équipe : le relevé du soir ne remplace pas celui du matin.
-          </p>
-        </Panneau>
-
-        <Panneau
-          titre="Lancer une passe"
-          description="Les données déjà présentes sont mises à jour, jamais dupliquées."
-        >
-          <fieldset className="flex flex-col gap-3">
-            <legend className="text-[11px] uppercase tracking-wide text-texte-faible">
-              Compétitions
-            </legend>
-            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-              {COMPETITIONS.map((competition) => (
-                <label
-                  key={competition.code}
-                  className="flex items-center gap-2 text-xs text-texte"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selection.includes(competition.code)}
-                    onChange={() => basculer(competition.code)}
-                  />
-                  {competition.libelle}
-                </label>
-              ))}
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="flex items-center gap-2 text-xs text-texte">
-                <input
-                  type="checkbox"
-                  checked={avecStats}
-                  onChange={(event) => setAvecStats(event.target.checked)}
-                />
-                Statistiques des rencontres terminées
-              </label>
-              <label className="flex items-center gap-2 text-xs text-texte">
-                <input
-                  type="checkbox"
-                  checked={avecClassement}
-                  onChange={(event) => setAvecClassement(event.target.checked)}
-                />
-                Classements du jour
-              </label>
-            </div>
-            <Champ
-              label="Limite de statistiques par compétition"
-              aide="Chaque rencontre coûte une requête. Une limite garde la passe courte ; relancez-la pour continuer."
-            >
-              <Saisie
-                type="number"
-                min={0}
-                max={200}
-                value={limiteStats}
-                onChange={(event) => setLimiteStats(event.target.value)}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="flex items-center gap-2 text-xs text-texte">
+              <input
+                type="checkbox"
+                checked={avecStats}
+                onChange={(event) => setAvecStats(event.target.checked)}
               />
-            </Champ>
-            <Bouton
-              variante="principal"
-              onClick={() => void lancer()}
-              disabled={enCours || !vue?.configured || selection.length === 0}
-            >
-              {enCours ? "Synchronisation en cours…" : "Synchroniser maintenant"}
-            </Bouton>
-            {enCours ? (
-              <p className="text-[11px] text-texte-faible">
-                La passe respecte un appel toutes les 0,8 seconde, soit 75 par minute : la limite
-                du fournisseur est de 100 par minute. Laissez la page ouverte.
-              </p>
-            ) : null}
-          </fieldset>
-        </Panneau>
-      </div>
+              Statistiques des rencontres terminées
+            </label>
+            <label className="flex items-center gap-2 text-xs text-texte">
+              <input
+                type="checkbox"
+                checked={avecClassement}
+                onChange={(event) => setAvecClassement(event.target.checked)}
+              />
+              Classements du jour
+            </label>
+          </div>
+          <Champ
+            label="Limite de statistiques par compétition"
+            aide="Chaque rencontre coûte une requête. Une limite garde la passe courte ; relancez-la pour continuer."
+          >
+            <Saisie
+              type="number"
+              min={0}
+              max={200}
+              value={limiteStats}
+              onChange={(event) => setLimiteStats(event.target.value)}
+            />
+          </Champ>
+          <Bouton
+            variante="principal"
+            onClick={() => void lancer()}
+            disabled={enCours || !vue?.configured || selection.length === 0}
+          >
+            {enCours ? "Synchronisation en cours…" : "Synchroniser maintenant"}
+          </Bouton>
+          {enCours ? (
+            <p className="text-xs text-texte-faible">
+              La passe respecte un appel toutes les 0,8 seconde, soit 75 par minute : la limite
+              du fournisseur est de 100 par minute. Laissez la page ouverte.
+            </p>
+          ) : null}
+        </fieldset>
+      </Section>
+
+      <details className="border-t border-bordure pt-5">
+        <summary className="cursor-pointer text-xs font-medium text-texte-doux">
+          Fonctionnement de la source
+        </summary>
+        <p className="mt-3 max-w-[80ch] text-xs leading-relaxed text-texte-doux">{BANDEAU}</p>
+      </details>
 
       {rapport ? (
-        <Panneau
+        <Section
           titre="Résultat de la dernière passe"
           description={`${rapport.requests} requête(s) · quota restant ${rapport.quota_remaining ?? "—"}.`}
           action={
@@ -583,10 +552,10 @@ export default function PageSynchronisation() {
               <CarteRapport key={ligue.code} rapport={ligue} />
             ))}
           </ul>
-        </Panneau>
+        </Section>
       ) : null}
 
-      <Panneau
+      <Section
         titre="Cotes des rencontres à venir (1xBet)"
         description="The Odds API : aperçu gratuit, puis import payant dans le quota mensuel."
         action={
@@ -624,7 +593,7 @@ export default function PageSynchronisation() {
           </dl>
 
           <fieldset className="flex flex-col gap-3">
-            <legend className="text-[11px] uppercase tracking-wide text-texte-faible">
+            <legend className="text-xs text-texte-faible">
               Options d&apos;import
             </legend>
             <label className="flex items-center gap-2 text-xs text-texte">
@@ -647,7 +616,7 @@ export default function PageSynchronisation() {
                 onChange={(event) => setLimiteEtendus(event.target.value)}
               />
             </Champ>
-            <p className="text-[11px] text-texte-faible">
+            <p className="text-xs text-texte-faible">
               Coût annoncé : {cotes?.costs.competition ?? 2} crédit(s) par compétition pour le 1X2 et
               les totaux, {cotes?.costs.event ?? 2} crédit(s) par événement étendu. L&apos;aperçu ne
               consomme rien.
@@ -685,22 +654,22 @@ export default function PageSynchronisation() {
               {apercu.leagues.map((ligue) => (
                 <li
                   key={ligue.code}
-                  className="rounded-lg border border-bordure bg-fond px-3 py-2"
+                  className="border-b border-bordure/70 py-2 last:border-0"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs font-medium text-texte">{ligue.name}</p>
-                    <p className="text-[11px] text-texte-faible">
+                    <p className="text-xs text-texte-faible">
                       {ligue.matched}/{ligue.events} rattachée(s) · {ligue.ambiguous} ambigu(es) ·{" "}
                       {ligue.unmatched} sans rencontre · {ligue.credits} crédit(s)
                     </p>
                   </div>
                   {ligue.error ? (
-                    <p className="mt-1 text-[11px] text-danger">{ligue.error}</p>
+                    <p className="mt-1 text-xs text-danger">{ligue.error}</p>
                   ) : null}
                   {ligue.items
                     .filter((item) => item.decision !== "matched")
                     .map((item) => (
-                      <p key={item.event_id} className="mt-1 text-[11px] text-alerte">
+                      <p key={item.event_id} className="mt-1 text-xs text-alerte">
                         {item.home_team} - {item.away_team} :{" "}
                         {DECISIONS[item.decision] ?? item.decision}
                         {item.method ? ` (${item.method})` : ""} — aucune cote ne sera écrite.
@@ -710,7 +679,7 @@ export default function PageSynchronisation() {
                     .filter((item) => item.decision === "matched")
                     .slice(0, 5)
                     .map((item) => (
-                      <p key={item.event_id} className="mt-1 text-[11px] text-texte-faible">
+                      <p key={item.event_id} className="mt-1 text-xs text-texte-faible">
                         <Badge ton={tonDecision(item.decision)}>
                           {DECISIONS[item.decision] ?? item.decision}
                         </Badge>{" "}
@@ -719,7 +688,7 @@ export default function PageSynchronisation() {
                       </p>
                     ))}
                   {ligue.matched > 5 ? (
-                    <p className="mt-1 text-[11px] text-texte-faible">
+                    <p className="mt-1 text-xs text-texte-faible">
                       … et {ligue.matched - 5} autre(s) rattachement(s) identique(s), non affiché(s).
                     </p>
                   ) : null}
@@ -749,9 +718,9 @@ export default function PageSynchronisation() {
             </ul>
           </div>
         ) : null}
-      </Panneau>
+      </Section>
 
-      <Panneau
+      <Section
         titre="Enrichissement CSV (xG et cotes de clôture)"
         description="Fichiers publics football-data.co.uk : cinq compétitions, aucune clé, aucun quota."
         action={
@@ -793,7 +762,7 @@ export default function PageSynchronisation() {
           </dl>
 
           <fieldset className="flex flex-col gap-3">
-            <legend className="text-[11px] uppercase tracking-wide text-texte-faible">
+            <legend className="text-xs text-texte-faible">
               Options d&apos;enrichissement
             </legend>
             <label className="flex items-center gap-2 text-xs text-texte">
@@ -804,12 +773,12 @@ export default function PageSynchronisation() {
               />
               Relire les fichiers déjà téléchargés, sans réseau
             </label>
-            <p className="text-[11px] text-texte-faible">
+            <p className="text-xs text-texte-faible">
               La rencontre est trouvée par son résultat : date exacte, score final et score à la
               mi-temps. Le nom ne sert qu&apos;à confirmer le sens domicile/extérieur. Sous une marge
               de 0,25 entre deux candidats, rien n&apos;est écrit : la ligne reste en attente.
             </p>
-            <p className="text-[11px] text-texte-faible">
+            <p className="text-xs text-texte-faible">
               Seule la moyenne du marché est enregistrée, sous le libellé « Clôture (moyenne) » et
               avec la source « csv ». Un xG déjà présent n&apos;est jamais remplacé. La Ligue des
               champions et la MLS ne publient pas de xG dans ces fichiers : elles restent hors
@@ -831,7 +800,7 @@ export default function PageSynchronisation() {
                 Enrichir xG et clôture
               </Bouton>
             </div>
-            <p className="text-[11px] text-texte-faible">
+            <p className="text-xs text-texte-faible">
               Dossier des fichiers : <code>{csv?.directory ?? "—"}</code>
             </p>
           </fieldset>
@@ -842,7 +811,7 @@ export default function PageSynchronisation() {
             {(csv?.files ?? []).map((fichier) => (
               <li
                 key={fichier.code}
-                className="rounded-lg border border-bordure bg-fond px-3 py-2"
+                className="border-b border-bordure/70 py-2 last:border-0"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2">
@@ -852,18 +821,18 @@ export default function PageSynchronisation() {
                     </Badge>
                     {fichier.reused ? <Badge ton="alerte">Fichier local réutilisé</Badge> : null}
                   </div>
-                  <p className="text-[11px] text-texte-faible">
+                  <p className="text-xs text-texte-faible">
                     {formatDateHeure(fichier.downloaded_at)} ·{" "}
                     {fichier.sha256 ? `empreinte ${fichier.sha256.slice(0, 12)}…` : "sans empreinte"}
                   </p>
                 </div>
                 {fichier.warnings.map((warning) => (
-                  <p key={warning} className="mt-1 text-[11px] text-alerte">
+                  <p key={warning} className="mt-1 text-xs text-alerte">
                     {warning}
                   </p>
                 ))}
                 {fichier.error ? (
-                  <p className="mt-1 text-[11px] text-danger">{fichier.error}</p>
+                  <p className="mt-1 text-xs text-danger">{fichier.error}</p>
                 ) : null}
               </li>
             ))}
@@ -874,7 +843,7 @@ export default function PageSynchronisation() {
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[560px] border-collapse text-xs">
               <thead>
-                <tr className="border-b border-bordure text-left text-[11px] uppercase tracking-wide text-texte-faible">
+                <tr className="border-b border-bordure text-left text-xs text-texte-faible">
                   <th className="px-2 py-1.5 font-medium">Compétition</th>
                   <th className="px-2 py-1.5 font-medium">Saison</th>
                   <th className="px-2 py-1.5 text-right font-medium">Terminées</th>
@@ -904,20 +873,20 @@ export default function PageSynchronisation() {
               {(csv?.pending ?? []).map((ligne) => (
                 <li
                   key={ligne.row_key}
-                  className="rounded-lg border border-bordure bg-fond px-3 py-2"
+                  className="border-b border-bordure/70 py-2 last:border-0"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs text-texte">
                       {ligne.label} · {ligne.competition}
                     </p>
-                    <p className="text-[11px] text-texte-faible">
+                    <p className="text-xs text-texte-faible">
                       {formatDate(ligne.played_on)} · confiance{" "}
                       {ligne.confidence !== null ? ligne.confidence.toFixed(2) : "—"} · marge{" "}
                       {ligne.margin !== null ? ligne.margin.toFixed(2) : "—"}
                     </p>
                   </div>
                   {ligne.note ? (
-                    <p className="mt-1 text-[11px] text-alerte">{ligne.note}</p>
+                    <p className="mt-1 text-xs text-alerte">{ligne.note}</p>
                   ) : null}
                 </li>
               ))}
@@ -926,7 +895,7 @@ export default function PageSynchronisation() {
         ) : null}
 
         {telechargementCsv ? (
-          <p className="mt-4 text-[11px] text-texte-faible">
+          <p className="mt-4 text-xs text-texte-faible">
             Dernier téléchargement : {telechargementCsv.totals.files ?? 0} fichier(s) ·{" "}
             {telechargementCsv.totals.rows ?? 0} rencontre(s) lue(s).{" "}
             {telechargementCsv.error ?? ""}
@@ -953,16 +922,16 @@ export default function PageSynchronisation() {
             </ul>
           </div>
         ) : null}
-      </Panneau>
+      </Section>
 
-      <Panneau
+      <Section
         titre={`Compétitions suivies (${vue?.leagues.length ?? 0})`}
         description="Ce que la base contient pour chaque compétition, et la dernière passe connue."
       >
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] border-collapse text-xs">
             <thead>
-              <tr className="border-b border-bordure text-left text-[11px] uppercase tracking-wide text-texte-faible">
+              <tr className="border-b border-bordure text-left text-xs text-texte-faible">
                 <th className="px-2 py-1.5 font-medium">Compétition</th>
                 <th className="px-2 py-1.5 font-medium">Saison</th>
                 <th className="px-2 py-1.5 text-right font-medium">Terminées</th>
@@ -991,9 +960,9 @@ export default function PageSynchronisation() {
             </tbody>
           </table>
         </div>
-      </Panneau>
+      </Section>
 
-      <Panneau
+      <Section
         titre="Journal des passes"
         description="Une ligne par compétition et par passe. Aucune clé n'y figure."
       >
@@ -1003,7 +972,7 @@ export default function PageSynchronisation() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] border-collapse text-xs">
               <thead>
-                <tr className="border-b border-bordure text-left text-[11px] uppercase tracking-wide text-texte-faible">
+                <tr className="border-b border-bordure text-left text-xs text-texte-faible">
                   <th className="px-2 py-1.5 font-medium">Date</th>
                   <th className="px-2 py-1.5 font-medium">Compétition</th>
                   <th className="px-2 py-1.5 font-medium">État</th>
@@ -1032,7 +1001,7 @@ export default function PageSynchronisation() {
                     <td className="px-2 py-1.5 text-right text-texte">
                       {compteur(run, "updated") ?? "—"}
                     </td>
-                    <td className="px-2 py-1.5 text-[11px] text-danger">
+                    <td className="px-2 py-1.5 text-xs text-danger">
                       {run.error_message ?? ""}
                     </td>
                   </tr>
@@ -1041,7 +1010,7 @@ export default function PageSynchronisation() {
             </table>
           </div>
         )}
-      </Panneau>
+      </Section>
     </div>
   );
 }
