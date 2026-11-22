@@ -61,7 +61,7 @@ Règles :
 
 ## 3. Typographie
 
-Deux familles, chargées par `next/font` :
+Deux familles, chargées par `next/font/local` depuis `apps/web/src/app/fonts` :
 
 | Famille | Rôle |
 |---|---|
@@ -233,8 +233,9 @@ Règles d'usage :
 
 Les pages ont été vérifiées au build, au typage et au lint. Les états
 principaux (liste, formulaire replié, états vides, connexion) ont été
-contrôlés visuellement. Les états profonds de Synchronisation (rapports de
-passe, imports de cotes et CSV) restent à revoir sur données réelles.
+contrôlés visuellement. Les états profonds de Synchronisation — rapport de
+passe, aperçu et import des cotes, téléchargement et enrichissement CSV — ont
+été vérifiés le 22/11/2026 avec des réponses simulées.
 
 La migration est progressive : les jetons et les polices sont globaux, la mise
 en page est reprise page par page.
@@ -261,8 +262,9 @@ en page est reprise page par page.
 
 - Tailwind CSS 4 : les jetons sont déclarés dans `@theme`, sans fichier de
   configuration séparé.
-- Polices : `next/font/google`, téléchargées au build puis servies localement.
-  Pour un build hors ligne, les auto-héberger dans `apps/web/src/app/fonts/`.
+- Polices : auto-hébergées dans `apps/web/src/app/fonts/` et chargées par
+  `next/font/local`. Aucun accès réseau au build. Les licences OFL sont
+  conservées à côté des fichiers.
 - Aucune bibliothèque de composants externe.
 - Les tableaux utilisent `min-w-*` et un conteneur `overflow-x-auto` ; la page
   elle-même ne défile jamais horizontalement.

@@ -1,19 +1,22 @@
 import type { Metadata } from "next";
-import { Archivo, IBM_Plex_Mono } from "next/font/google";
+import localFont from "next/font/local";
 
 import { fr } from "@/messages/fr";
 
 import "./globals.css";
 
-const archivo = Archivo({
-  subsets: ["latin"],
+const archivo = localFont({
+  src: "./fonts/Archivo-latin.woff2",
   variable: "--font-archivo",
   display: "swap",
+  weight: "400 600",
 });
 
-const plexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
+const plexMono = localFont({
+  src: [
+    { path: "./fonts/IBMPlexMono-400-latin.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/IBMPlexMono-500-latin.woff2", weight: "500", style: "normal" },
+  ],
   variable: "--font-plex-mono",
   display: "swap",
 });

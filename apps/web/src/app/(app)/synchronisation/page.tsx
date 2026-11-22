@@ -477,7 +477,7 @@ export default function PageSynchronisation() {
                 className="flex items-center gap-2 text-xs text-texte"
               >
                 <input
-                  type="checkbox"
+                  type="checkbox" className="size-4 accent-accent"
                   checked={selection.includes(competition.code)}
                   onChange={() => basculer(competition.code)}
                 />
@@ -488,7 +488,7 @@ export default function PageSynchronisation() {
           <div className="flex flex-col gap-1.5">
             <label className="flex items-center gap-2 text-xs text-texte">
               <input
-                type="checkbox"
+                type="checkbox" className="size-4 accent-accent"
                 checked={avecStats}
                 onChange={(event) => setAvecStats(event.target.checked)}
               />
@@ -496,7 +496,7 @@ export default function PageSynchronisation() {
             </label>
             <label className="flex items-center gap-2 text-xs text-texte">
               <input
-                type="checkbox"
+                type="checkbox" className="size-4 accent-accent"
                 checked={avecClassement}
                 onChange={(event) => setAvecClassement(event.target.checked)}
               />
@@ -598,7 +598,7 @@ export default function PageSynchronisation() {
             </legend>
             <label className="flex items-center gap-2 text-xs text-texte">
               <input
-                type="checkbox"
+                type="checkbox" className="size-4 accent-accent"
                 checked={avecEtendus}
                 onChange={(event) => setAvecEtendus(event.target.checked)}
               />
@@ -767,7 +767,7 @@ export default function PageSynchronisation() {
             </legend>
             <label className="flex items-center gap-2 text-xs text-texte">
               <input
-                type="checkbox"
+                type="checkbox" className="size-4 accent-accent"
                 checked={csvSansReseau}
                 onChange={(event) => setCsvSansReseau(event.target.checked)}
               />
