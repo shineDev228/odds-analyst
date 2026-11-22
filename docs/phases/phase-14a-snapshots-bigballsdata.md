@@ -487,19 +487,88 @@ rencontres dont la réponse était en écriture américaine.
 | Quota restant | **1 770** |
 | Créneaux en base | `morning` **et** `evening` sur les mêmes rencontres (66 lignes, 0 doublon) |
 
+#### Les tâches ont tourné le jour même
+
+Les deux tâches installées dans la matinée ont été exécutées automatiquement le
+20/11, sans intervention :
+
+| Tâche | Démarrage réel | Résultat | Requêtes | Détail |
+|---|---|---|---|---|
+| matin | **06:30:30** | code `0` | **18** | 145 équipes sautées (déjà relevées), 1 créée, **158 classements**, board 32 écrits (31 mises à jour, 1 nouvelle rencontre) |
+| soir | **19:31:31** | code `0` | **15** | board 31 mis à jour, 3 rencontres trop tard, 1 cote rejetée (`≤ 1`) |
+
+La tâche du soir a démarré avec **une heure de retard** : le poste était
+probablement indisponible à 18:30, et l'option « démarrer dès que possible après
+un démarrage manqué » a lancé la passe dès le retour. Le résultat reste `0`.
+
+État en base après ces deux passes :
+
+| Table | Total | Jour 20/11 |
+|---|---:|---:|
+| `team_snapshots` | 146 | **146** |
+| `standings_snapshots` | 632 | **158** |
+| `market_board_snapshots` | 67 | **67** (34 matin, 33 soir) |
+
+**0 doublon**, **0 board orphelin**, **0 cote ≤ 1**, **0 taux hors bornes**,
+xG inchangé (**992** lignes), 4 lignes CSV toujours en attente.
+
+#### Limite réelle de complétude des équipes
+
+Le critère du plan (« ≥ 95 % des lignes complètes ») n'est **pas atteint**, et
+ne peut pas l'être sans inventer des données :
+
+| Champ | Lignes renseignées (sur 146) |
+|---|---:|
+| Statistiques cumulées | **146** (100 %) |
+| Elo | **123** (84 %) |
+| Splits domicile/extérieur | **106** (73 %) |
+| Les trois à la fois | **92** (63 %) |
+
+Les manques viennent du **fournisseur**, pas du mapping : `elo_rating` vaut
+`null` pour 23 clubs hors des cinq championnats couverts (PSV, FC Porto,
+Fenerbahçe, Galatasaray, etc.) ; `home_away_splits` vaut `null` pour les 30
+équipes MLS, plusieurs clubs européens (Real Betis) et quelques formations de
+barrages. Deux appels de contrôle le 20/11 ont confirmé ces `null` bruts. La
+règle « aucune valeur inventée » s'applique : la colonne reste `NULL`.
+
+
 #### Planification Windows
 
 Deux tâches ont été installées (accord explicite de l'utilisateur) :
 
-| Tâche | Déclencheur | Action |
-|---|---|---|
-| `ODDS ANALYST - snapshots matin` | tous les jours à **06:30** | `powershell -File infra\scripts\snapshots.ps1 -Slot morning` |
-| `ODDS ANALYST - snapshots soir` | tous les jours à **18:30** | `powershell -File infra\scripts\snapshots.ps1 -Slot evening` |
+| Tâche | Déclencheur (UTC) | Heure de Paris (hiver) | Action |
+|---|---|---|---|
+| `ODDS ANALYST - snapshots matin` | tous les jours à **05:30** | **06:30** | `powershell -File infra\scripts\snapshots.ps1 -Slot morning` |
+| `ODDS ANALYST - snapshots soir` | tous les jours à **17:30** | **18:30** | `powershell -File infra\scripts\snapshots.ps1 -Slot evening` |
 
 Les deux sont à l'état **Prêt**, démarrent au prochain allumage si l'heure est
 passée (`StartWhenAvailable`), sont relancées 3 fois à 15 minutes d'intervalle
 en cas d'échec et arrêtées au bout de 2 heures. Le déclencheur automatique de
 l'API reste activé comme filet de sécurité.
+
+> **Fuseau horaire.** Le Planificateur Windows utilise l'heure du système, ici
+> **UTC**. Les déclencheurs ont donc été fixés à **05:30 et 17:30 UTC**, ce qui
+> correspond à **06:30 et 18:30 à Paris en hiver**. En été (heure d'été, UTC+2),
+> ils tomberont à 07:30 et 19:30 à Paris : il faudra les avancer d'une heure au
+> changement d'heure, ou créer deux déclencheurs saisonniers.
+
+#### 21/11 : journée manquée, puis correction
+
+Les deux tâches n'ont **pas tourné le 21/11** : `LastRunTime` est resté au
+20/11. Cause : les options par défaut du Planificateur **« Ne pas démarrer sur
+batterie »** et **« Arrêter sur batterie »** étaient actives. Sur un portable
+non branché, les deux déclenchements ont été bloqués silencieusement.
+
+Correction appliquée le 21/11 : `AllowStartIfOnBatteries` et
+`DontStopIfGoingOnBatteries` sont désormais activés sur les deux tâches, en plus
+de `StartWhenAvailable`. `WakeToRun` reste désactivé (pas de réveil forcé du
+portable).
+
+Conséquence assumée : les snapshots du **21/11** (équipes, classements, board)
+sont **perdus** et ne peuvent pas être reconstruits — le fournisseur ne renvoie
+que le jour courant. C'est exactement le risque documenté en section 5.
+
+
 
 #### Vérifications finales
 
@@ -508,6 +577,10 @@ l'API reste activé comme filet de sécurité.
 | `pytest` | **429 tests verts** (21 min 40 s sur un poste chargé) |
 | `ruff check app tests engine` | vert |
 | `mypy app engine` | vert, 102 fichiers |
+| `npm run lint` / `npm run typecheck` | verts (interface non modifiée) |
 | `git diff apps/api/engine` / `apps/web` | **vides** |
-| Doublons `(match_id, captured_on, snapshot_slot)` | **0** |
+| Doublons (3 tables) | **0** |
+| Board orphelin / cote ≤ 1 | **0** / **0** |
+| Taux hors bornes `[0 ; 1]` | **0** |
+| xG écrasé | **0** (992 lignes inchangées) |
 | Version | **1.1.0** (aucune release) |
