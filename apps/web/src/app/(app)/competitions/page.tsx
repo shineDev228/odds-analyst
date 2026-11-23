@@ -2,6 +2,8 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 
+import { BoiteDialogue } from "@/components/boite-dialogue";
+import { useNotifications } from "@/components/notifications";
 import {
   Alerte,
   Bouton,
@@ -14,8 +16,9 @@ import {
   Selection,
   Tableau,
 } from "@/components/ui";
-import { apiFetch, messageErreur } from "@/lib/api";
+import { apiFetch, decrireErreur, messageErreur } from "@/lib/api";
 import { formatDate } from "@/lib/format";
+import { useGardeDepart } from "@/lib/use-garde-depart";
 import type { Competition, Page, Saison, Sport } from "@/lib/types";
 
 interface FormCompetition {
@@ -33,7 +36,7 @@ export default function PageCompetitions() {
   const [recherche, setRecherche] = useState("");
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [succes, setSucces] = useState<string | null>(null);
+  const [erreursChamps, setErreursChamps] = useState<Record<string, string>>({});
   const [form, setForm] = useState<FormCompetition>(formVide);
   const [envoi, setEnvoi] = useState(false);
   const [formOuvert, setFormOuvert] = useState(false);
@@ -44,6 +47,19 @@ export default function PageCompetitions() {
   const [ouverteId, setOuverteId] = useState<string | null>(null);
   const [saisons, setSaisons] = useState<Record<string, Saison[]>>({});
   const [formSaison, setFormSaison] = useState({ label: "", start_date: "", end_date: "" });
+
+  const [competitionASupprimer, setCompetitionASupprimer] = useState<Competition | null>(null);
+  const [saisonASupprimer, setSaisonASupprimer] = useState<{
+    competition: Competition;
+    saison: Saison;
+  } | null>(null);
+  const [suppression, setSuppression] = useState(false);
+  const { notifier } = useNotifications();
+
+  const viderErreurs = () => {
+    setErreur(null);
+    setErreursChamps({});
+  };
 
   const chargerCompetitions = useCallback(async (terme: string) => {
     const parametres = new URLSearchParams({ page_size: "200" });
@@ -90,17 +106,20 @@ export default function PageCompetitions() {
     };
   }, [recherche, chargerCompetitions]);
 
-  function signalerSucces(message: string) {
-    setSucces(message);
-    setErreur(null);
-    setTimeout(() => setSucces(null), 4000);
-  }
+  const saisieEnCours =
+    (formOuvert &&
+      (form.name.trim() !== "" || form.country.trim() !== "" || form.tier.trim() !== "")) ||
+    editionId !== null ||
+    formSaison.label.trim() !== "" ||
+    formSaison.start_date !== "" ||
+    formSaison.end_date !== "";
+  useGardeDepart(saisieEnCours);
 
   async function creer(evenement: React.FormEvent<HTMLFormElement>) {
     evenement.preventDefault();
-    setErreur(null);
+    viderErreurs();
     if (!form.sport_id) {
-      setErreur("Sélectionnez un sport.");
+      setErreursChamps({ sport_id: "Sélectionnez un sport." });
       return;
     }
     setEnvoi(true);
@@ -116,9 +135,11 @@ export default function PageCompetitions() {
       setForm({ ...formVide, sport_id: form.sport_id });
       setFormOuvert(false);
       await chargerCompetitions(recherche);
-      signalerSucces("Compétition créée.");
+      notifier("succes", "Compétition créée.");
     } catch (error) {
-      setErreur(messageErreur(error));
+      const detail = decrireErreur(error);
+      setErreur(detail.message);
+      setErreursChamps(detail.champs);
     } finally {
       setEnvoi(false);
     }
@@ -135,7 +156,7 @@ export default function PageCompetitions() {
   }
 
   async function enregistrerEdition(competition: Competition) {
-    setErreur(null);
+    viderErreurs();
     try {
       await apiFetch<Competition>(`/v1/competitions/${competition.id}`, {
         methode: "PATCH",
@@ -148,9 +169,11 @@ export default function PageCompetitions() {
       });
       setEditionId(null);
       await chargerCompetitions(recherche);
-      signalerSucces("Compétition modifiée.");
+      notifier("succes", "Compétition modifiée.");
     } catch (error) {
-      setErreur(messageErreur(error));
+      const detail = decrireErreur(error);
+      setErreur(detail.message);
+      setErreursChamps(detail.champs);
     }
   }
 
@@ -166,17 +189,23 @@ export default function PageCompetitions() {
     }
   }
 
-  async function supprimer(competition: Competition) {
-    if (!window.confirm(`Supprimer la compétition « ${competition.name} » et ses saisons ?`)) {
-      return;
-    }
+  async function supprimerCompetition() {
+    if (!competitionASupprimer) return;
+    setSuppression(true);
+    viderErreurs();
     try {
-      await apiFetch<void>(`/v1/competitions/${competition.id}`, { methode: "DELETE" });
-      if (ouverteId === competition.id) setOuverteId(null);
+      await apiFetch<void>(`/v1/competitions/${competitionASupprimer.id}`, {
+        methode: "DELETE",
+      });
+      if (ouverteId === competitionASupprimer.id) setOuverteId(null);
+      setCompetitionASupprimer(null);
       await chargerCompetitions(recherche);
-      signalerSucces("Compétition supprimée.");
+      notifier("succes", "Compétition supprimée.");
     } catch (error) {
       setErreur(messageErreur(error));
+      setCompetitionASupprimer(null);
+    } finally {
+      setSuppression(false);
     }
   }
 
@@ -205,7 +234,7 @@ export default function PageCompetitions() {
   }
 
   async function ajouterSaison(competitionId: string) {
-    setErreur(null);
+    viderErreurs();
     try {
       await apiFetch<Saison>("/v1/seasons", {
         corps: {
@@ -218,19 +247,28 @@ export default function PageCompetitions() {
       });
       setFormSaison({ label: "", start_date: "", end_date: "" });
       await rechargerSaisons(competitionId);
-      signalerSucces("Saison ajoutée.");
+      notifier("succes", "Saison ajoutée.");
     } catch (error) {
-      setErreur(messageErreur(error));
+      const detail = decrireErreur(error);
+      setErreur(detail.message);
+      setErreursChamps(detail.champs);
     }
   }
 
-  async function supprimerSaison(competitionId: string, saison: Saison) {
-    if (!window.confirm(`Supprimer la saison « ${saison.label} » ?`)) return;
+  async function supprimerSaison() {
+    if (!saisonASupprimer) return;
+    setSuppression(true);
+    viderErreurs();
     try {
-      await apiFetch<void>(`/v1/seasons/${saison.id}`, { methode: "DELETE" });
-      await rechargerSaisons(competitionId);
+      await apiFetch<void>(`/v1/seasons/${saisonASupprimer.saison.id}`, { methode: "DELETE" });
+      await rechargerSaisons(saisonASupprimer.competition.id);
+      setSaisonASupprimer(null);
+      notifier("succes", "Saison supprimée.");
     } catch (error) {
       setErreur(messageErreur(error));
+      setSaisonASupprimer(null);
+    } finally {
+      setSuppression(false);
     }
   }
 
@@ -255,16 +293,12 @@ export default function PageCompetitions() {
       />
 
       {erreur ? <Alerte ton="erreur">{erreur}</Alerte> : null}
-      {succes ? <Alerte ton="succes">{succes}</Alerte> : null}
 
       {formOuvert ? (
-        <Panneau
-          titre="Nouvelle compétition"
-          className="scroll-mt-4"
-        >
+        <Panneau titre="Nouvelle compétition" className="scroll-mt-4">
           <div id="nouvelle-competition">
             <form onSubmit={creer} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              <Champ label="Sport">
+              <Champ label="Sport" erreur={erreursChamps.sport_id}>
                 <Selection
                   required
                   value={form.sport_id}
@@ -279,7 +313,7 @@ export default function PageCompetitions() {
                 </Selection>
               </Champ>
 
-              <Champ label="Nom">
+              <Champ label="Nom" erreur={erreursChamps.name}>
                 <Saisie
                   required
                   minLength={2}
@@ -290,7 +324,7 @@ export default function PageCompetitions() {
                 />
               </Champ>
 
-              <Champ label="Pays">
+              <Champ label="Pays" erreur={erreursChamps.country}>
                 <Saisie
                   maxLength={80}
                   value={form.country}
@@ -299,7 +333,7 @@ export default function PageCompetitions() {
                 />
               </Champ>
 
-              <Champ label="Niveau" aide="1 = élite">
+              <Champ label="Niveau" aide="1 = élite" erreur={erreursChamps.tier}>
                 <Saisie
                   type="number"
                   min={1}
@@ -322,19 +356,19 @@ export default function PageCompetitions() {
       {competitionEnEdition ? (
         <Panneau titre={`Modifier « ${competitionEnEdition.name} »`}>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Champ label="Nom">
+            <Champ label="Nom" erreur={erreursChamps.name}>
               <Saisie
                 value={edition.name}
                 onChange={(e) => setEdition({ ...edition, name: e.target.value })}
               />
             </Champ>
-            <Champ label="Pays">
+            <Champ label="Pays" erreur={erreursChamps.country}>
               <Saisie
                 value={edition.country}
                 onChange={(e) => setEdition({ ...edition, country: e.target.value })}
               />
             </Champ>
-            <Champ label="Niveau">
+            <Champ label="Niveau" erreur={erreursChamps.tier}>
               <Saisie
                 type="number"
                 min={1}
@@ -437,7 +471,7 @@ export default function PageCompetitions() {
                       <Bouton
                         variante="discret"
                         className="h-8 px-2 text-xs text-texte-faible hover:text-danger"
-                        onClick={() => void supprimer(competition)}
+                        onClick={() => setCompetitionASupprimer(competition)}
                       >
                         Supprimer
                       </Bouton>
@@ -470,7 +504,9 @@ export default function PageCompetitions() {
                               <Bouton
                                 variante="discret"
                                 className="h-8 px-2 text-xs"
-                                onClick={() => void supprimerSaison(competition.id, saison)}
+                                onClick={() =>
+                                  setSaisonASupprimer({ competition, saison })
+                                }
                               >
                                 Supprimer
                               </Bouton>
@@ -480,7 +516,7 @@ export default function PageCompetitions() {
                       )}
 
                       <div className="mt-3 grid gap-2 sm:grid-cols-4">
-                        <Champ label="Libellé">
+                        <Champ label="Libellé" erreur={erreursChamps.label}>
                           <Saisie
                             value={formSaison.label}
                             onChange={(e) =>
@@ -489,7 +525,7 @@ export default function PageCompetitions() {
                             placeholder="2026-2027"
                           />
                         </Champ>
-                        <Champ label="Début">
+                        <Champ label="Début" erreur={erreursChamps.start_date}>
                           <Saisie
                             type="date"
                             value={formSaison.start_date}
@@ -498,7 +534,7 @@ export default function PageCompetitions() {
                             }
                           />
                         </Champ>
-                        <Champ label="Fin">
+                        <Champ label="Fin" erreur={erreursChamps.end_date}>
                           <Saisie
                             type="date"
                             value={formSaison.end_date}
@@ -526,6 +562,34 @@ export default function PageCompetitions() {
           </tbody>
         </Tableau>
       )}
+
+      <BoiteDialogue
+        ouvert={competitionASupprimer !== null}
+        titre="Supprimer cette compétition ?"
+        description={
+          competitionASupprimer
+            ? `La compétition « ${competitionASupprimer.name} » et ses saisons seront supprimées définitivement.`
+            : undefined
+        }
+        confirmation="Supprimer"
+        enCours={suppression}
+        onConfirmer={() => void supprimerCompetition()}
+        onAnnuler={() => setCompetitionASupprimer(null)}
+      />
+
+      <BoiteDialogue
+        ouvert={saisonASupprimer !== null}
+        titre="Supprimer cette saison ?"
+        description={
+          saisonASupprimer
+            ? `La saison « ${saisonASupprimer.saison.label} » sera supprimée définitivement.`
+            : undefined
+        }
+        confirmation="Supprimer"
+        enCours={suppression}
+        onConfirmer={() => void supprimerSaison()}
+        onAnnuler={() => setSaisonASupprimer(null)}
+      />
     </div>
   );
 }

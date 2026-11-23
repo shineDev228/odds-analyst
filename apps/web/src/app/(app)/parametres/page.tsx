@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { useNotifications } from "@/components/notifications";
 import {
   Alerte,
   Bouton,
@@ -11,16 +12,18 @@ import {
   Panneau,
   Saisie,
 } from "@/components/ui";
-import { apiFetch, messageErreur } from "@/lib/api";
+import { apiFetch, decrireErreur, messageErreur } from "@/lib/api";
 import { marchesDisponibles } from "@/lib/marches";
+import { useGardeDepart } from "@/lib/use-garde-depart";
 import type { Preferences } from "@/lib/types";
 
 export default function PageParametres() {
   const [preferences, setPreferences] = useState<Preferences | null>(null);
   const [reference, setReference] = useState<Preferences | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [succes, setSucces] = useState<string | null>(null);
+  const [erreursChamps, setErreursChamps] = useState<Record<string, string>>({});
   const [enregistrement, setEnregistrement] = useState(false);
+  const { notifier } = useNotifications();
 
   useEffect(() => {
     let actif = true;
@@ -40,11 +43,15 @@ export default function PageParametres() {
     };
   }, []);
 
+  const modifie =
+    reference !== null && JSON.stringify(preferences) !== JSON.stringify(reference);
+  useGardeDepart(modifie);
+
   async function enregistrer(evenement: React.FormEvent<HTMLFormElement>) {
     evenement.preventDefault();
     if (!preferences) return;
     setErreur(null);
-    setSucces(null);
+    setErreursChamps({});
     setEnregistrement(true);
     try {
       const donnees = await apiFetch<Preferences>("/v1/settings", {
@@ -53,10 +60,11 @@ export default function PageParametres() {
       });
       setPreferences(donnees);
       setReference(donnees);
-      setSucces("Préférences enregistrées.");
-      setTimeout(() => setSucces(null), 4000);
+      notifier("succes", "Préférences enregistrées.");
     } catch (error) {
-      setErreur(messageErreur(error));
+      const detail = decrireErreur(error);
+      setErreur(detail.message);
+      setErreursChamps(detail.champs);
     } finally {
       setEnregistrement(false);
     }
@@ -77,9 +85,6 @@ export default function PageParametres() {
     return erreur ? <Alerte ton="erreur">{erreur}</Alerte> : <Chargement />;
   }
 
-  const modifie =
-    reference !== null && JSON.stringify(preferences) !== JSON.stringify(reference);
-
   return (
     <div className="flex flex-col gap-6">
       <EntetePage
@@ -88,7 +93,6 @@ export default function PageParametres() {
       />
 
       {erreur ? <Alerte ton="erreur">{erreur}</Alerte> : null}
-      {succes ? <Alerte ton="succes">{succes}</Alerte> : null}
 
       <form onSubmit={enregistrer} className="flex flex-col gap-6">
         <Panneau
@@ -96,7 +100,7 @@ export default function PageParametres() {
           description="Fourchette de cote visée, nombre de sélections et fenêtre d'analyse du moteur."
         >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <Champ label="Cote minimale">
+            <Champ label="Cote minimale" erreur={erreursChamps.cote_min}>
               <Saisie
                 type="number"
                 min={1}
@@ -109,7 +113,7 @@ export default function PageParametres() {
                 }
               />
             </Champ>
-            <Champ label="Cote maximale">
+            <Champ label="Cote maximale" erreur={erreursChamps.cote_max}>
               <Saisie
                 type="number"
                 min={1}
@@ -122,7 +126,11 @@ export default function PageParametres() {
                 }
               />
             </Champ>
-            <Champ label="Sélections par défaut" aide="Entre 2 et 15">
+            <Champ
+              label="Sélections par défaut"
+              aide="Entre 2 et 15"
+              erreur={erreursChamps.nb_selections_defaut}
+            >
               <Saisie
                 type="number"
                 min={2}
@@ -137,7 +145,11 @@ export default function PageParametres() {
                 }
               />
             </Champ>
-            <Champ label="Matchs d'historique" aide="Fenêtre d'analyse par équipe">
+            <Champ
+              label="Matchs d'historique"
+              aide="Fenêtre d'analyse par équipe"
+              erreur={erreursChamps.nb_matchs_historique}
+            >
               <Saisie
                 type="number"
                 min={5}
@@ -152,7 +164,11 @@ export default function PageParametres() {
                 }
               />
             </Champ>
-            <Champ label="Demi-vie (jours)" aide="Entre 30 et 730 jours">
+            <Champ
+              label="Demi-vie (jours)"
+              aide="Entre 30 et 730 jours"
+              erreur={erreursChamps.demi_vie_jours}
+            >
               <Saisie
                 type="number"
                 min={30}

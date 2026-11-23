@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { useNotifications } from "@/components/notifications";
 import {
   Alerte,
   Badge,
@@ -188,9 +189,9 @@ export default function PageCombinaisons() {
   const [chargement, setChargement] = useState(true);
   const [calcul, setCalcul] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [succes, setSucces] = useState<string | null>(null);
   const [enregistrement, setEnregistrement] = useState<string | null>(null);
   const [enregistrees, setEnregistrees] = useState<Set<string>>(new Set());
+  const { notifier } = useNotifications();
 
   useEffect(() => {
     let actif = true;
@@ -236,7 +237,6 @@ export default function PageCombinaisons() {
       return;
     }
     setErreur(null);
-    setSucces(null);
     setReponse(null);
     setCalcul(true);
     try {
@@ -259,7 +259,6 @@ export default function PageCombinaisons() {
 
     setEnregistrement(cle);
     setErreur(null);
-    setSucces(null);
     try {
       const sauvee = await apiFetch<CombinaisonEnregistree>("/v1/combinations", {
         methode: "POST",
@@ -274,7 +273,8 @@ export default function PageCombinaisons() {
         },
       });
       setEnregistrees((courant) => new Set(courant).add(cle));
-      setSucces(
+      notifier(
+        "succes",
         `Combinaison enregistrée avec la cote ${cote(sauvee.total_odds)}. ` +
           "Retrouvez-la dans l'historique pour suivre son règlement.",
       );
@@ -305,7 +305,6 @@ export default function PageCombinaisons() {
       />
 
       {erreur ? <Alerte ton="erreur">{erreur}</Alerte> : null}
-      {succes ? <Alerte ton="succes">{succes}</Alerte> : null}
 
       <Panneau
         titre="Critères de recherche"

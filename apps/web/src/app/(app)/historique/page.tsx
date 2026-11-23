@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { BoiteDialogue } from "@/components/boite-dialogue";
+import { useNotifications } from "@/components/notifications";
 import {
   Alerte,
   Badge,
@@ -224,8 +226,9 @@ export default function PageHistorique() {
   const [page, setPage] = useState(1);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [succes, setSucces] = useState<string | null>(null);
   const [suppression, setSuppression] = useState<string | null>(null);
+  const [aSupprimer, setASupprimer] = useState<CombinaisonEnregistree | null>(null);
+  const { notifier } = useNotifications();
 
   const charger = useCallback(async (statutChoisi: string, numero: number) => {
     setChargement(true);
@@ -253,27 +256,20 @@ export default function PageHistorique() {
   function changerStatut(nouveau: string) {
     setStatut(nouveau);
     setPage(1);
-    setSucces(null);
   }
 
-  async function supprimer(item: CombinaisonEnregistree) {
-    const libelle = `la combinaison du ${formatDateHeure(item.created_at)}`;
-    if (
-      !window.confirm(
-        `Supprimer définitivement ${libelle} ? La synthèse de performance sera recalculée.`,
-      )
-    ) {
-      return;
-    }
-    setSuppression(item.id);
+  async function supprimer() {
+    if (!aSupprimer) return;
+    setSuppression(aSupprimer.id);
     setErreur(null);
-    setSucces(null);
     try {
-      await apiFetch<void>(`/v1/combinations/${item.id}`, { methode: "DELETE" });
-      setSucces("Combinaison supprimée. La synthèse a été recalculée.");
+      await apiFetch<void>(`/v1/combinations/${aSupprimer.id}`, { methode: "DELETE" });
+      notifier("succes", "Combinaison supprimée. La synthèse a été recalculée.");
+      setASupprimer(null);
       await charger(statut, page);
     } catch (error) {
       setErreur(messageErreur(error));
+      setASupprimer(null);
     } finally {
       setSuppression(null);
     }
@@ -301,7 +297,6 @@ export default function PageHistorique() {
       />
 
       {erreur ? <Alerte ton="erreur">{erreur}</Alerte> : null}
-      {succes ? <Alerte ton="succes">{succes}</Alerte> : null}
 
       <Section
         titre="Synthèse de performance"
@@ -397,7 +392,7 @@ export default function PageHistorique() {
               <CarteHistorique
                 key={item.id}
                 item={item}
-                onSupprimer={() => void supprimer(item)}
+                onSupprimer={() => setASupprimer(item)}
                 suppression={suppression === item.id}
               />
             ))
@@ -428,6 +423,20 @@ export default function PageHistorique() {
           </div>
         ) : null}
       </Section>
+
+      <BoiteDialogue
+        ouvert={aSupprimer !== null}
+        titre="Supprimer cette combinaison ?"
+        description={
+          aSupprimer
+            ? `La combinaison du ${formatDateHeure(aSupprimer.created_at)} sera supprimée définitivement. La synthèse de performance sera recalculée.`
+            : undefined
+        }
+        confirmation="Supprimer"
+        enCours={suppression !== null}
+        onConfirmer={() => void supprimer()}
+        onAnnuler={() => setASupprimer(null)}
+      />
     </div>
   );
 }

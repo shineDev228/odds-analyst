@@ -1,11 +1,11 @@
 """Rencontres et statistiques."""
 
-from datetime import datetime
-from typing import Annotated
+from datetime import UTC, datetime
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.v1._helpers import conflict, not_found
@@ -153,6 +153,7 @@ def list_matches(
     date_from: datetime | None = None,
     date_to: datetime | None = None,
     order: Annotated[str, Query(pattern="^(asc|desc)$")] = "desc",
+    sort: Annotated[str, Query(pattern="^(date|home_team|score)$")] = "date",
 ) -> Page[MatchListItem]:
     conditions = []
     if season_id:
@@ -172,12 +173,50 @@ def list_matches(
 
     total = db.scalar(select(func.count()).select_from(Match).where(*conditions)) or 0
 
-    ordering = Match.kickoff_at.asc() if order == "asc" else Match.kickoff_at.desc()
+    query = select(Match).where(*conditions)
+    sens = "asc" if order == "asc" else "desc"
+    ordonnancement: list[Any]
+    if sort == "home_team":
+        # Tri par nom de l'équipe à domicile (jointure dédiée à l'ordonnancement).
+        query = query.join(Team, Team.id == Match.home_team_id)
+        ordonnancement = [Team.name.asc() if sens == "asc" else Team.name.desc()]
+    elif sort == "score":
+        # Les rencontres sans score restent en dernier, quel que soit le sens.
+        if sens == "asc":
+            ordonnancement = [
+                Match.home_score.asc().nullslast(),
+                Match.away_score.asc().nullslast(),
+            ]
+        else:
+            ordonnancement = [
+                Match.home_score.desc().nullslast(),
+                Match.away_score.desc().nullslast(),
+            ]
+    else:
+        # Tri chronologique « à venir d'abord » : les rencontres futures du plus
+        # proche au plus éloigné, puis les passées de la plus récente à la plus
+        # ancienne. Le sens inverse bascule simplement les deux groupes.
+        maintenant = datetime.now(UTC)
+        a_venir = Match.kickoff_at >= maintenant
+        passee = Match.kickoff_at < maintenant
+        colonne_a_venir = case((a_venir, Match.kickoff_at), else_=None)
+        colonne_passee = case((passee, Match.kickoff_at), else_=None)
+        if sens == "asc":
+            ordonnancement = [
+                case((a_venir, 0), else_=1).asc(),
+                colonne_a_venir.asc().nullslast(),
+                colonne_passee.desc().nullslast(),
+            ]
+        else:
+            ordonnancement = [
+                case((a_venir, 0), else_=1).desc(),
+                colonne_a_venir.desc().nullsfirst(),
+                colonne_passee.asc().nullsfirst(),
+            ]
+
     matches = db.scalars(
-        select(Match)
-        .options(*_LOAD_OPTIONS)
-        .where(*conditions)
-        .order_by(ordering)
+        query.options(*_LOAD_OPTIONS)
+        .order_by(*ordonnancement)
         .offset((page - 1) * page_size)
         .limit(page_size)
     ).all()

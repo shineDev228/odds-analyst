@@ -157,10 +157,15 @@ export function Bouton({
   variante = "secondaire",
   className = "",
   children,
+  ref,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variante?: VarianteBouton }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  variante?: VarianteBouton;
+  ref?: React.Ref<HTMLButtonElement>;
+}) {
   return (
     <button
+      ref={ref}
       className={`inline-flex h-9 items-center justify-center gap-2 rounded-md border px-3 text-sm font-medium transition ${stylesBouton[variante]} ${className}`}
       {...props}
     >
@@ -172,19 +177,30 @@ export function Bouton({
 export function Champ({
   label,
   aide,
+  erreur,
   children,
   className = "",
 }: {
   label: string;
   aide?: string;
+  erreur?: string;
   children: ReactNode;
   className?: string;
 }) {
   return (
-    <label className={`flex flex-col gap-1.5 text-xs ${className}`}>
+    <label
+      className={`flex flex-col gap-1.5 text-xs ${className}`}
+      data-invalide={erreur ? "true" : undefined}
+    >
       <span className="font-medium text-texte-doux">{label}</span>
       {children}
-      {aide ? <span className="text-xs leading-snug text-texte-faible">{aide}</span> : null}
+      {erreur ? (
+        <span role="alert" className="text-xs leading-snug text-danger">
+          {erreur}
+        </span>
+      ) : aide ? (
+        <span className="text-xs leading-snug text-texte-faible">{aide}</span>
+      ) : null}
     </label>
   );
 }

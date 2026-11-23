@@ -132,6 +132,98 @@ def test_list_matches_without_odds(
     assert payload["items"][0]["odds_1x2"] is None
 
 
+def test_list_matches_sort_by_home_team(
+    auth_client: TestClient, season_id: str, teams: tuple[str, str]
+) -> None:
+    alpha, beta = teams
+    _create_match(auth_client, season_id, alpha, beta)
+    _create_match(auth_client, season_id, beta, alpha)
+
+    asc = auth_client.get(
+        "/api/v1/matches",
+        params={"season_id": season_id, "sort": "home_team", "order": "asc"},
+    ).json()
+    assert [item["home_team_name"] for item in asc["items"]] == ["Équipe Alpha", "Équipe Beta"]
+
+    desc = auth_client.get(
+        "/api/v1/matches",
+        params={"season_id": season_id, "sort": "home_team", "order": "desc"},
+    ).json()
+    assert [item["home_team_name"] for item in desc["items"]] == ["Équipe Beta", "Équipe Alpha"]
+
+
+def test_list_matches_sort_by_score_puts_missing_last(
+    auth_client: TestClient, season_id: str, teams: tuple[str, str]
+) -> None:
+    alpha, beta = teams
+    scored = _create_match(auth_client, season_id, alpha, beta)
+    auth_client.patch(
+        f"/api/v1/matches/{scored['id']}",
+        json={"status": "termine", "home_score": 2, "away_score": 1},
+    )
+    _create_match(auth_client, season_id, beta, alpha)
+
+    desc = auth_client.get(
+        "/api/v1/matches",
+        params={"season_id": season_id, "sort": "score", "order": "desc"},
+    ).json()
+    assert desc["items"][0]["home_score"] == 2
+    assert desc["items"][1]["home_score"] is None
+
+
+def test_list_matches_rejects_unknown_sort(
+    auth_client: TestClient, season_id: str
+) -> None:
+    response = auth_client.get("/api/v1/matches", params={"sort": "inconnu"})
+    assert response.status_code == 422
+
+
+def test_list_matches_default_orders_upcoming_nearest_first(
+    auth_client: TestClient, season_id: str, teams: tuple[str, str]
+) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    alpha, beta = teams
+    maintenant = datetime.now(UTC)
+    plan = [
+        ("futur-loin", maintenant + timedelta(days=6)),
+        ("futur-proche", maintenant + timedelta(days=1)),
+        ("passe", maintenant - timedelta(days=2)),
+    ]
+    for libelle, coup_d_envoi in plan:
+        response = auth_client.post(
+            "/api/v1/matches",
+            json={
+                "season_id": season_id,
+                "home_team_id": alpha,
+                "away_team_id": beta,
+                "kickoff_at": coup_d_envoi.isoformat(),
+                "venue": libelle,
+            },
+        )
+        assert response.status_code == 201, response.text
+
+    asc = auth_client.get(
+        "/api/v1/matches",
+        params={"season_id": season_id, "sort": "date", "order": "asc"},
+    ).json()
+    assert [item["venue"] for item in asc["items"]] == [
+        "futur-proche",
+        "futur-loin",
+        "passe",
+    ]
+
+    desc = auth_client.get(
+        "/api/v1/matches",
+        params={"season_id": season_id, "sort": "date", "order": "desc"},
+    ).json()
+    assert [item["venue"] for item in desc["items"]] == [
+        "passe",
+        "futur-loin",
+        "futur-proche",
+    ]
+
+
 def test_stats_upsert(
     auth_client: TestClient, season_id: str, teams: tuple[str, str]
 ) -> None:

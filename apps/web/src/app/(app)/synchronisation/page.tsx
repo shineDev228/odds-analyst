@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { BoiteDialogue } from "@/components/boite-dialogue";
+import { useNotifications } from "@/components/notifications";
 import {
   Alerte,
   Badge,
@@ -96,8 +98,8 @@ function CarteRapport({ rapport }: { rapport: LigueRapport }) {
           de classement : {rapport.standings_written}
         </p>
       ) : null}
-      {rapport.warnings.map((warning) => (
-        <p key={warning} className="mt-1 text-xs text-alerte">
+      {rapport.warnings.map((warning, index) => (
+        <p key={index + "-" + warning} className="mt-1 text-xs text-alerte">
           {warning}
         </p>
       ))}
@@ -137,8 +139,8 @@ function CarteRapportCotes({ rapport }: { rapport: LigueRapportCotes }) {
         {rapport.links_deactivated} · sans 1xBet : {rapport.bookmaker_missing} · saisies manuelles
         conservées : {rapport.manual_kept}
       </p>
-      {rapport.warnings.map((warning) => (
-        <p key={warning} className="mt-1 text-xs text-alerte">
+      {rapport.warnings.map((warning, index) => (
+        <p key={index + "-" + warning} className="mt-1 text-xs text-alerte">
           {warning}
         </p>
       ))}
@@ -166,8 +168,8 @@ function CarteRapportCsv({ rapport }: { rapport: LigueRapportCsv }) {
         {rapport.xg_kept} · sans cotes complètes : {rapport.odds_missing} · saisies manuelles
         conservées : {rapport.manual_kept}
       </p>
-      {rapport.warnings.map((warning) => (
-        <p key={warning} className="mt-1 text-xs text-alerte">
+      {rapport.warnings.map((warning, index) => (
+        <p key={index + "-" + warning} className="mt-1 text-xs text-alerte">
           {warning}
         </p>
       ))}
@@ -180,7 +182,6 @@ export default function PageSynchronisation() {
   const [vue, setVue] = useState<VueSynchronisation | null>(null);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [succes, setSucces] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
   const [selection, setSelection] = useState<string[]>([...TOUS]);
   const [avecStats, setAvecStats] = useState(true);
@@ -199,6 +200,12 @@ export default function PageSynchronisation() {
     useState<RapportTelechargementCsv | null>(null);
   const [csvEnCours, setCsvEnCours] = useState(false);
   const [csvSansReseau, setCsvSansReseau] = useState(false);
+  const [confirmation, setConfirmation] = useState<{
+    titre: string;
+    description: string;
+    confirmer: () => void;
+  } | null>(null);
+  const { notifier } = useNotifications();
 
   const charger = useCallback(async () => {
     const [donnees, etatCotes, etatCsv] = await Promise.all([
@@ -247,7 +254,6 @@ export default function PageSynchronisation() {
       return;
     }
     setErreur(null);
-    setSucces(null);
     setCotesEnCours(true);
     try {
       const resultat = await apiFetch<ApercuCotes>("/v1/sync/odds/preview", {
@@ -257,7 +263,7 @@ export default function PageSynchronisation() {
       });
       setApercu(resultat);
       const rattachees = resultat.leagues.reduce((total, ligue) => total + ligue.matched, 0);
-      setSucces(
+      notifier("succes",
         `Aperçu terminé, aucun crédit consommé : ${rattachees} rencontre(s) rattachée(s), ` +
           `coût estimé ${resultat.credits_estimated} crédit(s).`,
       );
@@ -269,7 +275,7 @@ export default function PageSynchronisation() {
     }
   }
 
-  async function importerCotes() {
+  function preparerImportCotes() {
     if (selection.length === 0) {
       setErreur("Choisissez au moins une compétition.");
       return;
@@ -278,17 +284,17 @@ export default function PageSynchronisation() {
       apercu?.credits_estimated ??
       (cotes?.costs.competition ?? 2) * selection.length +
         (avecEtendus ? (cotes?.costs.event ?? 2) * Math.min(Number(limiteEtendus) || 0, 30) : 0);
-    if (
-      !window.confirm(
-        `Importer les cotes 1xBet ? L'aperçu est gratuit, l'import consomme des crédits : ` +
-          `environ ${estimation} crédit(s) pour cette passe. Les marchés saisis à la main ne ` +
-          `seront pas modifiés.`,
-      )
-    ) {
-      return;
-    }
+    setConfirmation({
+      titre: "Importer les cotes 1xBet ?",
+      description:
+        `L'aperçu est gratuit, l'import consomme des crédits : environ ${estimation} crédit(s) ` +
+        `pour cette passe. Les marchés saisis à la main ne seront pas modifiés.`,
+      confirmer: () => void importerCotes(),
+    });
+  }
+
+  async function importerCotes() {
     setErreur(null);
-    setSucces(null);
     setCotesEnCours(true);
     try {
       const resultat = await apiFetch<RapportCotes>("/v1/sync/odds/run", {
@@ -298,7 +304,7 @@ export default function PageSynchronisation() {
       });
       setRapportCotes(resultat);
       await charger();
-      setSucces(
+      notifier("succes",
         `Import des cotes ${libelleStatut(resultat.status).toLowerCase()} : ` +
           `${resultat.totals.matched ?? 0} rencontre(s) rattachée(s), ` +
           `${resultat.totals.markets_written ?? 0} marché(s), ` +
@@ -313,7 +319,6 @@ export default function PageSynchronisation() {
 
   async function telechargerCsv() {
     setErreur(null);
-    setSucces(null);
     setCsvEnCours(true);
     try {
       const resultat = await apiFetch<RapportTelechargementCsv>("/v1/sync/csv/download", {
@@ -323,7 +328,7 @@ export default function PageSynchronisation() {
       });
       setTelechargementCsv(resultat);
       await charger();
-      setSucces(
+      notifier("succes",
         `Téléchargement ${libelleStatut(resultat.status).toLowerCase()} : ` +
           `${resultat.totals.files ?? 0} fichier(s) conservé(s), ` +
           `${resultat.totals.rows ?? 0} rencontre(s) lue(s). Aucune donnée n'a été écrite en base.`,
@@ -335,19 +340,20 @@ export default function PageSynchronisation() {
     }
   }
 
-  async function importerCsv() {
+  function preparerImporterCsv() {
     const mode = csvSansReseau ? "les fichiers déjà téléchargés" : "les fichiers publics";
-    if (
-      !window.confirm(
+    setConfirmation({
+      titre: "Enrichir avec le CSV ?",
+      description:
         `Enrichir les rencontres terminées avec ${mode} ? Le xG ne remplace jamais une valeur ` +
-          `déjà présente, les marchés saisis à la main restent intacts et une ligne douteuse ` +
-          `n'écrit rien.`,
-      )
-    ) {
-      return;
-    }
+        `déjà présente, les marchés saisis à la main restent intacts et une ligne douteuse ` +
+        `n'écrit rien.`,
+      confirmer: () => void importerCsv(),
+    });
+  }
+
+  async function importerCsv() {
     setErreur(null);
-    setSucces(null);
     setCsvEnCours(true);
     try {
       const resultat = await apiFetch<RapportCsv>("/v1/sync/csv/run", {
@@ -358,7 +364,7 @@ export default function PageSynchronisation() {
       setRapportCsv(resultat);
       await charger();
       const total = resultat.totals;
-      setSucces(
+      notifier("succes",
         `Enrichissement ${libelleStatut(resultat.status).toLowerCase()} : ` +
           `${total.matched ?? 0} rencontre(s) rattachée(s), ${total.xg_written ?? 0} xG écrit(s), ` +
           `${total.snapshots_written ?? 0} relevé(s) de clôture, ` +
@@ -371,21 +377,22 @@ export default function PageSynchronisation() {
     }
   }
 
-  async function lancer() {
+  function preparerLancer() {
     if (selection.length === 0) {
       setErreur("Choisissez au moins une compétition.");
       return;
     }
-    if (
-      !window.confirm(
-        "Lancer la synchronisation ? Les rencontres déjà connues seront mises à jour et les " +
-          "nouvelles ajoutées. Une rencontre saisie à la main reste intacte.",
-      )
-    ) {
-      return;
-    }
+    setConfirmation({
+      titre: "Lancer la synchronisation ?",
+      description:
+        "Les rencontres déjà connues seront mises à jour et les nouvelles ajoutées. " +
+        "Une rencontre saisie à la main reste intacte.",
+      confirmer: () => void lancer(),
+    });
+  }
+
+  async function lancer() {
     setErreur(null);
-    setSucces(null);
     setEnCours(true);
     try {
       const resultat = await apiFetch<RapportSynchronisation>("/v1/sync/run", {
@@ -402,7 +409,7 @@ export default function PageSynchronisation() {
       setRapport(resultat);
       await charger();
       const total = resultat.totals;
-      setSucces(
+      notifier("succes",
         `Synchronisation ${libelleStatut(resultat.status).toLowerCase()} : ` +
           `${total.created ?? 0} rencontre(s) créée(s), ${total.updated ?? 0} mise(s) à jour, ` +
           `${resultat.requests} requête(s) consommée(s).`,
@@ -434,7 +441,6 @@ export default function PageSynchronisation() {
       />
 
       {erreur ? <Alerte ton="erreur">{erreur}</Alerte> : null}
-      {succes ? <Alerte ton="succes">{succes}</Alerte> : null}
 
       {vue && !vue.configured ? (
         <Alerte ton="avertissement">
@@ -517,7 +523,7 @@ export default function PageSynchronisation() {
           </Champ>
           <Bouton
             variante="principal"
-            onClick={() => void lancer()}
+            onClick={preparerLancer}
             disabled={enCours || !vue?.configured || selection.length === 0}
           >
             {enCours ? "Synchronisation en cours…" : "Synchroniser maintenant"}
@@ -631,7 +637,7 @@ export default function PageSynchronisation() {
               </Bouton>
               <Bouton
                 variante="principal"
-                onClick={() => void importerCotes()}
+                onClick={preparerImportCotes}
                 disabled={cotesEnCours || !cotes?.configured || selection.length === 0}
               >
                 Importer les cotes
@@ -794,7 +800,7 @@ export default function PageSynchronisation() {
               </Bouton>
               <Bouton
                 variante="principal"
-                onClick={() => void importerCsv()}
+                onClick={preparerImporterCsv}
                 disabled={csvEnCours || selection.length === 0}
               >
                 Enrichir xG et clôture
@@ -826,8 +832,8 @@ export default function PageSynchronisation() {
                     {fichier.sha256 ? `empreinte ${fichier.sha256.slice(0, 12)}…` : "sans empreinte"}
                   </p>
                 </div>
-                {fichier.warnings.map((warning) => (
-                  <p key={warning} className="mt-1 text-xs text-alerte">
+                {fichier.warnings.map((warning, index) => (
+                  <p key={index + "-" + warning} className="mt-1 text-xs text-alerte">
                     {warning}
                   </p>
                 ))}
@@ -1019,6 +1025,19 @@ export default function PageSynchronisation() {
         )}
         </div>
       </details>
+
+      <BoiteDialogue
+        ouvert={confirmation !== null}
+        titre={confirmation?.titre ?? ""}
+        description={confirmation?.description}
+        confirmation="Confirmer"
+        ton="principal"
+        onConfirmer={() => {
+          confirmation?.confirmer();
+          setConfirmation(null);
+        }}
+        onAnnuler={() => setConfirmation(null)}
+      />
     </div>
   );
 }

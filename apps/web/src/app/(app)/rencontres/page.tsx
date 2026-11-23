@@ -3,22 +3,26 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { Combobox } from "@/components/combobox";
+import { useNotifications } from "@/components/notifications";
 import {
   Alerte,
   Bouton,
   Champ,
   Chargement,
   EntetePage,
+  Panneau,
   Saisie,
   Selection,
 } from "@/components/ui";
-import { apiFetch, messageErreur } from "@/lib/api";
+import { apiFetch, decrireErreur, messageErreur } from "@/lib/api";
 import {
   datetimeLocalParDefaut,
   formatDateCourte,
   formatDateHeure,
   formatHeure,
 } from "@/lib/format";
+import { useGardeDepart } from "@/lib/use-garde-depart";
 import type {
   Competition,
   Equipe,
@@ -48,6 +52,8 @@ const formVide: FormRencontre = {
   venue: "",
   referee: "",
 };
+
+const TAILLE_PAGE = 50;
 
 const couleursStatut: Record<StatutRencontre, string> = {
   programme: "bg-accent",
@@ -91,6 +97,49 @@ function CelluleCote({ valeur, favori }: { valeur: number | null; favori: boolea
   );
 }
 
+type ColonneTri = "date" | "home_team" | "score";
+
+function EnTeteTriable({
+  libelle,
+  colonne,
+  tri,
+  ordre,
+  onTri,
+  className = "",
+}: {
+  libelle: string;
+  colonne: ColonneTri;
+  tri: ColonneTri;
+  ordre: "asc" | "desc";
+  onTri: (colonne: ColonneTri) => void;
+  className?: string;
+}) {
+  const actif = tri === colonne;
+  return (
+    <th
+      scope="col"
+      aria-sort={actif ? (ordre === "asc" ? "ascending" : "descending") : undefined}
+      className={className}
+    >
+      <button
+        type="button"
+        onClick={() => onTri(colonne)}
+        className={`inline-flex items-center gap-1 font-medium transition hover:text-texte ${
+          actif ? "text-texte" : ""
+        }`}
+      >
+        {libelle}
+        <span
+          aria-hidden
+          className={`text-[10px] leading-none ${actif ? "text-accent" : "text-texte-faible/50"}`}
+        >
+          {actif ? (ordre === "asc" ? "↑" : "↓") : "↕"}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 export default function PageRencontres() {
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [equipes, setEquipes] = useState<Equipe[]>([]);
@@ -99,16 +148,30 @@ export default function PageRencontres() {
   const [total, setTotal] = useState(0);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [succes, setSucces] = useState<string | null>(null);
+  const [erreursChamps, setErreursChamps] = useState<Record<string, string>>({});
   const [envoi, setEnvoi] = useState(false);
   const [form, setForm] = useState<FormRencontre>(formVide);
   const [formOuvert, setFormOuvert] = useState(false);
 
   const [filtreCompetition, setFiltreCompetition] = useState("");
+  const [filtreEquipe, setFiltreEquipe] = useState("");
   const [filtreStatut, setFiltreStatut] = useState("");
-  const [ordre, setOrdre] = useState<"asc" | "desc">("desc");
+  const [ordre, setOrdre] = useState<"asc" | "desc">("asc");
+  const [tri, setTri] = useState<ColonneTri>("date");
+  const [page, setPage] = useState(1);
+  const { notifier } = useNotifications();
 
-  const filtreActif = filtreCompetition !== "" || filtreStatut !== "" || ordre !== "desc";
+  const filtreActif =
+    filtreCompetition !== "" ||
+    filtreEquipe !== "" ||
+    filtreStatut !== "" ||
+    tri !== "date" ||
+    ordre !== "asc";
+
+  const viderErreurs = () => {
+    setErreur(null);
+    setErreursChamps({});
+  };
 
   const competitionChoisie = useMemo(
     () => competitions.find((item) => item.id === form.competition_id) ?? null,
@@ -120,14 +183,43 @@ export default function PageRencontres() {
     return equipes.filter((equipe) => equipe.sport_id === competitionChoisie.sport_id);
   }, [equipes, competitionChoisie]);
 
+  const optionsEquipes = useMemo(
+    () =>
+      [...equipesDisponibles]
+        .sort((a, b) => a.name.localeCompare(b.name, "fr"))
+        .map((equipe) => ({ valeur: equipe.id, libelle: equipe.name })),
+    [equipesDisponibles],
+  );
+
+  const optionsFiltreEquipes = useMemo(
+    () =>
+      [...equipes]
+        .sort((a, b) => a.name.localeCompare(b.name, "fr"))
+        .map((equipe) => ({ valeur: equipe.id, libelle: equipe.name })),
+    [equipes],
+  );
+
   const chargerRencontres = useCallback(
-    async (competitionId: string, statut: string, sens: "asc" | "desc") => {
-      const parametres = new URLSearchParams({ page_size: "200", order: sens });
+    async (
+      competitionId: string,
+      equipeId: string,
+      statut: string,
+      sens: "asc" | "desc",
+      colonne: ColonneTri,
+      numero: number,
+    ) => {
+      const parametres = new URLSearchParams({
+        page_size: String(TAILLE_PAGE),
+        page: String(numero),
+        order: sens,
+        sort: colonne,
+      });
       if (competitionId) parametres.set("competition_id", competitionId);
+      if (equipeId) parametres.set("team_id", equipeId);
       if (statut) parametres.set("status", statut);
-      const page = await apiFetch<Page<Rencontre>>(`/v1/matches?${parametres}`);
-      setRencontres(page.items);
-      setTotal(page.total);
+      const pageRencontres = await apiFetch<Page<Rencontre>>(`/v1/matches?${parametres}`);
+      setRencontres(pageRencontres.items);
+      setTotal(pageRencontres.total);
     },
     [],
   );
@@ -162,7 +254,14 @@ export default function PageRencontres() {
     let actif = true;
     void (async () => {
       try {
-        await chargerRencontres(filtreCompetition, filtreStatut, ordre);
+        await chargerRencontres(
+          filtreCompetition,
+          filtreEquipe,
+          filtreStatut,
+          ordre,
+          tri,
+          page,
+        );
       } catch (error) {
         if (actif) setErreur(messageErreur(error));
       } finally {
@@ -172,7 +271,18 @@ export default function PageRencontres() {
     return () => {
       actif = false;
     };
-  }, [filtreCompetition, filtreStatut, ordre, chargerRencontres]);
+  }, [filtreCompetition, filtreEquipe, filtreStatut, ordre, tri, page, chargerRencontres]);
+
+  // Garde de départ : la date est pré-remplie et la saison choisie
+  // automatiquement : on ignore ces champs pour ne pas avertir à tort.
+  const saisieEnCours =
+    formOuvert &&
+    (form.competition_id !== "" ||
+      form.home_team_id !== "" ||
+      form.away_team_id !== "" ||
+      form.venue.trim() !== "" ||
+      form.referee.trim() !== "");
+  useGardeDepart(saisieEnCours);
 
   async function choisirCompetition(competitionId: string) {
     setForm((courant) => ({
@@ -185,45 +295,56 @@ export default function PageRencontres() {
     setSaisons([]);
     if (!competitionId) return;
     try {
-      const page = await apiFetch<Page<Saison>>(
+      const pageSaisons = await apiFetch<Page<Saison>>(
         `/v1/seasons?competition_id=${competitionId}&page_size=200`,
       );
-      setSaisons(page.items);
+      setSaisons(pageSaisons.items);
       setForm((courant) => ({
         ...courant,
-        season_id: page.items[0]?.id ?? "",
+        season_id: pageSaisons.items[0]?.id ?? "",
       }));
     } catch (error) {
       setErreur(messageErreur(error));
     }
   }
 
-  function signalerSucces(message: string) {
-    setSucces(message);
-    setErreur(null);
-    setTimeout(() => setSucces(null), 4000);
-  }
-
   function reinitialiserFiltres() {
     setFiltreCompetition("");
+    setFiltreEquipe("");
     setFiltreStatut("");
-    setOrdre("desc");
+    setOrdre("asc");
+    setTri("date");
+    setPage(1);
+  }
+
+  function basculerTri(colonne: ColonneTri) {
+    if (tri === colonne) {
+      setOrdre((courant) => (courant === "asc" ? "desc" : "asc"));
+    } else {
+      setTri(colonne);
+      // Date : à venir d'abord (le plus proche) ; équipes : alphabétique ; score : décroissant.
+      setOrdre(colonne === "score" ? "desc" : "asc");
+    }
+    setPage(1);
   }
 
   async function creer(evenement: React.FormEvent<HTMLFormElement>) {
     evenement.preventDefault();
-    setErreur(null);
+    viderErreurs();
 
     if (!form.season_id) {
-      setErreur("Choisissez une compétition disposant d'au moins une saison.");
+      setErreursChamps({ season_id: "Choisissez une compétition disposant d'au moins une saison." });
       return;
     }
     if (!form.home_team_id || !form.away_team_id) {
-      setErreur("Sélectionnez les deux équipes.");
+      setErreursChamps({
+        home_team_id: !form.home_team_id ? "Sélectionnez l'équipe à domicile." : "",
+        away_team_id: !form.away_team_id ? "Sélectionnez l'équipe à l'extérieur." : "",
+      });
       return;
     }
     if (form.home_team_id === form.away_team_id) {
-      setErreur("Les deux équipes doivent être différentes.");
+      setErreursChamps({ away_team_id: "Les deux équipes doivent être différentes." });
       return;
     }
 
@@ -246,14 +367,18 @@ export default function PageRencontres() {
         kickoff_at: datetimeLocalParDefaut(),
       });
       setFormOuvert(false);
-      await chargerRencontres(filtreCompetition, filtreStatut, ordre);
-      signalerSucces("Rencontre créée.");
+      await chargerRencontres(filtreCompetition, filtreEquipe, filtreStatut, ordre, tri, page);
+      notifier("succes", "Rencontre créée.");
     } catch (error) {
-      setErreur(messageErreur(error));
+      const detail = decrireErreur(error);
+      setErreur(detail.message);
+      setErreursChamps(detail.champs);
     } finally {
       setEnvoi(false);
     }
   }
+
+  const totalPages = Math.max(1, Math.ceil(total / TAILLE_PAGE));
 
   return (
     <div className="flex flex-col">
@@ -277,144 +402,134 @@ export default function PageRencontres() {
           <Alerte ton="erreur">{erreur}</Alerte>
         </div>
       ) : null}
-      {succes ? (
-        <div className="pb-4">
-          <Alerte ton="succes">{succes}</Alerte>
-        </div>
-      ) : null}
 
       {formOuvert ? (
-        <section
-          id="nouvelle-rencontre"
-          className="mb-5 rounded-lg border border-bordure bg-fond-panneau p-4 sm:p-5"
-        >
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="text-base font-medium text-texte">Nouvelle rencontre</h2>
+        <Panneau
+          titre="Nouvelle rencontre"
+          className="mb-5 scroll-mt-4"
+          action={
             <Bouton variante="discret" onClick={() => setFormOuvert(false)}>
               Annuler
             </Bouton>
+          }
+        >
+          <div id="nouvelle-rencontre">
+            <form onSubmit={creer} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Champ label="Compétition">
+                <Selection
+                  required
+                  value={form.competition_id}
+                  onChange={(e) => void choisirCompetition(e.target.value)}
+                >
+                  <option value="">—</option>
+                  {competitions.map((competition) => (
+                    <option key={competition.id} value={competition.id}>
+                      {competition.name}
+                    </option>
+                  ))}
+                </Selection>
+              </Champ>
+
+              <Champ label="Saison" erreur={erreursChamps.season_id}>
+                <Selection
+                  required
+                  value={form.season_id}
+                  onChange={(e) => setForm({ ...form, season_id: e.target.value })}
+                  disabled={saisons.length === 0}
+                >
+                  <option value="">—</option>
+                  {saisons.map((saison) => (
+                    <option key={saison.id} value={saison.id}>
+                      {saison.label}
+                    </option>
+                  ))}
+                </Selection>
+              </Champ>
+
+              <Champ label="Équipe à domicile" erreur={erreursChamps.home_team_id}>
+                <Combobox
+                  nom="rencontre-domicile"
+                  valeur={form.home_team_id}
+                  onChange={(valeur) => setForm({ ...form, home_team_id: valeur })}
+                  options={optionsEquipes}
+                  placeholder="Rechercher une équipe…"
+                  erreur={Boolean(erreursChamps.home_team_id)}
+                />
+              </Champ>
+
+              <Champ label="Équipe à l'extérieur" erreur={erreursChamps.away_team_id}>
+                <Combobox
+                  nom="rencontre-exterieur"
+                  valeur={form.away_team_id}
+                  onChange={(valeur) => setForm({ ...form, away_team_id: valeur })}
+                  options={optionsEquipes}
+                  placeholder="Rechercher une équipe…"
+                  erreur={Boolean(erreursChamps.away_team_id)}
+                />
+              </Champ>
+
+              <Champ label="Date et heure" erreur={erreursChamps.kickoff_at}>
+                <Saisie
+                  type="datetime-local"
+                  required
+                  value={form.kickoff_at}
+                  onChange={(e) => setForm({ ...form, kickoff_at: e.target.value })}
+                />
+              </Champ>
+
+              <Champ label="Stade" erreur={erreursChamps.venue}>
+                <Saisie
+                  maxLength={120}
+                  value={form.venue}
+                  onChange={(e) => setForm({ ...form, venue: e.target.value })}
+                />
+              </Champ>
+
+              <Champ label="Arbitre" erreur={erreursChamps.referee}>
+                <Saisie
+                  maxLength={120}
+                  value={form.referee}
+                  onChange={(e) => setForm({ ...form, referee: e.target.value })}
+                />
+              </Champ>
+
+              <div className="flex items-end">
+                <Bouton type="submit" variante="principal" disabled={envoi} className="w-full">
+                  {envoi ? "Création…" : "Créer la rencontre"}
+                </Bouton>
+              </div>
+            </form>
+
+            {form.competition_id && saisons.length === 0 ? (
+              <p className="mt-3 text-xs text-alerte">
+                Cette compétition n&apos;a pas encore de saison.{" "}
+                <Link href="/competitions" className="underline">
+                  Ajoutez-en une
+                </Link>
+                .
+              </p>
+            ) : null}
+            {equipesDisponibles.length < 2 ? (
+              <p className="mt-3 text-xs text-alerte">
+                Il faut au moins deux équipes pour ce sport.{" "}
+                <Link href="/equipes" className="underline">
+                  Créer des équipes
+                </Link>
+                .
+              </p>
+            ) : null}
           </div>
-
-          <form onSubmit={creer} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Champ label="Compétition">
-              <Selection
-                required
-                value={form.competition_id}
-                onChange={(e) => void choisirCompetition(e.target.value)}
-              >
-                <option value="">—</option>
-                {competitions.map((competition) => (
-                  <option key={competition.id} value={competition.id}>
-                    {competition.name}
-                  </option>
-                ))}
-              </Selection>
-            </Champ>
-
-            <Champ label="Saison">
-              <Selection
-                required
-                value={form.season_id}
-                onChange={(e) => setForm({ ...form, season_id: e.target.value })}
-                disabled={saisons.length === 0}
-              >
-                <option value="">—</option>
-                {saisons.map((saison) => (
-                  <option key={saison.id} value={saison.id}>
-                    {saison.label}
-                  </option>
-                ))}
-              </Selection>
-            </Champ>
-
-            <Champ label="Équipe à domicile">
-              <Selection
-                required
-                value={form.home_team_id}
-                onChange={(e) => setForm({ ...form, home_team_id: e.target.value })}
-              >
-                <option value="">—</option>
-                {equipesDisponibles.map((equipe) => (
-                  <option key={equipe.id} value={equipe.id}>
-                    {equipe.name}
-                  </option>
-                ))}
-              </Selection>
-            </Champ>
-
-            <Champ label="Équipe à l'extérieur">
-              <Selection
-                required
-                value={form.away_team_id}
-                onChange={(e) => setForm({ ...form, away_team_id: e.target.value })}
-              >
-                <option value="">—</option>
-                {equipesDisponibles.map((equipe) => (
-                  <option key={equipe.id} value={equipe.id}>
-                    {equipe.name}
-                  </option>
-                ))}
-              </Selection>
-            </Champ>
-
-            <Champ label="Date et heure">
-              <Saisie
-                type="datetime-local"
-                required
-                value={form.kickoff_at}
-                onChange={(e) => setForm({ ...form, kickoff_at: e.target.value })}
-              />
-            </Champ>
-
-            <Champ label="Stade">
-              <Saisie
-                maxLength={120}
-                value={form.venue}
-                onChange={(e) => setForm({ ...form, venue: e.target.value })}
-              />
-            </Champ>
-
-            <Champ label="Arbitre">
-              <Saisie
-                maxLength={120}
-                value={form.referee}
-                onChange={(e) => setForm({ ...form, referee: e.target.value })}
-              />
-            </Champ>
-
-            <div className="flex items-end">
-              <Bouton type="submit" variante="principal" disabled={envoi} className="w-full">
-                {envoi ? "Création…" : "Créer la rencontre"}
-              </Bouton>
-            </div>
-          </form>
-
-          {form.competition_id && saisons.length === 0 ? (
-            <p className="mt-3 text-xs text-alerte">
-              Cette compétition n&apos;a pas encore de saison.{" "}
-              <Link href="/competitions" className="underline">
-                Ajoutez-en une
-              </Link>
-              .
-            </p>
-          ) : null}
-          {equipesDisponibles.length < 2 ? (
-            <p className="mt-3 text-xs text-alerte">
-              Il faut au moins deux équipes pour ce sport.{" "}
-              <Link href="/equipes" className="underline">
-                Créer des équipes
-              </Link>
-              .
-            </p>
-          ) : null}
-        </section>
+        </Panneau>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2 border-y border-bordure py-3">
         <Selection
           aria-label="Filtrer par compétition"
           value={filtreCompetition}
-          onChange={(e) => setFiltreCompetition(e.target.value)}
+          onChange={(e) => {
+            setFiltreCompetition(e.target.value);
+            setPage(1);
+          }}
           className="sm:w-44"
         >
           <option value="">Toutes compétitions</option>
@@ -424,10 +539,25 @@ export default function PageRencontres() {
             </option>
           ))}
         </Selection>
+        <div className="sm:w-48">
+          <Combobox
+            nom="filtre-equipe"
+            valeur={filtreEquipe}
+            onChange={(valeur) => {
+              setFiltreEquipe(valeur);
+              setPage(1);
+            }}
+            options={optionsFiltreEquipes}
+            placeholder="Toutes équipes…"
+          />
+        </div>
         <Selection
           aria-label="Filtrer par statut"
           value={filtreStatut}
-          onChange={(e) => setFiltreStatut(e.target.value)}
+          onChange={(e) => {
+            setFiltreStatut(e.target.value);
+            setPage(1);
+          }}
           className="sm:w-36"
         >
           <option value="">Tous statuts</option>
@@ -437,15 +567,6 @@ export default function PageRencontres() {
             </option>
           ))}
         </Selection>
-        <Selection
-          aria-label="Ordre chronologique"
-          value={ordre}
-          onChange={(e) => setOrdre(e.target.value as "asc" | "desc")}
-          className="sm:w-36"
-        >
-          <option value="desc">Plus récentes</option>
-          <option value="asc">Plus anciennes</option>
-        </Selection>
         {filtreActif ? (
           <Bouton variante="discret" onClick={reinitialiserFiltres}>
             Réinitialiser
@@ -454,7 +575,7 @@ export default function PageRencontres() {
         <span className="ml-auto text-xs text-texte-faible">
           {chargement
             ? "Chargement…"
-            : `${rencontres.length} affichée${rencontres.length > 1 ? "s" : ""} sur ${total}`}
+            : `${total} rencontre${total > 1 ? "s" : ""}`}
         </span>
       </div>
 
@@ -465,12 +586,22 @@ export default function PageRencontres() {
           </caption>
           <thead>
             <tr className="border-b border-bordure-forte text-xs text-texte-faible">
-              <th scope="col" className="py-2 pr-3 font-medium">
-                Date
-              </th>
-              <th scope="col" className="py-2 pr-3 font-medium">
-                Rencontre
-              </th>
+              <EnTeteTriable
+                libelle="Date"
+                colonne="date"
+                tri={tri}
+                ordre={ordre}
+                onTri={basculerTri}
+                className="py-2 pr-3"
+              />
+              <EnTeteTriable
+                libelle="Rencontre"
+                colonne="home_team"
+                tri={tri}
+                ordre={ordre}
+                onTri={basculerTri}
+                className="py-2 pr-3"
+              />
               <th scope="col" aria-label="Cote domicile" className="px-1.5 py-2 text-right font-medium">
                 1
               </th>
@@ -480,9 +611,14 @@ export default function PageRencontres() {
               <th scope="col" aria-label="Cote extérieur" className="px-1.5 py-2 text-right font-medium">
                 2
               </th>
-              <th scope="col" className="py-2 pl-3 text-right font-medium">
-                Score
-              </th>
+              <EnTeteTriable
+                libelle="Score"
+                colonne="score"
+                tri={tri}
+                ordre={ordre}
+                onTri={basculerTri}
+                className="py-2 pl-3 text-right"
+              />
               <th scope="col" className="py-2 pl-3 font-medium">
                 Statut
               </th>
@@ -574,11 +710,28 @@ export default function PageRencontres() {
         </table>
       </div>
 
-      {total > rencontres.length ? (
-        <p className="border-t border-bordure pt-3 text-xs text-texte-faible">
-          Affichage limité aux {rencontres.length} rencontres les plus récentes sur {total}.
-          Affinez les filtres pour voir les autres.
-        </p>
+      {totalPages > 1 ? (
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-bordure pt-3">
+          <Bouton
+            type="button"
+            variante="secondaire"
+            disabled={page <= 1 || chargement}
+            onClick={() => setPage((courant) => Math.max(1, courant - 1))}
+          >
+            Précédent
+          </Bouton>
+          <span className="text-xs text-texte-faible">
+            Page {page} / {totalPages}
+          </span>
+          <Bouton
+            type="button"
+            variante="secondaire"
+            disabled={page >= totalPages || chargement}
+            onClick={() => setPage((courant) => courant + 1)}
+          >
+            Suivant
+          </Bouton>
+        </div>
       ) : null}
     </div>
   );

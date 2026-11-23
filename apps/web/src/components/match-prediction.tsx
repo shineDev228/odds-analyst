@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   Alerte,
@@ -13,13 +13,26 @@ import {
 } from "@/components/ui";
 import { ApiError, apiFetch, messageErreur } from "@/lib/api";
 import { formatDateHeure } from "@/lib/format";
-import type { Prediction, SelectionPrediction, SourcePrediction } from "@/lib/types";
+import type {
+  Marche,
+  Prediction,
+  SelectionPrediction,
+  SourcePrediction,
+} from "@/lib/types";
 
 function pourcent(valeur: number, decimales = 0): string {
   return `${(valeur * 100).toLocaleString("fr-FR", {
     minimumFractionDigits: decimales,
     maximumFractionDigits: decimales,
   })} %`;
+}
+
+function cote(valeur: number | null): string {
+  if (valeur === null) return "—";
+  return valeur.toLocaleString("fr-FR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 function fourchette(selection: { low: number; high: number }): string {
@@ -31,6 +44,12 @@ function tonQualite(niveau: string): "succes" | "accent" | "neutre" | "alerte" {
   if (niveau === "correcte") return "accent";
   if (niveau === "moyenne") return "neutre";
   return "alerte";
+}
+
+/** Vrai quand la probabilité du modèle dépasse la probabilité implicite de la cote. */
+function estFavorable(probabilite: number, coteBookmaker: number | null): boolean {
+  if (coteBookmaker === null || coteBookmaker <= 1) return false;
+  return probabilite > 1 / coteBookmaker;
 }
 
 function BarreProbabilite({ selection }: { selection: SelectionPrediction }) {
@@ -81,6 +100,35 @@ function LigneSelection({
   );
 }
 
+function Ligne1X2({
+  selection,
+  coteBookmaker,
+}: {
+  selection: SelectionPrediction;
+  coteBookmaker: number | null;
+}) {
+  const favorable = estFavorable(selection.probability, coteBookmaker);
+  return (
+    <div className="border-b border-bordure/70 py-2.5 last:border-0">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-sm font-medium text-texte">{selection.label}</p>
+        <p className="font-mono text-lg tabular-nums text-accent">
+          {pourcent(selection.probability, 1)}
+        </p>
+      </div>
+      <BarreProbabilite selection={selection} />
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-texte-faible">
+        <span>Fourchette 80 % : {fourchette(selection)}</span>
+        <span aria-hidden>·</span>
+        <span>
+          Cote 1xBet : <span className="font-mono text-texte-doux">{cote(coteBookmaker)}</span>
+        </span>
+        {favorable ? <Badge ton="succes">Modèle au-dessus de la cote</Badge> : null}
+      </div>
+    </div>
+  );
+}
+
 const methodesSource: Record<string, string> = {
   xg: "xG saisi",
   proxy: "proxy tirs cadrés",
@@ -119,6 +167,7 @@ export function PanneauPrediction({
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
   const [indisponible, setIndisponible] = useState<string | null>(null);
+  const [marches, setMarches] = useState<Marche[]>([]);
 
   const charger = useCallback(async () => {
     setChargement(true);
@@ -142,6 +191,46 @@ export function PanneauPrediction({
   useEffect(() => {
     void charger();
   }, [charger]);
+
+  useEffect(() => {
+    let actif = true;
+    void (async () => {
+      try {
+        const liste = await apiFetch<Marche[]>(`/v1/matches/${matchId}/markets`);
+        if (actif) setMarches(liste);
+      } catch {
+        // La comparaison cote / probabilité est un bonus : l'absence de marchés
+        // ne doit pas faire échouer l'analyse.
+      }
+    })();
+    return () => {
+      actif = false;
+    };
+  }, [matchId]);
+
+  const coteParCode = useMemo(() => {
+    const resultat: Record<string, number | null> = { "1": null, X: null, "2": null };
+    const marche1x2 = marches.find(
+      (marche) =>
+        marche.family === "resultat" &&
+        marche.period === "match" &&
+        marche.subject === "match" &&
+        marche.line === null,
+    );
+    if (!marche1x2) return resultat;
+    for (const selection of marche1x2.selections) {
+      if (selection.code in resultat) resultat[selection.code] = selection.latest_odds;
+    }
+    return resultat;
+  }, [marches]);
+
+  const issueLaPlusProbable = useMemo(
+    () =>
+      prediction
+        ? [...prediction.resultat].sort((a, b) => b.probability - a.probability)[0]
+        : null,
+    [prediction],
+  );
 
   return (
     <Section
@@ -169,35 +258,32 @@ export function PanneauPrediction({
           </div>
         ) : prediction ? (
           <>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-texte-faible">
-              <Badge ton={tonQualite(prediction.quality.level)}>
-                Fiabilité {prediction.quality.label.toLowerCase()}
-              </Badge>
-              <span>
-                {prediction.quality.matches_home} matchs {equipeDomicile}
-              </span>
-              <span>
-                {prediction.quality.matches_away} matchs {equipeExterieur}
-              </span>
-              <span>
-                échantillon effectif{" "}
-                {Math.min(
-                  prediction.quality.effective_home,
-                  prediction.quality.effective_away,
-                ).toLocaleString("fr-FR", { maximumFractionDigits: 1 })}
-              </span>
-              <span>{prediction.model_version}</span>
-              <span>calculé le {formatDateHeure(prediction.computed_at)}</span>
-            </div>
-
-            {prediction.quality.warnings.length > 0 ? (
-              <Alerte ton="avertissement">
-                <ul className="list-disc space-y-1 pl-4">
-                  {prediction.quality.warnings.map((warning) => (
-                    <li key={warning}>{warning}</li>
-                  ))}
-                </ul>
-              </Alerte>
+            {issueLaPlusProbable ? (
+              <p className="rounded-md border border-bordure-forte bg-fond-eleve px-3 py-2 text-sm leading-relaxed text-texte-doux">
+                Le modèle donne{" "}
+                <span className="font-medium text-texte">{issueLaPlusProbable.label}</span> le
+                plus probable à{" "}
+                <span className="font-mono text-texte">{pourcent(issueLaPlusProbable.probability, 1)}</span>
+                {" "}(fourchette {fourchette(issueLaPlusProbable)}) ·{" "}
+                {coteParCode[issueLaPlusProbable.code] !== null ? (
+                  <>
+                    cote 1xBet{" "}
+                    <span className="font-mono text-texte">
+                      {cote(coteParCode[issueLaPlusProbable.code])}
+                    </span>
+                    {estFavorable(
+                      issueLaPlusProbable.probability,
+                      coteParCode[issueLaPlusProbable.code],
+                    ) ? (
+                      <span className="text-succes"> · favorable</span>
+                    ) : (
+                      <span> · sans écart favorable</span>
+                    )}
+                  </>
+                ) : (
+                  <>sans cote 1X2 saisie pour comparaison.</>
+                )}
+              </p>
             ) : null}
 
             <div className="grid gap-4 border-y border-bordure py-3 sm:grid-cols-3">
@@ -227,28 +313,16 @@ export function PanneauPrediction({
             </div>
 
             <section>
-              <h3 className="text-xs font-medium text-texte-faible">Sources statistiques</h3>
-              <div className="mt-1 grid gap-x-8 sm:grid-cols-2">
-                <LigneSource nom={equipeDomicile} source={prediction.sources.home} />
-                <LigneSource nom={equipeExterieur} source={prediction.sources.away} />
-              </div>
-              <p className="mt-2 text-[11px] text-texte-faible">
-                Correction Dixon-Coles estimée :{" "}
-                <span className="font-mono">
-                  {Number(prediction.config.dixon_coles_rho).toLocaleString("fr-FR", {
-                    minimumFractionDigits: 3,
-                    maximumFractionDigits: 3,
-                  })}
-                </span>
-                {" · "}poids du xG : {pourcent(Number(prediction.config.xg_weight))}
-              </p>
-            </section>
-
-            <section>
-              <h3 className="text-xs font-medium text-texte-faible">Résultat (1X2)</h3>
+              <h3 className="text-xs font-medium text-texte-faible">
+                Résultat (1X2) et comparaison aux cotes
+              </h3>
               <div className="mt-1 grid gap-x-8 sm:grid-cols-3">
                 {prediction.resultat.map((selection) => (
-                  <LigneSelection key={selection.code} selection={selection} accent grande />
+                  <Ligne1X2
+                    key={selection.code}
+                    selection={selection}
+                    coteBookmaker={coteParCode[selection.code] ?? null}
+                  />
                 ))}
               </div>
             </section>
@@ -302,6 +376,62 @@ export function PanneauPrediction({
                 ))}
               </div>
             </section>
+
+            <details className="border-t border-bordure pt-3">
+              <summary className="cursor-pointer text-xs font-medium text-texte-doux">
+                Détails du modèle
+              </summary>
+              <div className="mt-3 flex flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-texte-faible">
+                  <Badge ton={tonQualite(prediction.quality.level)}>
+                    Fiabilité {prediction.quality.label.toLowerCase()}
+                  </Badge>
+                  <span>
+                    {prediction.quality.matches_home} matchs {equipeDomicile}
+                  </span>
+                  <span>
+                    {prediction.quality.matches_away} matchs {equipeExterieur}
+                  </span>
+                  <span>
+                    échantillon effectif{" "}
+                    {Math.min(
+                      prediction.quality.effective_home,
+                      prediction.quality.effective_away,
+                    ).toLocaleString("fr-FR", { maximumFractionDigits: 1 })}
+                  </span>
+                  <span>{prediction.model_version}</span>
+                  <span>calculé le {formatDateHeure(prediction.computed_at)}</span>
+                </div>
+
+                {prediction.quality.warnings.length > 0 ? (
+                  <Alerte ton="avertissement">
+                    <ul className="list-disc space-y-1 pl-4">
+                      {prediction.quality.warnings.map((warning, index) => (
+                        <li key={index + "-" + warning}>{warning}</li>
+                      ))}
+                    </ul>
+                  </Alerte>
+                ) : null}
+
+                <div>
+                  <h3 className="text-xs font-medium text-texte-faible">Sources statistiques</h3>
+                  <div className="mt-1 grid gap-x-8 sm:grid-cols-2">
+                    <LigneSource nom={equipeDomicile} source={prediction.sources.home} />
+                    <LigneSource nom={equipeExterieur} source={prediction.sources.away} />
+                  </div>
+                  <p className="mt-2 text-[11px] text-texte-faible">
+                    Correction Dixon-Coles estimée :{" "}
+                    <span className="font-mono">
+                      {Number(prediction.config.dixon_coles_rho).toLocaleString("fr-FR", {
+                        minimumFractionDigits: 3,
+                        maximumFractionDigits: 3,
+                      })}
+                    </span>
+                    {" · "}poids du xG : {pourcent(Number(prediction.config.xg_weight))}
+                  </p>
+                </div>
+              </div>
+            </details>
 
             <p className="text-[11px] leading-relaxed text-texte-faible">
               {prediction.avertissement} Les fourchettes à 80 % proviennent d&apos;une simulation

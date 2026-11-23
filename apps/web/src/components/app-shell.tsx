@@ -102,6 +102,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const sectionActive = navigation.find((item) => estActif(chemin, item.href))?.libelle;
+  const groupeActif = groupesNavigation.find((groupe) =>
+    groupe.items.some((item) => estActif(chemin, item.href)),
+  );
 
   return (
     <div className="flex min-h-screen flex-col lg:flex-row">
@@ -120,29 +123,38 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav aria-label="Navigation principale" className="min-w-0 px-3 pb-3 lg:flex-1">
-          <ul className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:hidden">
-            {navigation.map((item) => {
-              const actif = estActif(chemin, item.href);
-              return (
-                <li key={item.href} className="w-full">
-                  <Link
-                    href={item.href}
-                    aria-current={actif ? "page" : undefined}
-                    className={`flex h-9 items-center gap-2 rounded-md border-l-2 px-2.5 text-xs font-medium transition ${
-                      actif
-                        ? "border-accent bg-accent/10 text-accent"
-                        : "border-transparent text-texte-doux hover:bg-fond-eleve hover:text-texte"
-                    }`}
-                  >
-                    <span aria-hidden className="w-4 text-center">
-                      {item.symbole}
-                    </span>
-                    {item.libelle}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="lg:hidden">
+            {groupesNavigation.map((groupe) => (
+              <div key={groupe.titre} className="mb-3 last:mb-0">
+                <p className="px-2.5 pb-1 text-[11px] uppercase tracking-wide text-texte-faible">
+                  {groupe.titre}
+                </p>
+                <ul className="grid grid-cols-2 gap-1 sm:grid-cols-3">
+                  {groupe.items.map((item) => {
+                    const actif = estActif(chemin, item.href);
+                    return (
+                      <li key={item.href} className="w-full">
+                        <Link
+                          href={item.href}
+                          aria-current={actif ? "page" : undefined}
+                          className={`flex h-9 items-center gap-2 rounded-md border-l-2 px-2.5 text-xs font-medium transition ${
+                            actif
+                              ? "border-accent bg-accent/10 text-accent"
+                              : "border-transparent text-texte-doux hover:bg-fond-eleve hover:text-texte"
+                          }`}
+                        >
+                          <span aria-hidden className="w-4 text-center">
+                            {item.symbole}
+                          </span>
+                          {item.libelle}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
 
           <div className="hidden lg:block">
             {groupesNavigation.map((groupe) => (
@@ -192,7 +204,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-3 border-b border-bordure px-5 py-2">
-          <p className="text-xs text-texte-faible">{sectionActive ?? "Espace de travail"}</p>
+          <nav aria-label="Fil d'Ariane" className="min-w-0 truncate text-xs text-texte-faible">
+            {groupeActif ? (
+              <>
+                <span>{groupeActif.titre}</span>
+                <span aria-hidden className="mx-1.5 text-texte-faible/60">
+                  /
+                </span>
+              </>
+            ) : null}
+            <span className="text-texte-doux">{sectionActive ?? "Espace de travail"}</span>
+          </nav>
           <button
             type="button"
             onClick={() => void seDeconnecter()}

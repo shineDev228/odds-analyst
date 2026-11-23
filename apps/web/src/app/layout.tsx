@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 
+import { NotificationsProvider } from "@/components/notifications";
 import { fr } from "@/messages/fr";
 
 import "./globals.css";
@@ -39,7 +40,9 @@ export const dynamic = "force-dynamic";
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr" className={`${archivo.variable} ${plexMono.variable}`}>
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen antialiased">
+        <NotificationsProvider>{children}</NotificationsProvider>
+      </body>
     </html>
   );
 }

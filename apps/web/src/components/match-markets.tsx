@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { BoiteDialogue } from "@/components/boite-dialogue";
+import { useNotifications } from "@/components/notifications";
 import {
   Alerte,
   Badge,
@@ -13,8 +15,9 @@ import {
   Section,
   Selection,
 } from "@/components/ui";
-import { apiFetch, messageErreur } from "@/lib/api";
+import { apiFetch, decrireErreur, messageErreur } from "@/lib/api";
 import { formatDateHeure } from "@/lib/format";
+import { useGardeDepart } from "@/lib/use-garde-depart";
 import {
   descriptionMarche,
   libelleFamille,
@@ -122,12 +125,28 @@ export function PanneauMarches({
   const [modeles, setModeles] = useState<ModeleMarche[]>([]);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [succes, setSucces] = useState<string | null>(null);
+  const [erreursChamps, setErreursChamps] = useState<Record<string, string>>({});
   const [envoi, setEnvoi] = useState(false);
   const [form, setForm] = useState<FormMarche>(formVide);
   const [formOuvert, setFormOuvert] = useState(false);
   const [filtreModele, setFiltreModele] = useState("");
   const [cotes, setCotes] = useState<Record<string, string>>({});
+  const [marcheASupprimer, setMarcheASupprimer] = useState<Marche | null>(null);
+  const [coteASupprimer, setCoteASupprimer] = useState<{
+    marcheId: string;
+    selectionId: string;
+    coteId: string;
+    libelle: string;
+  } | null>(null);
+  const [suppression, setSuppression] = useState(false);
+  const { notifier } = useNotifications();
+
+  useGardeDepart(formOuvert);
+
+  const viderErreurs = () => {
+    setErreur(null);
+    setErreursChamps({});
+  };
 
   const chargerMarches = useCallback(async () => {
     const liste = await apiFetch<Marche[]>(`/v1/matches/${matchId}/markets`);
@@ -175,9 +194,8 @@ export function PanneauMarches({
   }, [sportCode]);
 
   function signalerSucces(message: string) {
-    setSucces(message);
+    notifier("succes", message);
     setErreur(null);
-    setTimeout(() => setSucces(null), 4000);
   }
 
   const modeleCourant = useMemo(
@@ -239,28 +257,34 @@ export function PanneauMarches({
 
   async function creerMarche(evenement: React.FormEvent<HTMLFormElement>) {
     evenement.preventDefault();
-    setErreur(null);
+    viderErreurs();
 
     if (form.subject === "team" && !form.subject_team_id) {
-      setErreur("Choisissez l'équipe concernée par ce marché.");
+      setErreursChamps({ subject_team_id: "Choisissez l'équipe concernée par ce marché." });
       return;
     }
     if (form.subject === "player" && !form.subject_player.trim()) {
-      setErreur("Indiquez le nom du joueur concerné par ce marché.");
+      setErreursChamps({ subject_player: "Indiquez le nom du joueur concerné par ce marché." });
       return;
     }
     if (!form.template_code && (!form.name.trim() || !form.family.trim())) {
-      setErreur("Un marché personnalisé doit avoir un nom et une famille.");
+      setErreursChamps({
+        name: !form.name.trim() ? "Un marché personnalisé doit avoir un nom." : "",
+        family: !form.family.trim() ? "Un marché personnalisé doit avoir une famille." : "",
+      });
       return;
     }
 
     const typeLigne = modeleCourant?.line_kind ?? "libre";
     if ((typeLigne === "simple" || typeLigne === "intervalle") && nombreOuNull(form.line) === null) {
-      setErreur("Ce marché nécessite une ligne (par exemple 2,5 buts).");
+      setErreursChamps({ line: "Ce marché nécessite une ligne (par exemple 2,5 buts)." });
       return;
     }
     if (typeLigne === "double" && (nombreOuNull(form.line) === null || nombreOuNull(form.line2) === null)) {
-      setErreur("Ce marché nécessite deux lignes.");
+      setErreursChamps({
+        line: nombreOuNull(form.line) === null ? "Première ligne requise." : "",
+        line2: nombreOuNull(form.line2) === null ? "Seconde ligne requise." : "",
+      });
       return;
     }
 
@@ -308,7 +332,9 @@ export function PanneauMarches({
       setFormOuvert(false);
       signalerSucces("Marché ajouté. Saisissez une nouvelle cote quand elle évolue.");
     } catch (error) {
-      setErreur(messageErreur(error));
+      const detail = decrireErreur(error);
+      setErreur(detail.message);
+      setErreursChamps(detail.champs);
     } finally {
       setEnvoi(false);
     }
@@ -334,34 +360,40 @@ export function PanneauMarches({
     }
   }
 
-  async function supprimerCote(marcheId: string, selectionId: string, coteId: string) {
-    if (!window.confirm("Supprimer définitivement ce relevé de cote erroné ?")) return;
+  async function supprimerCote() {
+    if (!coteASupprimer) return;
+    setSuppression(true);
+    setErreur(null);
     try {
       await apiFetch<void>(
-        `/v1/markets/${marcheId}/selections/${selectionId}/odds/${coteId}`,
+        `/v1/markets/${coteASupprimer.marcheId}/selections/${coteASupprimer.selectionId}/odds/${coteASupprimer.coteId}`,
         { methode: "DELETE" },
       );
+      setCoteASupprimer(null);
       await chargerMarches();
       signalerSucces("Relevé supprimé.");
     } catch (error) {
       setErreur(messageErreur(error));
+      setCoteASupprimer(null);
+    } finally {
+      setSuppression(false);
     }
   }
 
-  async function supprimerMarche(marche: Marche) {
-    if (
-      !window.confirm(
-        `Supprimer le marché « ${marche.name} » et tout son historique de cotes ?`,
-      )
-    ) {
-      return;
-    }
+  async function supprimerMarche() {
+    if (!marcheASupprimer) return;
+    setSuppression(true);
+    setErreur(null);
     try {
-      await apiFetch<void>(`/v1/markets/${marche.id}`, { methode: "DELETE" });
+      await apiFetch<void>(`/v1/markets/${marcheASupprimer.id}`, { methode: "DELETE" });
+      setMarcheASupprimer(null);
       await chargerMarches();
       signalerSucces("Marché supprimé.");
     } catch (error) {
       setErreur(messageErreur(error));
+      setMarcheASupprimer(null);
+    } finally {
+      setSuppression(false);
     }
   }
 
@@ -384,7 +416,6 @@ export function PanneauMarches({
     >
       <div className="flex flex-col gap-4">
         {erreur ? <Alerte ton="erreur">{erreur}</Alerte> : null}
-        {succes ? <Alerte ton="succes">{succes}</Alerte> : null}
 
         {formOuvert ? (
           <form
@@ -436,7 +467,7 @@ export function PanneauMarches({
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Champ label="Nom du marché" className="sm:col-span-2">
+              <Champ label="Nom du marché" className="sm:col-span-2" erreur={erreursChamps.name}>
                 <Saisie
                   required
                   maxLength={160}
@@ -445,7 +476,7 @@ export function PanneauMarches({
                   placeholder="Ex. Cartons par joueur — variante maison"
                 />
               </Champ>
-              <Champ label="Famille">
+              <Champ label="Famille" erreur={erreursChamps.family}>
                 <Saisie
                   required
                   maxLength={80}
@@ -454,7 +485,7 @@ export function PanneauMarches({
                   placeholder="corners, cartons, joueur…"
                 />
               </Champ>
-              <Champ label="Période">
+              <Champ label="Période" erreur={erreursChamps.period}>
                 <Saisie
                   required
                   maxLength={40}
@@ -477,7 +508,7 @@ export function PanneauMarches({
           )}
 
           {form.subject === "team" ? (
-            <Champ label="Équipe concernée">
+            <Champ label="Équipe concernée" erreur={erreursChamps.subject_team_id}>
               <Selection
                 required
                 value={form.subject_team_id}
@@ -491,7 +522,7 @@ export function PanneauMarches({
           ) : null}
 
           {form.subject === "player" ? (
-            <Champ label="Joueur concerné">
+            <Champ label="Joueur concerné" erreur={erreursChamps.subject_player}>
               <Saisie
                 required
                 maxLength={120}
@@ -506,6 +537,7 @@ export function PanneauMarches({
             <Champ
               label={typeLigne === "libre" ? "Ligne (optionnelle)" : "Ligne"}
               aide="Ex. 2,5 buts, +1,5, 9,5 corners."
+              erreur={erreursChamps.line}
             >
               <Saisie
                 type="number"
@@ -518,7 +550,7 @@ export function PanneauMarches({
 
           {typeLigne === "double" ? (
             <div className="grid gap-3 sm:grid-cols-2">
-              <Champ label="Première ligne">
+              <Champ label="Première ligne" erreur={erreursChamps.line}>
                 <Saisie
                   type="number"
                   step="0.01"
@@ -526,7 +558,7 @@ export function PanneauMarches({
                   onChange={(e) => setForm({ ...form, line: e.target.value })}
                 />
               </Champ>
-              <Champ label="Seconde ligne">
+              <Champ label="Seconde ligne" erreur={erreursChamps.line2}>
                 <Saisie
                   type="number"
                   step="0.01"
@@ -579,14 +611,14 @@ export function PanneauMarches({
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Champ label="Bookmaker">
+            <Champ label="Bookmaker" erreur={erreursChamps.bookmaker}>
               <Saisie
                 maxLength={80}
                 value={form.bookmaker}
                 onChange={(e) => setForm({ ...form, bookmaker: e.target.value })}
               />
             </Champ>
-            <Champ label="Source">
+            <Champ label="Source" erreur={erreursChamps.source}>
               <Saisie
                 maxLength={40}
                 value={form.source}
@@ -664,7 +696,7 @@ export function PanneauMarches({
                     <Bouton
                       variante="discret"
                       className="text-texte-faible hover:text-danger"
-                      onClick={() => void supprimerMarche(marche)}
+                      onClick={() => setMarcheASupprimer(marche)}
                     >
                       Supprimer
                     </Bouton>
@@ -748,7 +780,12 @@ export function PanneauMarches({
                                       className="text-danger hover:underline"
                                       title="Supprimer ce relevé erroné"
                                       onClick={() =>
-                                        void supprimerCote(marche.id, selection.id, item.id)
+                                        setCoteASupprimer({
+                                          marcheId: marche.id,
+                                          selectionId: selection.id,
+                                          coteId: item.id,
+                                          libelle: `${selection.label} — ${cote(item.decimal_odds)} (${formatDateHeure(item.captured_at)})`,
+                                        })
                                       }
                                     >
                                       ×
@@ -772,6 +809,34 @@ export function PanneauMarches({
           </div>
         )}
       </div>
+
+      <BoiteDialogue
+        ouvert={marcheASupprimer !== null}
+        titre="Supprimer ce marché ?"
+        description={
+          marcheASupprimer
+            ? `Le marché « ${marcheASupprimer.name} » et tout son historique de cotes seront supprimés définitivement.`
+            : undefined
+        }
+        confirmation="Supprimer"
+        enCours={suppression}
+        onConfirmer={() => void supprimerMarche()}
+        onAnnuler={() => setMarcheASupprimer(null)}
+      />
+
+      <BoiteDialogue
+        ouvert={coteASupprimer !== null}
+        titre="Supprimer ce relevé de cote ?"
+        description={
+          coteASupprimer
+            ? `Le relevé « ${coteASupprimer.libelle} » sera supprimé définitivement.`
+            : undefined
+        }
+        confirmation="Supprimer"
+        enCours={suppression}
+        onConfirmer={() => void supprimerCote()}
+        onAnnuler={() => setCoteASupprimer(null)}
+      />
     </Section>
   );
 }

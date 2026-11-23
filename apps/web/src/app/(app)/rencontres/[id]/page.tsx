@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { BoiteDialogue } from "@/components/boite-dialogue";
+import { useNotifications } from "@/components/notifications";
 import {
   Alerte,
   Badge,
@@ -14,8 +16,9 @@ import {
   Selection,
   ZoneTexte,
 } from "@/components/ui";
-import { apiFetch, messageErreur } from "@/lib/api";
+import { apiFetch, decrireErreur, messageErreur } from "@/lib/api";
 import { formatDateHeure, formatHeure, versDatetimeLocal } from "@/lib/format";
+import { useGardeDepart } from "@/lib/use-garde-depart";
 import type { RencontreDetail, Statistique, StatutRencontre } from "@/lib/types";
 import { statutsRencontre } from "@/lib/types";
 import { PanneauMarches } from "@/components/match-markets";
@@ -105,10 +108,21 @@ export default function PageRencontre() {
 
   const [rencontre, setRencontre] = useState<RencontreDetail | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [succes, setSucces] = useState<string | null>(null);
+  const [erreursChamps, setErreursChamps] = useState<Record<string, string>>({});
   const [edition, setEdition] = useState<FormEdition | null>(null);
   const [stats, setStats] = useState<Record<string, FormStats>>({});
   const [enregistrement, setEnregistrement] = useState(false);
+  const [sale, setSale] = useState(false);
+  const [confirmationSuppression, setConfirmationSuppression] = useState(false);
+  const [suppression, setSuppression] = useState(false);
+  const { notifier } = useNotifications();
+
+  useGardeDepart(sale);
+
+  const viderErreurs = () => {
+    setErreur(null);
+    setErreursChamps({});
+  };
 
   const charger = useCallback(async () => {
     try {
@@ -133,6 +147,7 @@ export default function PageRencontre() {
           donnees.stats.find((item) => item.team_id === donnees.away_team_id),
         ),
       });
+      setSale(false);
     } catch (error) {
       setErreur(messageErreur(error));
     }
@@ -142,16 +157,23 @@ export default function PageRencontre() {
     void charger();
   }, [charger]);
 
-  function signalerSucces(message: string) {
-    setSucces(message);
-    setErreur(null);
-    setTimeout(() => setSucces(null), 4000);
+  function majEdition(patch: Partial<FormEdition>) {
+    setSale(true);
+    setEdition((courant) => (courant ? { ...courant, ...patch } : courant));
+  }
+
+  function modifierStat(equipeId: string, cle: keyof FormStats, valeur: string) {
+    setSale(true);
+    setStats((courant) => ({
+      ...courant,
+      [equipeId]: { ...(courant[equipeId] ?? statsVide), [cle]: valeur },
+    }));
   }
 
   async function enregistrerEdition(evenement: React.FormEvent<HTMLFormElement>) {
     evenement.preventDefault();
     if (!edition) return;
-    setErreur(null);
+    viderErreurs();
     setEnregistrement(true);
     try {
       await apiFetch<RencontreDetail>(`/v1/matches/${id}`, {
@@ -169,9 +191,11 @@ export default function PageRencontre() {
         },
       });
       await charger();
-      signalerSucces("Rencontre mise à jour.");
+      notifier("succes", "Rencontre mise à jour.");
     } catch (error) {
-      setErreur(messageErreur(error));
+      const detail = decrireErreur(error);
+      setErreur(detail.message);
+      setErreursChamps(detail.champs);
     } finally {
       setEnregistrement(false);
     }
@@ -180,7 +204,7 @@ export default function PageRencontre() {
   async function enregistrerStats(evenement: React.FormEvent<HTMLFormElement>) {
     evenement.preventDefault();
     if (!rencontre) return;
-    setErreur(null);
+    viderErreurs();
     setEnregistrement(true);
     try {
       const corps = [rencontre.home_team_id, rencontre.away_team_id].map((equipeId) => {
@@ -201,9 +225,11 @@ export default function PageRencontre() {
       });
       await apiFetch(`/v1/matches/${id}/stats`, { methode: "PUT", corps });
       await charger();
-      signalerSucces("Statistiques enregistrées.");
+      notifier("succes", "Statistiques enregistrées.");
     } catch (error) {
-      setErreur(messageErreur(error));
+      const detail = decrireErreur(error);
+      setErreur(detail.message);
+      setErreursChamps(detail.champs);
     } finally {
       setEnregistrement(false);
     }
@@ -211,20 +237,20 @@ export default function PageRencontre() {
 
   async function supprimer() {
     if (!rencontre) return;
-    if (!window.confirm("Supprimer définitivement cette rencontre et ses statistiques ?")) return;
+    setSuppression(true);
     try {
       await apiFetch<void>(`/v1/matches/${id}`, { methode: "DELETE" });
       router.replace("/rencontres");
     } catch (error) {
       setErreur(messageErreur(error));
+      setConfirmationSuppression(false);
+    } finally {
+      setSuppression(false);
     }
   }
 
-  function modifierStat(equipeId: string, cle: keyof FormStats, valeur: string) {
-    setStats((courant) => ({
-      ...courant,
-      [equipeId]: { ...(courant[equipeId] ?? statsVide), [cle]: valeur },
-    }));
+  function erreurStat(equipeIndex: number, cle: keyof FormStats): string | undefined {
+    return erreursChamps[`${equipeIndex}.${cle}`] ?? erreursChamps[cle];
   }
 
   if (erreur && !rencontre) {
@@ -279,7 +305,7 @@ export default function PageRencontre() {
             <Badge ton={couleursStatut[rencontre.status]}>
               {statutsRencontre[rencontre.status]}
             </Badge>
-            <Bouton variante="danger" onClick={() => void supprimer()}>
+            <Bouton variante="danger" onClick={() => setConfirmationSuppression(true)}>
               Supprimer
             </Bouton>
           </div>
@@ -287,7 +313,6 @@ export default function PageRencontre() {
       </header>
 
       {erreur ? <Alerte ton="erreur">{erreur}</Alerte> : null}
-      {succes ? <Alerte ton="succes">{succes}</Alerte> : null}
 
       <PanneauPrediction
         matchId={rencontre.id}
@@ -310,19 +335,17 @@ export default function PageRencontre() {
           onSubmit={enregistrerEdition}
           className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
         >
-          <Champ label="Date et heure">
+          <Champ label="Date et heure" erreur={erreursChamps.kickoff_at}>
             <Saisie
               type="datetime-local"
               value={edition.kickoff_at}
-              onChange={(e) => setEdition({ ...edition, kickoff_at: e.target.value })}
+              onChange={(e) => majEdition({ kickoff_at: e.target.value })}
             />
           </Champ>
-          <Champ label="Statut">
+          <Champ label="Statut" erreur={erreursChamps.status}>
             <Selection
               value={edition.status}
-              onChange={(e) =>
-                setEdition({ ...edition, status: e.target.value as StatutRencontre })
-              }
+              onChange={(e) => majEdition({ status: e.target.value as StatutRencontre })}
             >
               {Object.entries(statutsRencontre).map(([valeur, libelle]) => (
                 <option key={valeur} value={valeur}>
@@ -331,63 +354,69 @@ export default function PageRencontre() {
               ))}
             </Selection>
           </Champ>
-          <Champ label="Stade">
+          <Champ label="Stade" erreur={erreursChamps.venue}>
             <Saisie
               maxLength={120}
               value={edition.venue}
-              onChange={(e) => setEdition({ ...edition, venue: e.target.value })}
+              onChange={(e) => majEdition({ venue: e.target.value })}
             />
           </Champ>
-          <Champ label="Arbitre">
+          <Champ label="Arbitre" erreur={erreursChamps.referee}>
             <Saisie
               maxLength={120}
               value={edition.referee}
-              onChange={(e) => setEdition({ ...edition, referee: e.target.value })}
+              onChange={(e) => majEdition({ referee: e.target.value })}
             />
           </Champ>
 
-          <Champ label={`Score ${rencontre.home_team.name}`}>
+          <Champ label={`Score ${rencontre.home_team.name}`} erreur={erreursChamps.home_score}>
             <Saisie
               type="number"
               min={0}
               max={99}
               value={edition.home_score}
-              onChange={(e) => setEdition({ ...edition, home_score: e.target.value })}
+              onChange={(e) => majEdition({ home_score: e.target.value })}
             />
           </Champ>
-          <Champ label={`Score ${rencontre.away_team.name}`}>
+          <Champ label={`Score ${rencontre.away_team.name}`} erreur={erreursChamps.away_score}>
             <Saisie
               type="number"
               min={0}
               max={99}
               value={edition.away_score}
-              onChange={(e) => setEdition({ ...edition, away_score: e.target.value })}
+              onChange={(e) => majEdition({ away_score: e.target.value })}
             />
           </Champ>
-          <Champ label="Mi-temps (domicile)">
+          <Champ
+            label="Mi-temps (domicile)"
+            erreur={erreursChamps.half_time_home_score}
+          >
             <Saisie
               type="number"
               min={0}
               max={99}
               value={edition.half_time_home_score}
-              onChange={(e) => setEdition({ ...edition, half_time_home_score: e.target.value })}
+              onChange={(e) => majEdition({ half_time_home_score: e.target.value })}
             />
           </Champ>
-          <Champ label="Mi-temps (extérieur)">
+          <Champ
+            label="Mi-temps (extérieur)"
+            erreur={erreursChamps.half_time_away_score}
+          >
             <Saisie
               type="number"
               min={0}
               max={99}
               value={edition.half_time_away_score}
-              onChange={(e) => setEdition({ ...edition, half_time_away_score: e.target.value })}
+              onChange={(e) => majEdition({ half_time_away_score: e.target.value })}
             />
           </Champ>
 
-          <Champ label="Notes" className="sm:col-span-2 lg:col-span-4">
+          <Champ label="Notes" className="sm:col-span-2 lg:col-span-4" erreur={erreursChamps.notes}>
             <ZoneTexte
               maxLength={2000}
               value={edition.notes}
-              onChange={(e) => setEdition({ ...edition, notes: e.target.value })}
+              onChange={(e) => majEdition({ notes: e.target.value })}
             />
           </Champ>
 
@@ -408,7 +437,7 @@ export default function PageRencontre() {
           moteur.
         </p>
         <form onSubmit={enregistrerStats} className="mt-4 flex flex-col gap-6">
-          {[rencontre.home_team, rencontre.away_team].map((equipe) => {
+          {[rencontre.home_team, rencontre.away_team].map((equipe, index) => {
             const equipeId = equipe.id;
             const valeurs = stats[equipeId] ?? statsVide;
             return (
@@ -421,7 +450,11 @@ export default function PageRencontre() {
                 </h3>
                 <div className="mt-2 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
                   {champsStats.map((champ) => (
-                    <Champ key={champ.cle} label={champ.libelle}>
+                    <Champ
+                      key={champ.cle}
+                      label={champ.libelle}
+                      erreur={erreurStat(index, champ.cle)}
+                    >
                       <Saisie
                         type="number"
                         min={0}
@@ -443,6 +476,16 @@ export default function PageRencontre() {
           </div>
         </form>
       </details>
+
+      <BoiteDialogue
+        ouvert={confirmationSuppression}
+        titre="Supprimer cette rencontre ?"
+        description="La rencontre et ses statistiques seront supprimées définitivement."
+        confirmation="Supprimer"
+        enCours={suppression}
+        onConfirmer={() => void supprimer()}
+        onAnnuler={() => setConfirmationSuppression(false)}
+      />
     </div>
   );
 }

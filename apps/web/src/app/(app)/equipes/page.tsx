@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { BoiteDialogue } from "@/components/boite-dialogue";
+import { useNotifications } from "@/components/notifications";
 import {
   Alerte,
   Bouton,
@@ -14,7 +16,8 @@ import {
   Selection,
   Tableau,
 } from "@/components/ui";
-import { apiFetch, messageErreur } from "@/lib/api";
+import { apiFetch, decrireErreur, messageErreur } from "@/lib/api";
+import { useGardeDepart } from "@/lib/use-garde-depart";
 import type { Equipe, Page, Sport } from "@/lib/types";
 
 interface FormEquipe {
@@ -33,12 +36,20 @@ export default function PageEquipes() {
   const [recherche, setRecherche] = useState("");
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [succes, setSucces] = useState<string | null>(null);
+  const [erreursChamps, setErreursChamps] = useState<Record<string, string>>({});
   const [form, setForm] = useState<FormEquipe>(formVide);
   const [envoi, setEnvoi] = useState(false);
   const [formOuvert, setFormOuvert] = useState(false);
   const [editionId, setEditionId] = useState<string | null>(null);
   const [edition, setEdition] = useState(formVide);
+  const [aSupprimer, setASupprimer] = useState<Equipe | null>(null);
+  const [suppression, setSuppression] = useState(false);
+  const { notifier } = useNotifications();
+
+  const viderErreurs = () => {
+    setErreur(null);
+    setErreursChamps({});
+  };
 
   const charger = useCallback(async (terme: string) => {
     const parametres = new URLSearchParams({ page_size: "200" });
@@ -86,17 +97,22 @@ export default function PageEquipes() {
     };
   }, [recherche, charger]);
 
-  function signalerSucces(message: string) {
-    setSucces(message);
-    setErreur(null);
-    setTimeout(() => setSucces(null), 4000);
-  }
+  // Garde de départ : saisie de création ou d'édition non enregistrée.
+  // Le sport est pré-sélectionné automatiquement : on l'ignore pour ne pas
+  // déclencher l'avertissement dès l'ouverture du formulaire.
+  const saisieEnCours =
+    (formOuvert &&
+      (form.name.trim() !== "" ||
+        form.short_name.trim() !== "" ||
+        form.country.trim() !== "")) ||
+    editionId !== null;
+  useGardeDepart(saisieEnCours);
 
   async function creer(evenement: React.FormEvent<HTMLFormElement>) {
     evenement.preventDefault();
-    setErreur(null);
+    viderErreurs();
     if (!form.sport_id) {
-      setErreur("Sélectionnez un sport.");
+      setErreursChamps({ sport_id: "Sélectionnez un sport." });
       return;
     }
     setEnvoi(true);
@@ -112,9 +128,11 @@ export default function PageEquipes() {
       setForm({ ...formVide, sport_id: form.sport_id });
       setFormOuvert(false);
       await charger(recherche);
-      signalerSucces("Équipe créée.");
+      notifier("succes", "Équipe créée.");
     } catch (error) {
-      setErreur(messageErreur(error));
+      const detail = decrireErreur(error);
+      setErreur(detail.message);
+      setErreursChamps(detail.champs);
     } finally {
       setEnvoi(false);
     }
@@ -132,7 +150,7 @@ export default function PageEquipes() {
 
   async function enregistrerEdition() {
     if (!editionId) return;
-    setErreur(null);
+    viderErreurs();
     try {
       await apiFetch<Equipe>(`/v1/teams/${editionId}`, {
         methode: "PATCH",
@@ -144,20 +162,28 @@ export default function PageEquipes() {
       });
       setEditionId(null);
       await charger(recherche);
-      signalerSucces("Équipe modifiée.");
+      notifier("succes", "Équipe modifiée.");
     } catch (error) {
-      setErreur(messageErreur(error));
+      const detail = decrireErreur(error);
+      setErreur(detail.message);
+      setErreursChamps(detail.champs);
     }
   }
 
-  async function supprimer(equipe: Equipe) {
-    if (!window.confirm(`Supprimer l'équipe « ${equipe.name} » ?`)) return;
+  async function supprimer() {
+    if (!aSupprimer) return;
+    setSuppression(true);
+    viderErreurs();
     try {
-      await apiFetch<void>(`/v1/teams/${equipe.id}`, { methode: "DELETE" });
+      await apiFetch<void>(`/v1/teams/${aSupprimer.id}`, { methode: "DELETE" });
+      setASupprimer(null);
       await charger(recherche);
-      signalerSucces("Équipe supprimée.");
+      notifier("succes", "Équipe supprimée.");
     } catch (error) {
       setErreur(messageErreur(error));
+      setASupprimer(null);
+    } finally {
+      setSuppression(false);
     }
   }
 
@@ -182,13 +208,12 @@ export default function PageEquipes() {
       />
 
       {erreur ? <Alerte ton="erreur">{erreur}</Alerte> : null}
-      {succes ? <Alerte ton="succes">{succes}</Alerte> : null}
 
       {formOuvert ? (
         <Panneau titre="Nouvelle équipe">
           <div id="nouvelle-equipe">
             <form onSubmit={creer} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              <Champ label="Sport">
+              <Champ label="Sport" erreur={erreursChamps.sport_id}>
                 <Selection
                   required
                   value={form.sport_id}
@@ -202,7 +227,7 @@ export default function PageEquipes() {
                   ))}
                 </Selection>
               </Champ>
-              <Champ label="Nom">
+              <Champ label="Nom" erreur={erreursChamps.name}>
                 <Saisie
                   required
                   minLength={2}
@@ -212,7 +237,7 @@ export default function PageEquipes() {
                   placeholder="Paris Saint-Germain"
                 />
               </Champ>
-              <Champ label="Nom court">
+              <Champ label="Nom court" erreur={erreursChamps.short_name}>
                 <Saisie
                   maxLength={40}
                   value={form.short_name}
@@ -220,7 +245,7 @@ export default function PageEquipes() {
                   placeholder="PSG"
                 />
               </Champ>
-              <Champ label="Pays">
+              <Champ label="Pays" erreur={erreursChamps.country}>
                 <Saisie
                   maxLength={80}
                   value={form.country}
@@ -241,19 +266,19 @@ export default function PageEquipes() {
       {equipeEnEdition ? (
         <Panneau titre={`Modifier « ${equipeEnEdition.name} »`}>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Champ label="Nom">
+            <Champ label="Nom" erreur={erreursChamps.name}>
               <Saisie
                 value={edition.name}
                 onChange={(e) => setEdition({ ...edition, name: e.target.value })}
               />
             </Champ>
-            <Champ label="Nom court">
+            <Champ label="Nom court" erreur={erreursChamps.short_name}>
               <Saisie
                 value={edition.short_name}
                 onChange={(e) => setEdition({ ...edition, short_name: e.target.value })}
               />
             </Champ>
-            <Champ label="Pays">
+            <Champ label="Pays" erreur={erreursChamps.country}>
               <Saisie
                 value={edition.country}
                 onChange={(e) => setEdition({ ...edition, country: e.target.value })}
@@ -329,7 +354,7 @@ export default function PageEquipes() {
                     <Bouton
                       variante="discret"
                       className="h-8 px-2 text-xs text-texte-faible hover:text-danger"
-                      onClick={() => void supprimer(equipe)}
+                      onClick={() => setASupprimer(equipe)}
                     >
                       Supprimer
                     </Bouton>
@@ -340,6 +365,20 @@ export default function PageEquipes() {
           </tbody>
         </Tableau>
       )}
+
+      <BoiteDialogue
+        ouvert={aSupprimer !== null}
+        titre="Supprimer cette équipe ?"
+        description={
+          aSupprimer
+            ? `L'équipe « ${aSupprimer.name} » sera supprimée définitivement.`
+            : undefined
+        }
+        confirmation="Supprimer"
+        enCours={suppression}
+        onConfirmer={() => void supprimer()}
+        onAnnuler={() => setASupprimer(null)}
+      />
     </div>
   );
 }

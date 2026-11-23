@@ -139,3 +139,26 @@ export function messageErreur(error: unknown): string {
   if (error instanceof Error) return error.message;
   return "Une erreur inattendue est survenue.";
 }
+
+/**
+ * Décompose une erreur en un message global et un tableau d'erreurs par champ,
+ * prêt à être branché sur les composants `<Champ erreur=…>`.
+ *
+ * L'API renvoie `errors: [{ champ, message }]` où `champ` correspond au nom du
+ * champ du corps JSON (éventuellement un chemin à points, ex. `selections.0.odds`).
+ */
+export interface ErreurFormulaire {
+  message: string;
+  champs: Record<string, string>;
+}
+
+export function decrireErreur(error: unknown): ErreurFormulaire {
+  if (error instanceof ApiError && error.details.length > 0) {
+    const champs: Record<string, string> = {};
+    for (const item of error.details) {
+      champs[item.champ] = item.message;
+    }
+    return { message: error.message, champs };
+  }
+  return { message: messageErreur(error), champs: {} };
+}
