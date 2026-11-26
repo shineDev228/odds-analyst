@@ -55,6 +55,9 @@ const formVide: FormRencontre = {
 
 const TAILLE_PAGE = 50;
 
+/** Statut affiché par défaut : les rencontres « programmées » d'abord. */
+const STATUT_PAR_DEFAUT = "programme";
+
 const couleursStatut: Record<StatutRencontre, string> = {
   programme: "bg-accent",
   en_cours: "bg-alerte",
@@ -155,7 +158,7 @@ export default function PageRencontres() {
 
   const [filtreCompetition, setFiltreCompetition] = useState("");
   const [filtreEquipe, setFiltreEquipe] = useState("");
-  const [filtreStatut, setFiltreStatut] = useState("");
+  const [filtreStatut, setFiltreStatut] = useState(STATUT_PAR_DEFAUT);
   const [ordre, setOrdre] = useState<"asc" | "desc">("asc");
   const [tri, setTri] = useState<ColonneTri>("date");
   const [page, setPage] = useState(1);
@@ -164,7 +167,7 @@ export default function PageRencontres() {
   const filtreActif =
     filtreCompetition !== "" ||
     filtreEquipe !== "" ||
-    filtreStatut !== "" ||
+    filtreStatut !== STATUT_PAR_DEFAUT ||
     tri !== "date" ||
     ordre !== "asc";
 
@@ -311,7 +314,7 @@ export default function PageRencontres() {
   function reinitialiserFiltres() {
     setFiltreCompetition("");
     setFiltreEquipe("");
-    setFiltreStatut("");
+    setFiltreStatut(STATUT_PAR_DEFAUT);
     setOrdre("asc");
     setTri("date");
     setPage(1);

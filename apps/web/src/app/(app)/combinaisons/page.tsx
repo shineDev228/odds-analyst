@@ -35,6 +35,41 @@ interface FormCombinaison {
   limite: number;
 }
 
+/**
+ * Les combinaisons générées sont conservées dans le navigateur tant qu'elles
+ * n'ont pas été réinitialisées : changer de page (ou recharger) ne les efface
+ * pas. Elles ne sont pas enregistrées dans l'historique sans action explicite.
+ */
+const CLE_STOCKAGE = "odds-analyst:combinaisons-generees";
+
+interface PersistanceCombinaisons {
+  reponse: ReponseCombinaisons;
+  form: FormCombinaison;
+  enregistrees: string[];
+}
+
+function chargerPersistance(): PersistanceCombinaisons | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const brut = window.localStorage.getItem(CLE_STOCKAGE);
+    if (!brut) return null;
+    const donnees = JSON.parse(brut) as PersistanceCombinaisons;
+    if (!donnees || !donnees.reponse || !donnees.form) return null;
+    return donnees;
+  } catch {
+    return null;
+  }
+}
+
+function effacerPersistance(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(CLE_STOCKAGE);
+  } catch {
+    // Stockage indisponible : rien à faire.
+  }
+}
+
 function pourcent(valeur: number): string {
   const points = valeur * 100;
   if (points > 0 && points < 0.01) return "< 0,01 %";
@@ -196,6 +231,18 @@ export default function PageCombinaisons() {
   useEffect(() => {
     let actif = true;
     void (async () => {
+      // Restaure d'abord une génération persistée, si elle existe.
+      const persistance = chargerPersistance();
+      if (persistance) {
+        if (actif) {
+          setForm(persistance.form);
+          setReponse(persistance.reponse);
+          setEnregistrees(new Set(persistance.enregistrees));
+          setChargement(false);
+        }
+        return;
+      }
+      // Sinon, charge les préférences pour préremplir le formulaire.
       try {
         const preferences = await apiFetch<Preferences>("/v1/settings");
         if (!actif) return;
@@ -216,6 +263,25 @@ export default function PageCombinaisons() {
       actif = false;
     };
   }, []);
+
+  // Persiste la génération courante dès qu'elle change (ou qu'on enregistre).
+  useEffect(() => {
+    if (!reponse || !form) return;
+    try {
+      window.localStorage.setItem(
+        CLE_STOCKAGE,
+        JSON.stringify({ reponse, form, enregistrees: [...enregistrees] }),
+      );
+    } catch {
+      // Stockage indisponible : la génération reste en mémoire pour la session.
+    }
+  }, [reponse, form, enregistrees]);
+
+  function reinitialiser() {
+    setReponse(null);
+    setEnregistrees(new Set());
+    effacerPersistance();
+  }
 
   function basculerMarche(code: string) {
     if (!form) return;
@@ -395,6 +461,11 @@ export default function PageCombinaisons() {
         <Section
           titre="Résultat de la recherche"
           description="Une combinaison contient une seule sélection par rencontre. La probabilité globale suppose les résultats indépendants."
+          action={
+            <Bouton variante="discret" onClick={reinitialiser}>
+              Réinitialiser
+            </Bouton>
+          }
         >
           <div className="flex flex-col gap-4">
             <p className="text-xs leading-relaxed text-texte-doux">{reponse.message}</p>

@@ -530,3 +530,60 @@ def test_btts_market_is_ignored_when_not_allowed(
     assert data["combinaisons"] == []
     assert data["matchs_disponibles"] == 0
     assert data["selections_disponibles"] == 0
+
+
+def _totaux_matches(
+    client: TestClient,
+    season_id: str,
+    teams: tuple[str, str],
+    *,
+    count: int = 2,
+    line: float = 2.5,
+    odds: float = 8.0,
+) -> list[str]:
+    _seed_history(client, season_id, teams)
+    ids = []
+    for index in range(count):
+        match_id = _create_match(
+            client,
+            season_id,
+            teams[0],
+            teams[1],
+            TARGET_KICKOFF + timedelta(hours=index),
+        )
+        response = client.post(
+            f"/api/v1/matches/{match_id}/markets",
+            json={
+                "template_code": "football.total_buts",
+                "line": line,
+                "selections": [
+                    {"code": "plus", "label": "Plus", "decimal_odds": odds},
+                    {"code": "moins", "label": "Moins", "decimal_odds": odds},
+                ],
+            },
+        )
+        assert response.status_code == 201, response.text
+        ids.append(match_id)
+    return ids
+
+
+def test_totaux_market_label_includes_line(
+    auth_client: TestClient, season_id: str, teams: tuple[str, str]
+) -> None:
+    _totaux_matches(auth_client, season_id, teams, line=2.5)
+
+    data = auth_client.post(
+        "/api/v1/combinations/generate",
+        json={
+            "nombre_selections": 2,
+            "cote_min": 50,
+            "cote_max": 100,
+            "marches_autorises": ["PLUS_MOINS"],
+            "limite": 5,
+        },
+    ).json()
+    assert data["combinaisons"]
+    for combination in data["combinaisons"]:
+        for item in combination["selections"]:
+            assert item["market_name"] == "Total de buts"
+            assert item["selection_label"] in {"Plus de 2,5", "Moins de 2,5"}

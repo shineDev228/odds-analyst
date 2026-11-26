@@ -68,6 +68,21 @@ def _fr(value: float) -> str:
     return f"{value:g}".replace(".", ",")
 
 
+def selection_label(market: Market, selection: Selection) -> str:
+    """Libellé explicite d'une sélection, ligne comprise quand elle existe.
+
+    Les sélections de totaux sont saisies « Plus » / « Moins » avec la ligne
+    portée par le marché (ex. 2,5) : le libellé devient « Plus de 2,5 » pour
+    qu'une combinaison montre l'option exacte choisie.
+    """
+    label = selection.label
+    if market.family == "totaux":
+        line = market.line if market.line is not None else selection.line
+        if line is not None:
+            return f"{label} de {_fr(line)}"
+    return label
+
+
 def _allowed_families(markets: Sequence[str]) -> set[str]:
     return {family for code in markets for family in MARKET_FAMILIES.get(code, ())}
 
@@ -222,7 +237,7 @@ def _candidates_for_match(
                 competition_name=match.season.competition.name,
                 kickoff_at=as_utc(match.kickoff_at),
                 market_name=market.name,
-                selection_label=selection.label,
+                selection_label=selection_label(market, selection),
                 decimal_odds=float(snapshot.decimal_odds),
                 probability=probability,
                 low=low,

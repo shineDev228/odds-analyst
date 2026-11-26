@@ -41,7 +41,7 @@ from app.schemas.history import (
 )
 from app.schemas.prediction import PredictionRead
 from app.services import audit
-from app.services.combinations import model_selection
+from app.services.combinations import model_selection, selection_label
 from app.services.predictions import InsufficientHistoryError, build_prediction
 
 MAX_HISTORY = 2_000
@@ -387,7 +387,7 @@ def save_combination(
                 market_family=family,
                 market_period=market.period,
                 selection_code=code,
-                selection_label=selection.label,
+                selection_label=selection_label(market, selection),
                 line=line,
                 decimal_odds=odds,
                 probability=leg_probability,
